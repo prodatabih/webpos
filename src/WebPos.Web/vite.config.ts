@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  base: './',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -11,14 +12,10 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          table: ['@tanstack/react-table', 'react-hook-form', '@hookform/resolvers', 'zod'],
-          icons: ['lucide-react'],
-          math: ['decimal.js', 'date-fns'],
-        },
+        inlineDynamicImports: true,
       },
     },
   },

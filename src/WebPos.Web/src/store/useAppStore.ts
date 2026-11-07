@@ -251,6 +251,7 @@ export function useAppStore<T>(selector: (s: AppStoreState) => T): T;
 export function useAppStore<T>(selector?: (s: AppStoreState) => T): T | AppStoreState {
   const snap = useSyncExternalStore(
     (l) => { listeners.add(l); return () => listeners.delete(l); },
+    () => state,
     () => state
   );
   return selector ? selector(snap) : snap;

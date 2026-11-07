@@ -59,6 +59,7 @@ export function ToastViewport() {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    () => toasts,
     () => toasts
   );
 
