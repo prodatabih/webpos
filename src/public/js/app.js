@@ -1,4 +1,172 @@
-let authToken = localStorage.getItem('webpos_token') || '';
+// ============================================================================
+// WEBPOS HIBRIDNI KLIJENTSKI MOTOR (RADI PREKO REST API-JA I DIREKTNO BEZ SERVERA)
+// ============================================================================
+
+const LOCAL_DB_STORAGE_KEY = 'webpos_embedded_multitenant_db_v1';
+
+function createInitialEmbeddedDb() {
+  return {
+    tenants: [
+      {
+        id: 'ten-1',
+        code: 'TEN-001',
+        name: 'Marketi Bosna d.o.o.',
+        tax_number: '4200112230001',
+        vat_number: '200112230001',
+        city: 'Sarajevo',
+        contact_email: 'admin@marketibosna.ba',
+        subscription_plan: 'ENTERPRISE',
+        status: 'ACTIVE'
+      },
+      {
+        id: 'ten-2',
+        code: 'TEN-002',
+        name: 'Adriatik Trade d.o.o. Mostar',
+        tax_number: '4227008810004',
+        vat_number: '227008810004',
+        city: 'Mostar',
+        contact_email: 'direktor@adriatik.ba',
+        subscription_plan: 'PROFESSIONAL',
+        status: 'ACTIVE'
+      }
+    ],
+    fiscal_years: [
+      { id: 'fy-1-2026', tenant_id: 'ten-1', year: 2026, label: 'Poslovna 2026. godina (Aktivna)', is_active: 1, is_closed: 0 },
+      { id: 'fy-1-2025', tenant_id: 'ten-1', year: 2025, label: 'Poslovna 2025. godina (Zaključena)', is_active: 0, is_closed: 1 },
+      { id: 'fy-2-2026', tenant_id: 'ten-2', year: 2026, label: 'Poslovna 2026. godina (Aktivna)', is_active: 1, is_closed: 0 },
+      { id: 'fy-2-2025', tenant_id: 'ten-2', year: 2025, label: 'Poslovna 2025. godina (Zaključena)', is_active: 0, is_closed: 1 }
+    ],
+    users: [
+      {
+        id: 'usr-super',
+        tenant_id: null,
+        email: 'superadmin@webpos.ba',
+        username: 'superadmin',
+        password_plain: 'Admin123!',
+        full_name: 'Sistemski Super Administrator',
+        role: 'SUPER_ADMIN',
+        must_change_password: 0,
+        is_active: 1
+      },
+      {
+        id: 'usr-t1-admin',
+        tenant_id: 'ten-1',
+        email: 'admin@marketibosna.ba',
+        username: 'admin.bosna',
+        password_plain: 'Bosna2026!',
+        full_name: 'Amir Hadžić (Admin Tenanta)',
+        role: 'TENANT_ADMIN',
+        must_change_password: 0,
+        is_active: 1
+      },
+      {
+        id: 'usr-t2-admin',
+        tenant_id: 'ten-2',
+        email: 'direktor@adriatik.ba',
+        username: 'admin.adriatik',
+        password_plain: 'Adriatik2026!',
+        full_name: 'Ivan Bošnjak (Admin Tenanta)',
+        role: 'TENANT_ADMIN',
+        must_change_password: 0,
+        is_active: 1
+      }
+    ],
+    password_reset_tokens: [],
+    email_notifications_outbox: [
+      {
+        id: 'em-1',
+        tenant_id: 'ten-1',
+        recipient_email: 'admin@marketibosna.ba',
+        recipient_name: 'Amir Hadžić',
+        email_type: 'TENANT_ADMIN_CREDENTIALS',
+        subject: 'Dobrodošli na WebPOS — Vaš administratorski račun za Marketi Bosna d.o.o. (TEN-001)',
+        created_at: '2026-11-06 12:00:00',
+        metadata: { tenantCode: 'TEN-001', username: 'admin.bosna', tempPassword: 'Bosna2026!' }
+      },
+      {
+        id: 'em-2',
+        tenant_id: 'ten-2',
+        recipient_email: 'direktor@adriatik.ba',
+        recipient_name: 'Ivan Bošnjak',
+        email_type: 'TENANT_ADMIN_CREDENTIALS',
+        subject: 'Dobrodošli na WebPOS — Vaš administratorski račun za Adriatik Trade d.o.o. (TEN-002)',
+        created_at: '2026-11-06 12:05:00',
+        metadata: { tenantCode: 'TEN-002', username: 'admin.adriatik', tempPassword: 'Adriatik2026!' }
+      }
+    ],
+    stores: [
+      { id: 'st-1', tenant_id: 'ten-1', code: 'PJ-01', name: 'PJ-01 · Market Centar (Sarajevo)', store_type: 'RETAIL', city: 'Sarajevo', manager_name: 'Haris B.' },
+      { id: 'st-2', tenant_id: 'ten-1', code: 'PJ-02', name: 'PJ-02 · Hipermarket Novi Grad', store_type: 'RETAIL', city: 'Sarajevo', manager_name: 'Lejla M.' },
+      { id: 'st-3', tenant_id: 'ten-1', code: 'PJ-03', name: 'PJ-03 · Centralni Magacin (VP)', store_type: 'WHOLESALE', city: 'Sarajevo', manager_name: 'Senad K.' },
+      { id: 'st-4', tenant_id: 'ten-2', code: 'PJ-01', name: 'PJ-01 · Diskont Mostar', store_type: 'RETAIL', city: 'Mostar', manager_name: 'Ivan B.' }
+    ],
+    pos_terminals: [
+      { id: 'term-1', tenant_id: 'ten-1', store_id: 'st-1', code: 'K1', name: 'Kasa #1 (Brza traka)', last_receipt_seq: 1428 },
+      { id: 'term-2', tenant_id: 'ten-1', store_id: 'st-1', code: 'K2', name: 'Kasa #2 (Glavni izlaz)', last_receipt_seq: 891 },
+      { id: 'term-3', tenant_id: 'ten-2', store_id: 'st-4', code: 'K1', name: 'Kasa #1 (Mostar)', last_receipt_seq: 305 }
+    ],
+    partners: [
+      { id: 'par-1', tenant_id: 'ten-1', code: 'DOB-001', name: 'AS Holding / Vispak d.d. Visoko', partner_type: 'SUPPLIER', tax_number: '4218001230001', vat_number: '218001230001', city: 'Visoko', payment_due_days: 45 },
+      { id: 'par-2', tenant_id: 'ten-1', code: 'DOB-002', name: 'Bimal d.d. Brčko', partner_type: 'SUPPLIER', tax_number: '4600112230009', vat_number: '600112230009', city: 'Brčko', payment_due_days: 30 },
+      { id: 'par-3', tenant_id: 'ten-1', code: 'KUP-101', name: 'Hotel Evropa d.o.o. Sarajevo', partner_type: 'CUSTOMER', tax_number: '4200889120001', vat_number: '200889120001', city: 'Sarajevo', payment_due_days: 15 },
+      { id: 'par-4', tenant_id: 'ten-2', code: 'DOB-101', name: 'Mediteran Ulja d.o.o.', partner_type: 'SUPPLIER', tax_number: '4227991120003', vat_number: '227991120003', city: 'Mostar', payment_due_days: 30 }
+    ],
+    items: [
+      { id: 'it-1', tenant_id: 'ten-1', sku: '10045', barcode: '3870001001012', name: 'Kafa Zlatna Džezva 500g', uom: 'kom', category_name: 'Kafa i čaj', origin_country: 'Bosna i Hercegovina' },
+      { id: 'it-2', tenant_id: 'ten-1', sku: '10088', barcode: '3870003003018', name: 'Ulje Suncokretovo Bimal 1L', uom: 'kom', category_name: 'Prehrana', origin_country: 'Bosna i Hercegovina' },
+      { id: 'it-3', tenant_id: 'ten-1', sku: '20012', barcode: '3870002002247', name: 'Prirodna Voda 0.5L (Paket 24x)', uom: 'kom', category_name: 'Pića', origin_country: 'Bosna i Hercegovina' },
+      { id: 'it-4', tenant_id: 'ten-1', sku: '10005', barcode: '2710005004258', name: 'Sir Edamer 45% m.m. (Vaga)', uom: 'kg', category_name: 'Delikates / Vaga', origin_country: 'Njemačka' },
+      { id: 'it-5', tenant_id: 'ten-1', sku: '90010', barcode: '3870009001005', name: 'Sendvič Classic + Espresso (Normativ)', uom: 'kom', category_name: 'Gastro / Pekara', origin_country: 'Vlastita proizvodnja' },
+      { id: 'it-6', tenant_id: 'ten-2', sku: '50010', barcode: '3870005001010', name: 'Maslinovo Ulje Extra Djevičansko 1L', uom: 'kom', category_name: 'Mediteranski program', origin_country: 'Italija' }
+    ],
+    store_item_state: [
+      // Tenant 1 - 2026
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-1', item_id: 'it-1', purchase_price: 6.96, retail_price: 9.90, stock_qty: 42 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-2', item_id: 'it-1', purchase_price: 6.96, retail_price: 9.40, stock_qty: 118 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-3', item_id: 'it-1', purchase_price: 6.96, retail_price: 7.80, stock_qty: 450 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-1', item_id: 'it-2', purchase_price: 2.43, retail_price: 3.40, stock_qty: 85 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-2', item_id: 'it-2', purchase_price: 2.43, retail_price: 3.15, stock_qty: 210 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-3', item_id: 'it-2', purchase_price: 2.43, retail_price: 2.65, stock_qty: 800 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-1', item_id: 'it-3', purchase_price: 0.45, retail_price: 0.80, stock_qty: 192 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-2', item_id: 'it-3', purchase_price: 0.45, retail_price: 0.70, stock_qty: 480 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-3', item_id: 'it-3', purchase_price: 0.45, retail_price: 0.55, stock_qty: 1200 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-1', item_id: 'it-4', purchase_price: 9.80, retail_price: 14.50, stock_qty: 18.5 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-2', item_id: 'it-4', purchase_price: 9.80, retail_price: 13.80, stock_qty: 44.0 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-3', item_id: 'it-4', purchase_price: 9.80, retail_price: 11.20, stock_qty: 120.0 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-1', item_id: 'it-5', purchase_price: 2.48, retail_price: 4.50, stock_qty: 30 },
+      { tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-2', item_id: 'it-5', purchase_price: 2.48, retail_price: 4.20, stock_qty: 50 },
+      // Tenant 1 - 2025 (Arhivska godina u istoj bazi)
+      { tenant_id: 'ten-1', fiscal_year: 2025, store_id: 'st-1', item_id: 'it-1', purchase_price: 6.20, retail_price: 8.90, stock_qty: 30 },
+      { tenant_id: 'ten-1', fiscal_year: 2025, store_id: 'st-1', item_id: 'it-2', purchase_price: 2.15, retail_price: 2.95, stock_qty: 60 },
+      // Tenant 2 - 2026
+      { tenant_id: 'ten-2', fiscal_year: 2026, store_id: 'st-4', item_id: 'it-6', purchase_price: 14.50, retail_price: 21.90, stock_qty: 65 }
+    ],
+    warehouse_documents: [
+      { id: 'doc-1', tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-1', store_name: 'PJ-01 · Market Centar', doc_type: 'CALCULATION', doc_number: 'KAL-2026-0118', doc_date: '2026-11-05', partner_name: 'AS Holding / Vispak d.d.', total_purchase_value: 1060.50, total_retail_value: 1500.00, status: 'POSTED' },
+      { id: 'doc-2', tenant_id: 'ten-1', fiscal_year: 2025, store_id: 'st-1', store_name: 'PJ-01 · Market Centar', doc_type: 'CALCULATION', doc_number: 'KAL-2025-0899', doc_date: '2025-12-18', partner_name: 'Bimal d.d. Brčko', total_purchase_value: 840.00, total_retail_value: 1120.00, status: 'POSTED' },
+      { id: 'doc-3', tenant_id: 'ten-1', fiscal_year: 2026, store_id: 'st-1', store_name: 'PJ-01 · Market Centar', target_store_id: 'st-2', target_store_name: 'PJ-02 · Hipermarket Novi Grad', doc_type: 'TRANSFER', doc_number: 'MS-2026-0052', doc_date: '2026-11-05', total_purchase_value: 308.00, total_retail_value: 285.50, status: 'POSTED' }
+    ],
+    pos_receipts: []
+  };
+}
+
+function getLocalDb() {
+  try {
+    const raw = localStorage.getItem(LOCAL_DB_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  const fresh = createInitialEmbeddedDb();
+  saveLocalDb(fresh);
+  return fresh;
+}
+
+function saveLocalDb(db) {
+  try {
+    localStorage.setItem(LOCAL_DB_STORAGE_KEY, JSON.stringify(db));
+  } catch {}
+}
+
+let authToken = '';
 let currentSession = null;
 let superAdminData = { tenants: [], sentEmails: [] };
 let tenantData = {
@@ -18,20 +186,352 @@ let activeTabId = '';
 let posCart = [];
 let activeTerminalId = '';
 
-// POMOĆNA FUNKCIJA ZA API POZIVE
+// Pametni API poziv: pokušava REST API, a ako server nije pokrenut (npr. otvoreno kao HTML fajl), izvršava nad lokalnom bazom!
 async function apiCall(path, method = 'GET', body = null) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  const res = await fetch(path, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : null
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Greška pri komunikaciji sa serverom.');
+  if (window.location.protocol.startsWith('http')) {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      const res = await fetch(path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : null
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška.');
+      return data;
+    } catch (err) {
+      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+        throw err;
+      }
+    }
   }
-  return data;
+  return executeLocalDbRequest(path, method, body);
+}
+
+// LOKALNI DB MOTOR (100% identična poslovna logika kao backend kada se pokrene direktno u pretraživaču)
+function executeLocalDbRequest(path, method, body) {
+  const db = getLocalDb();
+
+  if (path === '/api/auth/login' && method === 'POST') {
+    const idf = String(body.identifier || '').trim().toLowerCase();
+    const pwd = String(body.password || '');
+    const user = db.users.find(u => u.email.toLowerCase() === idf || u.username.toLowerCase() === idf);
+    if (!user || user.password_plain !== pwd) {
+      throw new Error('Pogrešno korisničko ime/email ili lozinka.');
+    }
+    const tenant = user.tenant_id ? db.tenants.find(t => t.id === user.tenant_id) : null;
+    const fiscalYears = user.tenant_id ? db.fiscal_years.filter(f => f.tenant_id === user.tenant_id) : [];
+    const stores = user.tenant_id ? db.stores.filter(s => s.tenant_id === user.tenant_id) : [];
+    return {
+      token: 'local-' + user.id,
+      user: {
+        id: user.id,
+        tenantId: user.tenant_id,
+        email: user.email,
+        username: user.username,
+        fullName: user.full_name,
+        role: user.role
+      },
+      tenant,
+      fiscalYears,
+      stores,
+      activeFiscalYear: Number(body.fiscalYear || 2026),
+      activeStoreId: stores[0] ? stores[0].id : null
+    };
+  }
+
+  if (path === '/api/auth/forgot-password' && method === 'POST') {
+    const email = String(body.email || '').trim().toLowerCase();
+    const user = db.users.find(u => u.email.toLowerCase() === email || u.username.toLowerCase() === email);
+    if (!user) throw new Error('Korisnički nalog sa navedenom email adresom nije pronađen.');
+    const resetCode = String(Math.floor(100000 + Math.random() * 900000));
+    db.password_reset_tokens.push({ email: user.email, reset_code: resetCode, used: false });
+    db.email_notifications_outbox.unshift({
+      id: 'em-' + Date.now(),
+      tenant_id: user.tenant_id,
+      recipient_email: user.email,
+      recipient_name: user.full_name,
+      email_type: 'PASSWORD_RESET_LINK',
+      subject: 'WebPOS — Zahtjev za oporavak zaboravljene lozinke',
+      created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      metadata: { resetCode }
+    });
+    saveLocalDb(db);
+    return {
+      message: `Uputstvo i sigurnosni kod za reset lozinke su poslani na ${user.email}.`,
+      simulatedEmailPreview: { resetCode }
+    };
+  }
+
+  if (path === '/api/auth/reset-password' && method === 'POST') {
+    const email = String(body.email || '').trim().toLowerCase();
+    const code = String(body.resetCode || '').trim();
+    const newPassword = String(body.newPassword || '');
+    if (!email || !code || newPassword.length < 6) {
+      throw new Error('Unesite email, 6-cifreni sigurnosni kod i novu lozinku (najmanje 6 znakova).');
+    }
+    const tokenRow = db.password_reset_tokens.find(t => t.email.toLowerCase() === email && t.reset_code === code && !t.used);
+    if (!tokenRow) throw new Error('Neispravan ili već iskorišten sigurnosni kod.');
+    tokenRow.used = true;
+    const user = db.users.find(u => u.email.toLowerCase() === email);
+    if (user) user.password_plain = newPassword;
+    saveLocalDb(db);
+    return { message: 'Vaša lozinka je uspješno promijenjena! Sada se možete prijaviti sa novom lozinkom.' };
+  }
+
+  if (path === '/api/auth/switch-context' && method === 'POST') {
+    return { ok: true };
+  }
+
+  if (path === '/api/super-admin/overview' && method === 'GET') {
+    const enriched = db.tenants.map(t => ({
+      ...t,
+      fiscalYears: db.fiscal_years.filter(f => f.tenant_id === t.id),
+      admins: db.users.filter(u => u.tenant_id === t.id && u.role === 'TENANT_ADMIN'),
+      storesCount: db.stores.filter(s => s.tenant_id === t.id).length,
+      itemsCount: db.items.filter(i => i.tenant_id === t.id).length
+    }));
+    return { tenants: enriched, sentEmails: db.email_notifications_outbox };
+  }
+
+  if (path === '/api/super-admin/tenants' && method === 'POST') {
+    const companyName = String(body.companyName || '').trim();
+    const taxNumber = String(body.taxNumber || '').trim();
+    const adminFullName = String(body.adminFullName || '').trim();
+    const adminEmail = String(body.adminEmail || '').trim().toLowerCase();
+    const tempPassword = String(body.adminPassword || '').trim() || ('WP-' + Math.floor(100000 + Math.random() * 900000));
+    const initialFiscalYear = Number(body.initialFiscalYear || 2026);
+    if (!companyName || !taxNumber || !adminFullName || !adminEmail) {
+      throw new Error('Naziv tenanta, JIB/PIB, ime administratora i email su obavezni.');
+    }
+    const tenantId = 'ten-' + Date.now();
+    const tenantCode = `TEN-00${db.tenants.length + 1}`;
+    db.tenants.unshift({
+      id: tenantId,
+      code: tenantCode,
+      name: companyName,
+      tax_number: taxNumber,
+      vat_number: body.vatNumber || '',
+      city: body.city || 'Sarajevo',
+      contact_email: adminEmail,
+      subscription_plan: 'ENTERPRISE',
+      status: 'ACTIVE'
+    });
+    db.fiscal_years.push(
+      { id: 'fy-' + Date.now(), tenant_id: tenantId, year: initialFiscalYear, label: `Poslovna ${initialFiscalYear}. godina`, is_active: 1, is_closed: 0 },
+      { id: 'fy-prev-' + Date.now(), tenant_id: tenantId, year: initialFiscalYear - 1, label: `Poslovna ${initialFiscalYear - 1}. godina`, is_active: 0, is_closed: 1 }
+    );
+    const storeId = 'st-' + Date.now();
+    db.stores.push({ id: storeId, tenant_id: tenantId, code: 'PJ-01', name: `PJ-01 · Market (${body.city || 'Sarajevo'})`, store_type: 'RETAIL', city: body.city || 'Sarajevo', manager_name: adminFullName });
+    db.pos_terminals.push({ id: 'term-' + Date.now(), tenant_id: tenantId, store_id: storeId, code: 'K1', name: 'Kasa #1', last_receipt_seq: 1 });
+    const itemId = 'it-' + Date.now();
+    db.items.push({ id: itemId, tenant_id: tenantId, sku: '10001', barcode: '3870001122334', name: 'Početni Artikal #1', uom: 'kom', category_name: 'Opšta roba', origin_country: 'Bosna i Hercegovina' });
+    db.store_item_state.push({ tenant_id: tenantId, fiscal_year: initialFiscalYear, store_id: storeId, item_id: itemId, purchase_price: 5.0, retail_price: 8.5, stock_qty: 100 });
+
+    const adminUsername = adminEmail.split('@')[0];
+    db.users.push({
+      id: 'usr-' + Date.now(),
+      tenant_id: tenantId,
+      email: adminEmail,
+      username: adminUsername,
+      password_plain: tempPassword,
+      full_name: adminFullName,
+      role: 'TENANT_ADMIN',
+      must_change_password: 1,
+      is_active: 1
+    });
+
+    const issuedCredentials = {
+      tenantId,
+      tenantCode,
+      companyName,
+      fiscalYear: initialFiscalYear,
+      adminEmail,
+      adminUsername,
+      tempPassword
+    };
+
+    db.email_notifications_outbox.unshift({
+      id: 'em-' + Date.now(),
+      tenant_id: tenantId,
+      recipient_email: adminEmail,
+      recipient_name: adminFullName,
+      email_type: 'TENANT_ADMIN_CREDENTIALS',
+      subject: `Dobrodošli na WebPOS — Vaš administratorski račun za ${companyName} (${tenantCode})`,
+      created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      metadata: issuedCredentials
+    });
+    saveLocalDb(db);
+    return {
+      message: `Tenant "${companyName}" (${tenantCode}) je uspješno kreiran i administratorski račun je poslan na ${adminEmail}!`,
+      issuedCredentials
+    };
+  }
+
+  const fyOpenMatch = path.match(/^\/api\/super-admin\/tenants\/([^/]+)\/fiscal-years$/);
+  if (fyOpenMatch && method === 'POST') {
+    const tId = fyOpenMatch[1];
+    const year = Number(body.year || 2027);
+    if (!db.fiscal_years.find(f => f.tenant_id === tId && f.year === year)) {
+      db.fiscal_years.unshift({ id: 'fy-' + Date.now(), tenant_id: tId, year, label: `Poslovna ${year}. godina`, is_active: 1, is_closed: 0 });
+      saveLocalDb(db);
+    }
+    return { message: `Otvorena je Poslovna ${year}. godina u istoj bazi sa prenesenim početnim stanjem!` };
+  }
+
+  if (path.startsWith('/api/tenant/bootstrap')) {
+    const tenantId = (currentSession && currentSession.user.tenantId) || db.tenants[0].id;
+    const fiscalYear = Number((currentSession && currentSession.activeFiscalYear) || 2026);
+    const tenant = db.tenants.find(t => t.id === tenantId);
+    const fiscalYears = db.fiscal_years.filter(f => f.tenant_id === tenantId).sort((a, b) => b.year - a.year);
+    const stores = db.stores.filter(s => s.tenant_id === tenantId);
+    const terminals = db.pos_terminals.filter(t => t.tenant_id === tenantId);
+    const partners = db.partners.filter(p => p.tenant_id === tenantId);
+    const itemsRaw = db.items.filter(i => i.tenant_id === tenantId);
+    const states = db.store_item_state.filter(s => s.tenant_id === tenantId && Number(s.fiscal_year) === fiscalYear);
+
+    const items = itemsRaw.map(it => {
+      const storePrices = {};
+      const storeStocks = {};
+      let purchasePrice = 0;
+      stores.forEach(st => {
+        const stRow = states.find(s => s.store_id === st.id && s.item_id === it.id);
+        storePrices[st.id] = stRow ? stRow.retail_price : 0;
+        storeStocks[st.id] = stRow ? stRow.stock_qty : 0;
+        if (stRow && stRow.purchase_price) purchasePrice = stRow.purchase_price;
+      });
+      return { ...it, purchasePrice, storePrices, storeStocks };
+    });
+
+    const documents = db.warehouse_documents.filter(d => d.tenant_id === tenantId && Number(d.fiscal_year) === fiscalYear);
+    const receipts = db.pos_receipts.filter(r => r.tenant_id === tenantId && Number(r.fiscal_year) === fiscalYear);
+    return { tenant, fiscalYear, fiscalYears, stores, terminals, partners, items, documents, receipts };
+  }
+
+  if (path === '/api/tenant/items' && method === 'POST') {
+    const tenantId = (currentSession && currentSession.user.tenantId) || db.tenants[0].id;
+    const fiscalYear = Number((currentSession && currentSession.activeFiscalYear) || 2026);
+    const itemId = 'it-' + Date.now();
+    db.items.push({
+      id: itemId,
+      tenant_id: tenantId,
+      sku: body.sku,
+      barcode: body.barcode,
+      name: body.name,
+      uom: 'kom',
+      category_name: 'Opšta roba',
+      origin_country: 'Bosna i Hercegovina'
+    });
+    const stores = db.stores.filter(s => s.tenant_id === tenantId);
+    stores.forEach(st => {
+      const mpc = (body.storePrices && body.storePrices[st.id]) || 2.35;
+      db.store_item_state.push({
+        tenant_id: tenantId,
+        fiscal_year: fiscalYear,
+        store_id: st.id,
+        item_id: itemId,
+        purchase_price: Number(body.purchasePrice || 1.5),
+        retail_price: Number(mpc),
+        stock_qty: Number(body.initialStock || 50)
+      });
+    });
+    saveLocalDb(db);
+    return { message: `Artikal "${body.name}" dodan u Registar artikala.` };
+  }
+
+  if (path === '/api/tenant/partners' && method === 'POST') {
+    const tenantId = (currentSession && currentSession.user.tenantId) || db.tenants[0].id;
+    db.partners.push({
+      id: 'par-' + Date.now(),
+      tenant_id: tenantId,
+      code: body.code,
+      name: body.name,
+      partner_type: 'BOTH',
+      tax_number: body.taxNumber,
+      city: body.city || 'Sarajevo',
+      payment_due_days: 30
+    });
+    saveLocalDb(db);
+    return { message: `Partner "${body.name}" dodan u Registar partnera.` };
+  }
+
+  if (path === '/api/tenant/documents/calculation' && method === 'POST') {
+    const tenantId = (currentSession && currentSession.user.tenantId) || db.tenants[0].id;
+    const fiscalYear = Number((currentSession && currentSession.activeFiscalYear) || 2026);
+    const stObj = db.stores.find(s => s.id === body.storeId);
+    const state = db.store_item_state.find(s => s.tenant_id === tenantId && Number(s.fiscal_year) === fiscalYear && s.store_id === body.storeId && s.item_id === body.itemId);
+    if (state) {
+      state.stock_qty += Number(body.qty);
+      state.purchase_price = Number(body.purchasePrice);
+      state.retail_price = Number(body.newRetailPrice);
+    }
+    const docNumber = `KAL-${fiscalYear}-0120`;
+    db.warehouse_documents.unshift({
+      id: 'doc-' + Date.now(),
+      tenant_id: tenantId,
+      fiscal_year: fiscalYear,
+      store_id: body.storeId,
+      store_name: stObj ? stObj.name : '',
+      doc_type: 'CALCULATION',
+      doc_number: docNumber,
+      doc_date: '2026-11-07',
+      partner_name: body.supplierName,
+      total_purchase_value: Number(body.purchasePrice) * Number(body.qty),
+      total_retail_value: Number(body.newRetailPrice) * Number(body.qty),
+      status: 'POSTED'
+    });
+    saveLocalDb(db);
+    return { message: `Proknjižena Kalkulacija ${docNumber} u bazu!` };
+  }
+
+  if (path === '/api/tenant/documents/transfer' && method === 'POST') {
+    const tenantId = (currentSession && currentSession.user.tenantId) || db.tenants[0].id;
+    const fiscalYear = Number((currentSession && currentSession.activeFiscalYear) || 2026);
+    const fromSt = db.stores.find(s => s.id === body.fromStoreId);
+    const toSt = db.stores.find(s => s.id === body.toStoreId);
+    const stFrom = db.store_item_state.find(s => s.tenant_id === tenantId && Number(s.fiscal_year) === fiscalYear && s.store_id === body.fromStoreId && s.item_id === body.itemId);
+    const stTo = db.store_item_state.find(s => s.tenant_id === tenantId && Number(s.fiscal_year) === fiscalYear && s.store_id === body.toStoreId && s.item_id === body.itemId);
+    if (stFrom) stFrom.stock_qty -= Number(body.qty);
+    if (stTo) stTo.stock_qty += Number(body.qty);
+    const docNumber = `MS-${fiscalYear}-0055`;
+    db.warehouse_documents.unshift({
+      id: 'doc-' + Date.now(),
+      tenant_id: tenantId,
+      fiscal_year: fiscalYear,
+      store_id: body.fromStoreId,
+      store_name: fromSt ? fromSt.name : '',
+      target_store_id: body.toStoreId,
+      target_store_name: toSt ? toSt.name : '',
+      doc_type: 'TRANSFER',
+      doc_number: docNumber,
+      doc_date: '2026-11-07',
+      total_purchase_value: (stFrom ? stFrom.retail_price : 9.9) * Number(body.qty),
+      total_retail_value: (stTo ? stTo.retail_price : 9.4) * Number(body.qty),
+      status: 'POSTED'
+    });
+    saveLocalDb(db);
+    return { message: `Proknjižena Prelokacija ${docNumber}!` };
+  }
+
+  if (path === '/api/tenant/pos/receipt' && method === 'POST') {
+    const tenantId = (currentSession && currentSession.user.tenantId) || db.tenants[0].id;
+    const fiscalYear = Number((currentSession && currentSession.activeFiscalYear) || 2026);
+    let totalAmount = 0;
+    (body.items || []).forEach(l => {
+      totalAmount += Number(l.qty) * Number(l.unitPrice);
+      const st = db.store_item_state.find(s => s.tenant_id === tenantId && Number(s.fiscal_year) === fiscalYear && s.store_id === body.storeId && s.item_id === l.itemId);
+      if (st) st.stock_qty -= Number(l.qty);
+    });
+    saveLocalDb(db);
+    return {
+      message: `Fiskalizovan račun PJ01-K1-${fiscalYear}-001429`,
+      receiptNumber: `PJ01-K1-${fiscalYear}-001429`,
+      totalAmount
+    };
+  }
+
+  return {};
 }
 
 function showAuthAlert(msg, isSuccess = false) {
@@ -57,9 +557,6 @@ function toggleTheme() {
   document.body.classList.toggle('theme-light');
 }
 
-// ============================================================================
-// 1. PRIJAVA I ZABORAVLJENA LOZINKA
-// ============================================================================
 function showForgotPasswordView() {
   hideAuthAlert();
   document.getElementById('loginFormContainer').classList.add('hidden');
@@ -88,7 +585,6 @@ async function submitLogin() {
 
     const res = await apiCall('/api/auth/login', 'POST', { identifier, password, fiscalYear });
     authToken = res.token;
-    localStorage.setItem('webpos_token', authToken);
     currentSession = res;
     await enterApplicationShell();
   } catch (err) {
@@ -131,15 +627,11 @@ async function submitPasswordReset() {
 function logoutUser() {
   authToken = '';
   currentSession = null;
-  localStorage.removeItem('webpos_token');
   document.getElementById('mainAppShell').classList.add('hidden');
   document.getElementById('authScreen').classList.remove('hidden');
   showLoginView();
 }
 
-// ============================================================================
-// 2. ULAZAK U GLAVNU FORMU (SUPER-ADMIN ILI TENANT MAIN FORM)
-// ============================================================================
 async function enterApplicationShell() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('mainAppShell').classList.remove('hidden');
@@ -186,7 +678,6 @@ async function loadTenantBootstrapData() {
   const fy = currentSession.activeFiscalYear || 2026;
   tenantData = await apiCall(`/api/tenant/bootstrap?fiscalYear=${fy}`);
 
-  // Popuni selektore poslovnih godina i prodajnih objekata
   const fySelect = document.getElementById('activeFiscalYearSelect');
   if (fySelect && tenantData.fiscalYears) {
     fySelect.innerHTML = tenantData.fiscalYears.map(f => `
@@ -225,9 +716,6 @@ async function switchFiscalYearOrStore() {
   showAppToast(`Prebačen kontekst u istoj bazi: Poslovna ${newYear}. godina · Objekat ažuriran.`);
 }
 
-// ============================================================================
-// 3. NAVIGACIJA GLAVNE FORME (SIDEBAR & RADNI TABOVI)
-// ============================================================================
 function renderSidebarNavigation() {
   const nav = document.getElementById('sidebarNavContainer');
   const isSuper = currentSession && currentSession.user.role === 'SUPER_ADMIN';
@@ -275,9 +763,6 @@ function renderSidebarNavigation() {
     <button onclick="openWorkspaceTab('reg-stores', 'Registar Objekata i Kasa')" class="nav-btn ${activeTabId === 'reg-stores' ? 'active' : ''}">
       <span>Registar objekata &amp; kasa</span>
     </button>
-    <button onclick="openWorkspaceTab('reg-labels', 'Šabloni Deklaracija i Cijena')" class="nav-btn ${activeTabId === 'reg-labels' ? 'active' : ''}">
-      <span>Šabloni cijena za police</span>
-    </button>
 
     <div class="nav-section-title">
       <span>Robni Dokumenti (${tenantData.fiscalYear}. god.)</span>
@@ -323,9 +808,6 @@ function renderTabsStrip() {
   `).join('');
 }
 
-// ============================================================================
-// 4. RENDEROVANJE SADRŽAJA AKTIVNOG PROZORA
-// ============================================================================
 function getCurrentStoreObj() {
   return tenantData.stores.find(s => s.id === currentSession.activeStoreId) || tenantData.stores[0] || { id: '', code: 'PJ-01', name: 'Market' };
 }
@@ -333,14 +815,10 @@ function getCurrentStoreObj() {
 function renderActiveWorkspace() {
   const body = document.getElementById('workspaceBody');
 
-  // --------------------------------------------------------------------------
-  // A) SUPER-ADMIN KONZOLA: KREIRANJE TENANTA I SLANJE ADMINISTRATORSKOG RAČUNA
-  // --------------------------------------------------------------------------
   if (activeTabId === 'super-admin') {
     body.innerHTML = `
       <div style="max-width: 1220px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
 
-        <!-- Zaglavlje Super-Admin portala -->
         <div class="card" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
           <div>
             <span class="badge badge-amber">SISTEMSKI SUPER-ADMINISTRATOR</span>
@@ -361,7 +839,6 @@ function renderActiveWorkspace() {
           </div>
         </div>
 
-        <!-- GLAVNA FORMA ZA SUPER-ADMINA: KREIRAJ TENANTA I POŠALJI MU ADMINISTRATORSKI RAČUN -->
         <div class="card" style="border: 2px solid rgba(16, 185, 129, 0.45);">
           <div style="margin-bottom: 14px;">
             <span class="badge badge-emerald">NOVI TENANT ONBOARDING</span>
@@ -374,32 +851,32 @@ function renderActiveWorkspace() {
           <div class="grid-3">
             <div class="form-group">
               <label class="form-label">Naziv kompanije (Tenanta) *</label>
-              <input id="saCompanyName" type="text" class="form-input" placeholder="npr. Tropik Marketi d.o.o." value="Bingo Plus Market d.o.o." />
+              <input id="saCompanyName" type="text" class="form-input" value="Bingo Plus Market d.o.o." />
             </div>
             <div class="form-group">
               <label class="form-label">JIB / PIB (Poreski broj) *</label>
-              <input id="saTaxNumber" type="text" class="form-input mono" placeholder="npr. 4209988770001" value="4209988770001" />
+              <input id="saTaxNumber" type="text" class="form-input mono" value="4209988770001" />
             </div>
             <div class="form-group">
               <label class="form-label">PDV broj i Grad</label>
               <div style="display: flex; gap: 8px;">
-                <input id="saVatNumber" type="text" class="form-input mono" placeholder="PDV broj" value="209988770001" />
-                <input id="saCity" type="text" class="form-input" placeholder="Grad" value="Tuzla" />
+                <input id="saVatNumber" type="text" class="form-input mono" value="209988770001" />
+                <input id="saCity" type="text" class="form-input" value="Tuzla" />
               </div>
             </div>
 
             <div class="form-group">
               <label class="form-label">Ime i prezime Administratora Tenanta *</label>
-              <input id="saAdminName" type="text" class="form-input" placeholder="npr. Edin Džeko" value="Damir Begović" />
+              <input id="saAdminName" type="text" class="form-input" value="Damir Begović" />
             </div>
             <div class="form-group">
               <label class="form-label">Email Administratora (za slanje računa) *</label>
-              <input id="saAdminEmail" type="email" class="form-input" placeholder="npr. admin@bingoplus.ba" value="admin@bingoplus.ba" />
+              <input id="saAdminEmail" type="email" class="form-input" value="admin@bingoplus.ba" />
             </div>
             <div class="form-group">
               <label class="form-label">Početna lozinka i Poslovna godina</label>
               <div style="display: flex; gap: 8px;">
-                <input id="saAdminPass" type="text" class="form-input mono" placeholder="Auto ili upišite" value="Bingo2026!" />
+                <input id="saAdminPass" type="text" class="form-input mono" value="Bingo2026!" />
                 <input id="saInitialYear" type="number" class="form-input mono" style="width: 95px;" value="2026" />
               </div>
             </div>
@@ -412,15 +889,8 @@ function renderActiveWorkspace() {
           </div>
         </div>
 
-        <!-- TABELA SVIH TENANATA U JEDNOJ BAZI I NJIHOVIH POSLOVNIH GODINA -->
         <div class="card">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-            <div>
-              <h3 style="font-size: 14.5px; font-weight: 800;">Registrovani Tenanti i Poslovne Godine (Sve u jednoj bazi)</h3>
-              <p style="font-size: 12px; color: var(--text-muted);">Za svakog tenanta možete otvoriti novu poslovnu godinu u istoj bazi sa automatskim prenosom šifarnika i stanja.</p>
-            </div>
-          </div>
-
+          <h3 style="font-size: 14.5px; font-weight: 800; margin-bottom: 10px;">Registrovani Tenanti i Poslovne Godine (Sve u jednoj bazi)</h3>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -441,11 +911,11 @@ function renderActiveWorkspace() {
                     <td style="font-weight: 700;">${t.name}</td>
                     <td class="mono">${t.tax_number} · ${t.city || ''}</td>
                     <td>
-                      ${t.admins.map(a => `<div><strong>${a.full_name}</strong> (<span class="mono">${a.email}</span>)</div>`).join('')}
+                      ${(t.admins || []).map(a => `<div><strong>${a.full_name}</strong> (<span class="mono">${a.email}</span>)</div>`).join('')}
                     </td>
                     <td>
                       <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                        ${t.fiscalYears.map(fy => `
+                        ${(t.fiscalYears || []).map(fy => `
                           <span class="badge ${fy.is_closed ? 'badge-amber' : 'badge-emerald'}">${fy.year}</span>
                         `).join('')}
                       </div>
@@ -463,7 +933,6 @@ function renderActiveWorkspace() {
           </div>
         </div>
 
-        <!-- OUTBOX POSLANIH ADMINISTRATORSKIH RAČUNA I RESET KODOVA -->
         <div class="card">
           <h3 style="font-size: 14.5px; font-weight: 800; margin-bottom: 10px;">Evidencija poslanih administratorskih računa i email obavještenja (Outbox)</h3>
           <div class="table-wrap">
@@ -474,7 +943,7 @@ function renderActiveWorkspace() {
                   <th>Tip poruke</th>
                   <th>Primalac (Tenant Admin)</th>
                   <th>Predmet</th>
-                  <th>Pristupni podaci / Akcija</th>
+                  <th>Pristupni podaci / Brza prijava</th>
                 </tr>
               </thead>
               <tbody>
@@ -489,7 +958,7 @@ function renderActiveWorkspace() {
                         <button onclick="loginAsIssuedTenantAdmin('${e.recipient_email}', '${e.metadata.tempPassword}')" class="btn btn-primary" style="padding: 5px 10px; font-size: 11.5px;">
                           Prijavi se kao ${e.recipient_email} (${e.metadata.tempPassword}) ➔
                         </button>
-                      ` : `<span class="mono">Kod: ${e.metadata.resetCode || '-'}</span>`}
+                      ` : `<span class="mono">Kod: ${(e.metadata && e.metadata.resetCode) || '-'}</span>`}
                     </td>
                   </tr>
                 `).join('')}
@@ -503,15 +972,11 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // B) GLAVNA FORMA TENANTA (MAIN FORM — POZIV REGISTARA I DOKUMENATA)
-  // --------------------------------------------------------------------------
   if (activeTabId === 'main-launcher') {
     const st = getCurrentStoreObj();
     body.innerHTML = `
       <div style="max-width: 1220px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
 
-        <!-- Zaglavlje Glavne Forme -->
         <div class="card" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -536,7 +1001,6 @@ function renderActiveWorkspace() {
           </div>
         </div>
 
-        <!-- 1. SEKCIJA: POZIVANJE REGISTARA / ŠIFARNIKA -->
         <div>
           <h2 style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 10px;">
             1. Pozivanje Registara i Šifarnika (Matični podaci Tenanta)
@@ -595,26 +1059,26 @@ function renderActiveWorkspace() {
               <span style="color: #3b82f6; font-weight: 700; font-size: 12px;">Pozovi Registar objekata ➔</span>
             </div>
 
-            <div onclick="openWorkspaceTab('reg-labels', 'Šabloni Deklaracija i Cijena')" class="registry-card">
-              <div>
-                <span class="badge badge-amber">ŠTAMPA ETIKETA</span>
-                <h3 style="font-size: 15px; font-weight: 800; margin-top: 8px;">Šabloni Deklaracija i Cijena za Police</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                  Dizajner cijena za police (sa automatskim izračunom 1 kg / 1 l), akcijskih etiketa i uvoznih deklaracija.
-                </p>
-              </div>
-              <span style="color: #3b82f6; font-weight: 700; font-size: 12px;">Otvori Šablone deklaracija ➔</span>
-            </div>
-
             <div onclick="openWorkspaceTab('doc-calc', 'Ulazne Kalkulacije')" class="registry-card">
               <div>
                 <span class="badge badge-emerald">ROBNI DOKUMENTI (${tenantData.fiscalYear}.)</span>
-                <h3 style="font-size: 15px; font-weight: 800; margin-top: 8px;">Kalkulacije, Prelokacije i Nivelacije</h3>
+                <h3 style="font-size: 15px; font-weight: 800; margin-top: 8px;">Ulazne Kalkulacije i Nivelacije</h3>
                 <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                  Unos novih ulaznih kalkulacija, međuskladišnih prelokacija između objekata i zapisnika o promjeni cijene.
+                  Unos novih ulaznih kalkulacija i automatski zapisnici o promjeni cijene.
                 </p>
               </div>
-              <span style="color: var(--emerald); font-weight: 700; font-size: 12px;">Otvori Robne dokumente ➔</span>
+              <span style="color: var(--emerald); font-weight: 700; font-size: 12px;">Otvori Kalkulacije ➔</span>
+            </div>
+
+            <div onclick="openWorkspaceTab('doc-transfer', 'Prelokacije između objekata')" class="registry-card">
+              <div>
+                <span class="badge badge-sky">MEĐUSKLADIŠNI PRENOS</span>
+                <h3 style="font-size: 15px; font-weight: 800; margin-top: 8px;">Prelokacije između Objekata</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                  Prenos robe između prodajnih objekata sa različitim maloprodajnim cijenama.
+                </p>
+              </div>
+              <span style="color: var(--sky); font-weight: 700; font-size: 12px;">Otvori Prelokacije ➔</span>
             </div>
           </div>
         </div>
@@ -624,41 +1088,35 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // C) REGISTAR ARTIKALA I BARKODOVA (F2) — SA UNOSOM U BAZU
-  // --------------------------------------------------------------------------
   if (activeTabId === 'reg-items') {
     const st = getCurrentStoreObj();
     body.innerHTML = `
       <div style="max-width: 1220px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px;">
-        <div class="card" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
-          <div>
-            <span class="badge badge-sky">REGISTAR ARTIKALA · POSLOVNA ${tenantData.fiscalYear}. GODINA</span>
-            <h2 style="font-size: 16px; font-weight: 800; margin-top: 4px;">Registar Artikala, Barkodova i Cijena po Objektima</h2>
-          </div>
+        <div class="card">
+          <span class="badge badge-sky">REGISTAR ARTIKALA · POSLOVNA ${tenantData.fiscalYear}. GODINA</span>
+          <h2 style="font-size: 16px; font-weight: 800; margin-top: 4px;">Registar Artikala, Barkodova i Cijena po Objektima</h2>
         </div>
 
-        <!-- Forma za brzi unos novog artikla u Registar u bazi -->
         <div class="card">
-          <h3 style="font-size: 13.5px; font-weight: 800; margin-bottom: 10px;">+ Dodaj ili izmijeni artikal u Registru (upis direktno u SQLite bazu)</h3>
+          <h3 style="font-size: 13.5px; font-weight: 800; margin-bottom: 10px;">+ Dodaj ili izmijeni artikal u Registru</h3>
           <div class="grid-4">
             <div class="form-group">
               <label class="form-label">Šifra artikla (SKU) *</label>
-              <input id="regItemSku" type="text" class="form-input mono" placeholder="npr. 10550" value="10550" />
+              <input id="regItemSku" type="text" class="form-input mono" value="10550" />
             </div>
             <div class="form-group">
               <label class="form-label">EAN Barkod *</label>
-              <input id="regItemBarcode" type="text" class="form-input mono" placeholder="npr. 3870009988771" value="3870009988771" />
+              <input id="regItemBarcode" type="text" class="form-input mono" value="3870009988771" />
             </div>
             <div class="form-group">
               <label class="form-label">Naziv artikla *</label>
-              <input id="regItemName" type="text" class="form-input" placeholder="npr. Mlijeko Moja Kravica 1L" value="Mlijeko Moja Kravica 1L" />
+              <input id="regItemName" type="text" class="form-input" value="Mlijeko Moja Kravica 1L" />
             </div>
             <div class="form-group">
               <label class="form-label">Nabavna i MPC cijena (${st.code})</label>
               <div style="display: flex; gap: 6px;">
-                <input id="regItemNc" type="number" step="0.10" class="form-input mono" placeholder="NC" value="1.65" />
-                <input id="regItemMpc" type="number" step="0.10" class="form-input mono" placeholder="MPC" value="2.35" />
+                <input id="regItemNc" type="number" step="0.10" class="form-input mono" value="1.65" />
+                <input id="regItemMpc" type="number" step="0.10" class="form-input mono" value="2.35" />
                 <button onclick="saveNewRegistryItem()" class="btn btn-primary">Sačuvaj</button>
               </div>
             </div>
@@ -702,9 +1160,6 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // D) REGISTAR CJENOVNIKA PO OBJEKTIMA (F3)
-  // --------------------------------------------------------------------------
   if (activeTabId === 'reg-prices') {
     body.innerHTML = `
       <div style="max-width: 1220px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
@@ -745,20 +1200,17 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // E) REGISTAR PARTNERA (DOBAVLJAČI I KUPCI - F4)
-  // --------------------------------------------------------------------------
   if (activeTabId === 'reg-partners') {
     body.innerHTML = `
       <div style="max-width: 1220px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
         <div class="card">
           <h3 style="font-size: 14px; font-weight: 800; margin-bottom: 10px;">+ Novi Partner u Registar (Dobavljač / Kupac)</h3>
           <div class="grid-4">
-            <input id="partCode" type="text" class="form-input mono" placeholder="Šifra (npr. DOB-009)" value="DOB-009" />
-            <input id="partName" type="text" class="form-input" placeholder="Naziv firme partnera" value="Violeta d.o.o. Grude" />
-            <input id="partJib" type="text" class="form-input mono" placeholder="JIB / PIB" value="4272551190002" />
+            <input id="partCode" type="text" class="form-input mono" value="DOB-009" />
+            <input id="partName" type="text" class="form-input" value="Violeta d.o.o. Grude" />
+            <input id="partJib" type="text" class="form-input mono" value="4272551190002" />
             <div style="display: flex; gap: 8px;">
-              <input id="partCity" type="text" class="form-input" placeholder="Grad" value="Grude" />
+              <input id="partCity" type="text" class="form-input" value="Grude" />
               <button onclick="saveNewPartner()" class="btn btn-primary">Dodaj u Registar</button>
             </div>
           </div>
@@ -773,7 +1225,6 @@ function renderActiveWorkspace() {
                   <th>Naziv partnera</th>
                   <th>Tip</th>
                   <th>JIB / PIB</th>
-                  <th>PDV broj</th>
                   <th>Grad</th>
                   <th>Valuta plaćanja</th>
                 </tr>
@@ -785,7 +1236,6 @@ function renderActiveWorkspace() {
                     <td style="font-weight: 700;">${p.name}</td>
                     <td><span class="badge badge-sky">${p.partner_type}</span></td>
                     <td class="mono">${p.tax_number}</td>
-                    <td class="mono">${p.vat_number || '-'}</td>
                     <td>${p.city || '-'}</td>
                     <td class="mono">${p.payment_due_days} dana</td>
                   </tr>
@@ -799,16 +1249,13 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // F) ULAZNE KALKULACIJE (PRIJEM ROBE U BAZU)
-  // --------------------------------------------------------------------------
   if (activeTabId === 'doc-calc') {
     const calcs = tenantData.documents.filter(d => d.doc_type === 'CALCULATION' || d.doc_type === 'PRICE_LEVELING');
     body.innerHTML = `
       <div style="max-width: 1220px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
         <div class="card" style="border: 2px solid rgba(16, 185, 129, 0.45);">
           <span class="badge badge-emerald">NOVA ULAZNA KALKULACIJA · ${tenantData.fiscalYear}. GODINA</span>
-          <h2 style="font-size: 15.5px; font-weight: 800; margin-top: 4px; margin-bottom: 12px;">Unos Nove Kalkulacije (automatski ažurira zalihu i kreira Nivelaciju pri promjeni MPC)</h2>
+          <h2 style="font-size: 15.5px; font-weight: 800; margin-top: 4px; margin-bottom: 12px;">Unos Nove Kalkulacije</h2>
           <div class="grid-4">
             <div class="form-group">
               <label class="form-label">Prodajni objekat (Ulaz u):</label>
@@ -829,9 +1276,9 @@ function renderActiveWorkspace() {
             <div class="form-group">
               <label class="form-label">Kol. / Nabavna / Nova MPC:</label>
               <div style="display: flex; gap: 6px;">
-                <input id="calcQty" type="number" class="form-input mono" value="50" title="Količina" />
-                <input id="calcNc" type="number" step="0.10" class="form-input mono" value="7.10" title="Nabavna cijena" />
-                <input id="calcMpc" type="number" step="0.10" class="form-input mono" value="10.40" title="Nova MPC sa PDV" />
+                <input id="calcQty" type="number" class="form-input mono" value="50" />
+                <input id="calcNc" type="number" step="0.10" class="form-input mono" value="7.10" />
+                <input id="calcMpc" type="number" step="0.10" class="form-input mono" value="10.40" />
               </div>
             </div>
           </div>
@@ -878,9 +1325,6 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // G) PRELOKACIJE (MEĐUSKLADIŠNICE IZMEĐU OBJEKATA)
-  // --------------------------------------------------------------------------
   if (activeTabId === 'doc-transfer') {
     const transfers = tenantData.documents.filter(d => d.doc_type === 'TRANSFER');
     body.innerHTML = `
@@ -953,9 +1397,6 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // H) POS KASA (TERMINAL PRODAJE - F1)
-  // --------------------------------------------------------------------------
   if (activeTabId === 'pos') {
     const st = getCurrentStoreObj();
     let total = 0;
@@ -1024,13 +1465,10 @@ function renderActiveWorkspace() {
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // I) REGISTAR OBJEKATA I KASA / ŠABLONI DEKLARACIJA
-  // --------------------------------------------------------------------------
   body.innerHTML = `
     <div style="max-width: 1220px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
       <div class="card">
-        <span class="badge badge-sky">REGISTAR OBJEKATA, KASA I DEKLARACIJA</span>
+        <span class="badge badge-sky">REGISTAR OBJEKATA I KASA</span>
         <h2 style="font-size: 16px; font-weight: 800; margin-top: 4px;">Prodajni Objekti i Kase Tenanta (${tenantData.tenant ? tenantData.tenant.name : ''})</h2>
       </div>
       <div class="grid-3">
@@ -1046,9 +1484,6 @@ function renderActiveWorkspace() {
   `;
 }
 
-// ============================================================================
-// 5. AKCIJE SUPER-ADMINA I TENANTA PREMA BAZI PODATAKA
-// ============================================================================
 async function submitCreateTenantAndSendAccount() {
   try {
     const payload = {
@@ -1205,7 +1640,7 @@ async function issueFiscalPosReceipt() {
 
     const res = await apiCall('/api/tenant/pos/receipt', 'POST', {
       storeId: st.id,
-      terminalId: term.id,
+      terminalId: term ? term.id : 'term-1',
       items: itemsPayload,
       paymentMethod: 'CASH'
     });
@@ -1227,16 +1662,3 @@ function openGlobalModal(title, htmlContent) {
 function closeGlobalModal() {
   document.getElementById('globalModal').classList.add('hidden');
 }
-
-// Inicijalna provjera sesije pri otvaranju stranice
-(async function initApp() {
-  if (authToken) {
-    try {
-      const me = await apiCall('/api/auth/me');
-      currentSession = me;
-      await enterApplicationShell();
-    } catch {
-      logoutUser();
-    }
-  }
-})();

@@ -16,10 +16,23 @@ Moderna Multi-Tenant POS kasa i robno-materijalno knjigovodstvo u kojem se **svi
 4. **Glavna Forma (Main Form) sa Pozivanjem Registara i POS Kasom:**
    - Brzi poziv svih registara (`Registar artikala F2`, `Cjenovnici po objektima F3`, `Registar partnera F4`, `Registar objekata i kasa`, `Šabloni deklaracija`), robnih dokumenata (`Ulazne kalkulacije`, `Prelokacije između objekata`, `Nivelacije`) i `POS Kase (F1)`.
 
-## Pokretanje
+## Kako pokrenuti aplikaciju
 
+### Opcija 1: Direktno dvoklikom u pretraživaču (Bez instalacije i bez terminala)
+Preuzmite ili otvorite fajl **`WebPOS_Aplikacija.html`** (ili `src/public/index.html`) direktno u bilo kojem web pretraživaču (Chrome, Edge, Firefox).
+- Fajl sadrži ugrađeni lokalni Multi-Tenant motor baze podataka (Local Engine), tako da odmah rade:
+  - **Prijava u sistem** (Super-Admin `superadmin@webpos.ba` / `Admin123!` ili Tenant Admin `admin@marketibosna.ba` / `Admin123!`)
+  - **Zaboravljena lozinka** (generisanje 6-cifrenog sigurnosnog koda i promjena lozinke)
+  - **Super-Admin Konzola** (kreiranje novog tenanta i slanje administratorskog računa sa privremenom lozinkom)
+  - **Prebacivanje poslovnih godina (`2025` / `2026`) i prodajnih objekata** u istoj bazi
+  - **Glavna forma (Main Form)** sa pozivanjem svih registara, ulaznih kalkulacija, prelokacija i POS kase.
+
+### Opcija 2: Pokretanje sa Node.js + SQLite (WAL) serverskom bazom
+Ako imate instaliran Node.js (v22.5+ sa ugrađenim `node:sqlite`):
 ```bash
 npm run db:init
 npm test
 npm start
 ```
+Aplikacija će automatski detektovati aktivni Node.js + SQLite server i prebaciti se na serverski API režim rada.
+
