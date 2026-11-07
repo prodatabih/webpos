@@ -25,7 +25,7 @@ const {
   createPosReceipt
 } = require('./routes/registries');
 
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const PUBLIC_DIR = path.join(__dirname, 'WebPos.Web', 'dist');
 const PORT = Number(process.env.PORT || 4100);
 
 const MIME_TYPES = {
@@ -33,7 +33,10 @@ const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml'
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2'
 };
 
 function sendJson(res, status, payload) {
