@@ -4,6 +4,7 @@
   "description": "Hibridni Multi-Tenant WebPOS i ERP sistem (Sve poslovne godine i tenanti u jednoj bazi)",
   "main": "src/server.js",
   "scripts": {
+    "build": "node database/db.js --init && node scripts/bundle_standalone.js",
     "start": "node src/server.js",
     "db:init": "node database/db.js --init",
     "bundle": "node scripts/bundle_standalone.js",
