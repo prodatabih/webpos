@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebPOS Enterprise — Multi-Tenant Cloud &amp; Offline POS</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+  <!-- ===================================================================== -->
+  <!-- 1. EKRAN PRIJAVE I ZABORAVLJENE LOZINKE (AUTH SCREEN)                 -->
+  <!-- ===================================================================== -->
+  <div id="authScreen" class="auth-wrapper">
+    <div class="auth-grid">
+
+      <!-- Lijeva strana: Forma za prijavu ili Zaboravljena lozinka -->
+      <div class="auth-panel-form">
+        <div>
+          <div class="brand-row" style="margin-bottom: 22px;">
+            <div class="brand-logo">WP</div>
+            <div>
+              <div style="font-size: 16px; font-weight: 800;">WebPOS Enterprise</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Multi-Tenant ERP &amp; POS (Sve poslovne godine u jednoj bazi)</div>
+            </div>
+          </div>
+
+          <!-- Status poruka / Greška -->
+          <div id="authAlertBox" class="hidden" style="padding: 10px 12px; border-radius: 9px; margin-bottom: 14px; font-weight: 600;"></div>
+
+          <!-- A) FORMA ZA STANDARDNU PRIJAVU -->
+          <div id="loginFormContainer">
+            <h1 style="font-size: 19px; font-weight: 800; margin-bottom: 4px;">Prijava u sistem</h1>
+            <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 18px;">
+              Unesite Vaš email/korisničko ime ili odaberite jedan od računa sa desne strane.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Email adresa ili korisničko ime</label>
+              <input id="loginIdentifier" type="text" class="form-input" value="superadmin@webpos.ba" placeholder="npr. admin@marketibosna.ba ili superadmin" />
+            </div>
+
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="form-label">Lozinka</label>
+                <button type="button" onclick="showForgotPasswordView()" style="background: none; border: none; color: #3b82f6; font-size: 12px; font-weight: 600; cursor: pointer;">
+                  Zaboravljena lozinka?
+                </button>
+              </div>
+              <input id="loginPassword" type="password" class="form-input" value="Admin123!" placeholder="Unesite lozinku" onkeydown="if(event.key==='Enter') submitLogin()" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Početna poslovna godina (opciono za tenante)</label>
+              <select id="loginFiscalYear" class="form-select">
+                <option value="2026" selected>Poslovna 2026. godina (Aktivna)</option>
+                <option value="2025">Poslovna 2025. godina (Arhiva u istoj bazi)</option>
+              </select>
+            </div>
+
+            <button onclick="submitLogin()" class="btn btn-primary btn-block" style="margin-top: 6px;">
+              Prijavi se u WebPOS ➔
+            </button>
+          </div>
+
+          <!-- B) FORMA ZA ZABORAVLJENU LOZINKU (KORAK 1 & KORAK 2) -->
+          <div id="forgotFormContainer" class="hidden">
+            <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Oporavak zaboravljene lozinke</h2>
+            <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
+              Unesite Vašu email adresu kako bi Vam sistem poslao 6-cifreni sigurnosni kod za postavljanje nove lozinke.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Vaša registrovana email adresa</label>
+              <div style="display: flex; gap: 8px;">
+                <input id="forgotEmailInput" type="email" class="form-input" value="admin@marketibosna.ba" placeholder="npr. admin@marketibosna.ba" />
+                <button onclick="requestPasswordResetCode()" class="btn btn-primary">Pošalji kod</button>
+              </div>
+            </div>
+
+            <!-- Prikaz poslanog emaila sa 6-cifrenim kodom (za brzu provjeru) -->
+            <div id="resetCodePreviewBanner" class="hidden" style="padding: 12px; border-radius: 10px; background: var(--emerald-bg); border: 1px solid var(--emerald); margin-bottom: 14px;">
+              <div style="font-weight: 800; color: var(--emerald); margin-bottom: 4px;">✓ Email za oporavak lozinke je poslan!</div>
+              <div style="font-size: 12px;">Sigurnosni 6-cifreni kod poslan korisniku: <strong id="previewResetCodeVal" class="mono" style="font-size: 14px;"></strong></div>
+            </div>
+
+            <div id="resetStep2Box" style="padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+              <div class="form-group">
+                <label class="form-label">Unesite primljeni 6-cifreni sigurnosni kod</label>
+                <input id="resetCodeInput" type="text" class="form-input mono" placeholder="npr. 482910" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Nova lozinka (najmanje 6 znakova)</label>
+                <input id="resetNewPasswordInput" type="password" class="form-input" placeholder="Unesite novu lozinku" />
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button onclick="showLoginView()" class="btn btn-secondary" style="flex: 1;">← Nazad na prijavu</button>
+                <button onclick="submitPasswordReset()" class="btn btn-emerald" style="flex: 2;">Sačuvaj novu lozinku</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size: 11.5px; color: var(--text-dim); display: flex; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+          <span>Baza: SQLite WAL / PostgreSQL Ready</span>
+          <span>Multi-Tenant + Multi-Year Architecture</span>
+        </div>
+      </div>
+
+      <!-- Desna strana: Brzi odabir uloga za testiranje (Super-Admin vs Tenant 1 vs Tenant 2) -->
+      <div class="auth-panel-info">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <span class="badge badge-sky">BRZI PRISTUP ULOGAMA U BAZI</span>
+            <h3 style="font-size: 15px; font-weight: 800; margin-top: 6px;">Odaberite nalog za brzu prijavu jednim klikom:</h3>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Svi tenanti i sve poslovne godine (2025, 2026...) smješteni su u istoj bazi sa potpunom izolacijom podataka.
+            </p>
+          </div>
+
+          <!-- 1. Super-Admin Sistema -->
+          <div onclick="quickLogin('superadmin@webpos.ba', 'Admin123!', 2026)" class="demo-account-card">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="badge badge-amber">VLASNIK SISTEMA (SUPER-ADMIN)</span>
+              </div>
+              <div style="font-weight: 800; margin-top: 4px;">Sistemski Super Administrator</div>
+              <div class="mono" style="font-size: 11.5px; color: var(--text-muted);">superadmin@webpos.ba · Lozinka: Admin123!</div>
+              <div style="font-size: 11.5px; color: var(--emerald); margin-top: 2px;">➔ Kreira tenante i šalje im administratorski račun</div>
+            </div>
+            <span class="btn btn-primary">Prijavi ➔</span>
+          </div>
+
+          <!-- 2. Tenant 1 Admin -->
+          <div onclick="quickLogin('admin@marketibosna.ba', 'Bosna2026!', 2026)" class="demo-account-card">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="badge badge-emerald">TENANT 1 · TEN-001</span>
+                <span style="font-size: 11px; color: var(--text-muted);">Godine: 2025 i 2026</span>
+              </div>
+              <div style="font-weight: 800; margin-top: 4px;">Marketi Bosna d.o.o. Sarajevo (3 objekta)</div>
+              <div class="mono" style="font-size: 11.5px; color: var(--text-muted);">admin@marketibosna.ba · Lozinka: Bosna2026!</div>
+              <div style="font-size: 11.5px; color: var(--sky); margin-top: 2px;">➔ Glavna forma, Registri, Kalkulacije, Prelokacije i POS Kasa</div>
+            </div>
+            <span class="btn btn-emerald">Prijavi ➔</span>
+          </div>
+
+          <!-- 3. Tenant 2 Admin -->
+          <div onclick="quickLogin('direktor@adriatik.ba', 'Adriatik2026!', 2026)" class="demo-account-card">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="badge badge-sky">TENANT 2 · TEN-002</span>
+                <span style="font-size: 11px; color: var(--text-muted);">Godine: 2025 i 2026</span>
+              </div>
+              <div style="font-weight: 800; margin-top: 4px;">Adriatik Trade d.o.o. Mostar</div>
+              <div class="mono" style="font-size: 11.5px; color: var(--text-muted);">direktor@adriatik.ba · Lozinka: Adriatik2026!</div>
+            </div>
+            <span class="btn btn-secondary">Prijavi ➔</span>
+          </div>
+        </div>
+
+        <div style="padding: 12px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--border-subtle); font-size: 12px;">
+          <strong>Kako testirati slanje administratorskog računa tenantu?</strong>
+          <p style="color: var(--text-muted); margin-top: 3px;">
+            Kliknite na <strong>Sistemski Super Administrator</strong> iznad, unesite podatke novog tenanta i kliknite <em>"Kreiraj Tenanta i Pošalji Administratorski Račun"</em>.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 2. GLAVNA FORMA APLIKACIJE (MAIN FORM SHELL ZA SUPER-ADMINA I TENANTE)-->
+  <!-- ===================================================================== -->
+  <div id="mainAppShell" class="app-shell hidden">
+
+    <!-- LIJEVI MENI GLAVNE FORME (MAIN FORM SIDEBAR) -->
+    <aside class="app-sidebar">
+      <div>
+        <!-- Zaglavlje Sidebara -->
+        <div style="padding: 14px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+          <div class="brand-row">
+            <div class="brand-logo" style="width: 32px; height: 32px; font-size: 13px;">WP</div>
+            <div>
+              <div id="sidebarTenantTitle" style="font-weight: 800; font-size: 13.5px; line-height: 1.15;">WebPOS Cloud</div>
+              <div id="sidebarRoleSubtitle" style="font-size: 11px; color: var(--text-muted);">Multi-Tenant ERP</div>
+            </div>
+          </div>
+          <button onclick="toggleTheme()" class="btn btn-secondary" style="padding: 5px 8px; font-size: 11px;" title="Promijeni temu (Svijetla / Tamna)">
+            Tema
+          </button>
+        </div>
+
+        <!-- Kontekst Tenanta: Odabir Poslovne Godine i Prodajnog Objekta (sve u istoj bazi!) -->
+        <div id="tenantContextSelectors" style="padding: 12px; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 8px; background: rgba(37, 99, 235, 0.05);">
+          <div>
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 3px;">Aktivna Poslovna Godina (u istoj bazi):</label>
+            <select id="activeFiscalYearSelect" onchange="switchFiscalYearOrStore()" class="form-select" style="padding: 6px 9px; font-weight: 700; font-size: 12px;"></select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 3px;">Aktivni Prodajni Objekat:</label>
+            <select id="activeStoreSelect" onchange="switchFiscalYearOrStore()" class="form-select" style="padding: 6px 9px; font-weight: 700; font-size: 12px;"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigacija Glavne Forme (Pozivanje Registara, Dokumenata, POS Kase i Super-Admin Konzole) -->
+      <div id="sidebarNavContainer" class="sidebar-scroll">
+        <!-- Popunjava JS na osnovu uloge (Super-Admin + Tenant Main Form) -->
+      </div>
+
+      <!-- Podnožje Sidebara: Prijavljeni korisnik & Odjava -->
+      <div style="padding: 12px; border-top: 1px solid var(--border-subtle); background: var(--bg-card); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="overflow: hidden;">
+          <div id="footerUserName" style="font-weight: 700; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Korisnik</div>
+          <div id="footerUserEmail" class="mono" style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">email</div>
+        </div>
+        <button onclick="logoutUser()" class="btn btn-secondary" style="padding: 6px 10px; font-size: 11.5px; color: var(--danger);">
+          Odjava
+        </button>
+      </div>
+    </aside>
+
+    <!-- DESNA STRANA GLAVNE FORME: RADNI TABOVI + GLAVNI SADRŽAJ -->
+    <div class="app-main">
+
+      <!-- Gornja traka sa otvorenim radnim prozorima (Tabovima) i brzim akcijama -->
+      <header class="app-topbar">
+        <div id="workspaceTabsStrip" class="tabs-strip"></div>
+
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <button onclick="openWorkspaceTab('doc-calc', 'Ulazne Kalkulacije')" class="btn btn-emerald" style="padding: 6px 11px; font-size: 12px;">
+            + Nova Kalkulacija
+          </button>
+          <button onclick="openWorkspaceTab('doc-transfer', 'Prelokacije između objekata')" class="btn btn-sky" style="padding: 6px 11px; font-size: 12px;">
+            ⇄ Nova Prelokacija
+          </button>
+          <button onclick="openWorkspaceTab('pos', 'POS Kasa (Terminal)')" class="btn btn-primary" style="padding: 6px 11px; font-size: 12px;">
+            POS Kasa (F1)
+          </button>
+        </div>
+      </header>
+
+      <!-- Obavještenje (Toast Banner) -->
+      <div id="appToastBanner" class="hidden" style="background: var(--primary); color: #fff; padding: 9px 18px; font-weight: 700; font-size: 12.5px; display: flex; align-items: center; justify-content: space-between;">
+        <span id="appToastText"></span>
+        <button onclick="document.getElementById('appToastBanner').classList.add('hidden')" style="background: none; border: none; color: #fff; text-decoration: underline; cursor: pointer; font-size: 12px;">Zatvori</button>
+      </div>
+
+      <!-- Glavni radni prostor u koji se renderuje aktivna forma / registar -->
+      <main id="workspaceBody" class="workspace-body"></main>
+
+    </div>
+  </div>
+
+  <!-- MODAL: PRIKAZ POSLANOG ADMINISTRATORSKOG RAČUNA TENANTU ILI FISKALNOG RAČUNA -->
+  <div id="globalModal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px; margin-bottom: 14px;">
+        <h3 id="globalModalTitle" style="font-size: 15px; font-weight: 800;">Detalji</h3>
+        <button onclick="closeGlobalModal()" class="btn btn-secondary" style="padding: 4px 9px;">✕</button>
+      </div>
+      <div id="globalModalContent"></div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
