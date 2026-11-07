@@ -1,270 +1,2672 @@
 <!DOCTYPE html>
-<html lang="bs">
+<html lang="bs" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebPOS Enterprise — Multi-Tenant Cloud &amp; Offline POS</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <title>WebPos Enterprise — Interaktivni Dizajn Sistema (Svi Moduli)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root, [data-theme="light"] {
+      --bg-canvas: #f4f6f9;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f8fafc;
+      --bg-elevated: #ffffff;
+      --bg-hover: #f1f5f9;
+      --bg-active: #eff6ff;
+      --bg-receipt: #fffdf9;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+      --border-hairline: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --accent-soft: #e0f2fe;
+      --accent-text: #0369a1;
+      --emerald: #059669;
+      --emerald-soft: #d1fae5;
+      --emerald-text: #065f46;
+      --amber: #d97706;
+      --amber-soft: #fef3c7;
+      --amber-text: #92400e;
+      --rose: #e11d48;
+      --rose-soft: #ffe4e6;
+      --rose-text: #9f1239;
+      --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-sm: 0 2px 6px -1px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 8px 20px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+      --shadow-lg: 0 20px 35px -8px rgba(15, 23, 42, 0.14);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    [data-theme="dark"] {
+      --bg-canvas: #090d16;
+      --bg-surface: #111827;
+      --bg-subtle: #0f172a;
+      --bg-elevated: #1e293b;
+      --bg-hover: #1e293b;
+      --bg-active: rgba(14, 165, 233, 0.14);
+      --bg-receipt: #131c2e;
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --border-hairline: #1e293b;
+      --border-strong: #334155;
+      --accent: #0ea5e9;
+      --accent-hover: #38bdf8;
+      --accent-soft: rgba(14, 165, 233, 0.15);
+      --accent-text: #38bdf8;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.15);
+      --emerald-text: #34d399;
+      --amber: #f59e0b;
+      --amber-soft: rgba(245, 158, 11, 0.15);
+      --amber-text: #fbbf24;
+      --rose: #f43f5e;
+      --rose-soft: rgba(244, 63, 94, 0.15);
+      --rose-text: #fb7185;
+      --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+      --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
+      --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.45);
+      --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.65);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      font-size: 13px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    .num, .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* SHELL LAYOUT */
+    .shell {
+      display: grid;
+      grid-template-columns: 248px 1fr;
+      height: 100vh;
+      width: 100vw;
+      transition: grid-template-columns 0.18s ease;
+    }
+    .shell.pos-fullscreen {
+      grid-template-columns: 64px 1fr;
+    }
+    .shell.pos-fullscreen .nav-text,
+    .shell.pos-fullscreen .nav-group-label,
+    .shell.pos-fullscreen .context-card,
+    .shell.pos-fullscreen .brand-subtitle {
+      display: none;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-hairline);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    .brand-bar {
+      height: 54px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-hairline);
+      flex-shrink: 0;
+    }
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0284c7 0%, #0f172a 100%);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: -0.03em;
+      flex-shrink: 0;
+    }
+    .context-card {
+      margin: 10px 10px 4px;
+      padding: 10px;
+      border-radius: var(--radius-md);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-hairline);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .context-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .context-select {
+      width: 100%;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .nav-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px 14px;
+    }
+    .nav-group-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-faint);
+      padding: 12px 8px 4px;
+    }
+    .nav-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 9px;
+      padding: 7px 9px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.12s ease;
+    }
+    .nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .nav-btn.active {
+      background: var(--bg-active);
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+    .nav-btn-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 5px;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .kbd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      border: 1px solid var(--border-hairline);
+      flex-shrink: 0;
+    }
+
+    /* MAIN WORKSPACE */
+    .workspace {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-canvas);
+    }
+    .topbar {
+      height: 54px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .open-tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      flex: 1;
+      padding: 4px 0;
+    }
+    .ws-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 11px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s;
+    }
+    .ws-tab:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .ws-tab.active {
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+      font-weight: 600;
+      box-shadow: var(--shadow-xs);
+    }
+    .ws-tab-close {
+      opacity: 0.55;
+      font-size: 11px;
+      padding: 0 2px;
+      border-radius: 4px;
+    }
+    .ws-tab-close:hover {
+      opacity: 1;
+      background: var(--rose-soft);
+      color: var(--rose);
+    }
+
+    /* BUTTONS, INPUTS, BADGES, CARDS, TABLES */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-emerald { background: var(--emerald); color: #fff; }
+    .btn-emerald:hover { filter: brightness(0.95); }
+    .btn-rose { background: var(--rose); color: #fff; }
+    .btn-amber { background: var(--amber); color: #fff; }
+    .btn-outline {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .btn-outline:hover { background: var(--bg-hover); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+    .input, .select {
+      width: 100%;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-size: 12.5px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    .input:focus, .select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .label {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-hairline);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-xs);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pill-sky { background: var(--accent-soft); color: var(--accent-text); }
+    .pill-emerald { background: var(--emerald-soft); color: var(--emerald-text); }
+    .pill-amber { background: var(--amber-soft); color: var(--amber-text); }
+    .pill-rose { background: var(--rose-soft); color: var(--rose-text); }
+    .pill-neutral { background: var(--bg-hover); color: var(--text-secondary); }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 9px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border-hairline);
+      white-space: nowrap;
+    }
+    .data-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border-hairline);
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+    .data-table tbody tr:hover {
+      background: var(--bg-hover);
+    }
+
+    /* POS TERMINAL SPECIFIC GRID */
+    .pos-grid {
+      display: grid;
+      grid-template-columns: 1fr 430px;
+      height: calc(100vh - 54px);
+      overflow: hidden;
+    }
+    .pos-catalog-pane {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      padding: 14px 16px;
+      gap: 12px;
+    }
+    .pos-receipt-pane {
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-hairline);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+    .product-tile {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-hairline);
+      border-radius: 10px;
+      padding: 11px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+      transition: transform 0.1s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+      user-select: none;
+      min-height: 98px;
+    }
+    .product-tile:hover {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-sm);
+      transform: translateY(-1px);
+    }
+    .product-tile:active {
+      transform: scale(0.985);
+    }
+
+    .cat-chip {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border-hairline);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s;
+    }
+    .cat-chip.active {
+      background: var(--text-primary);
+      color: var(--bg-surface);
+      border-color: var(--text-primary);
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-hairline);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 720px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
 
-  <!-- ===================================================================== -->
-  <!-- 1. EKRAN PRIJAVE I ZABORAVLJENE LOZINKE (AUTH SCREEN)                 -->
-  <!-- ===================================================================== -->
-  <div id="authScreen" class="auth-wrapper">
-    <div class="auth-grid">
-
-      <!-- Lijeva strana: Forma za prijavu ili Zaboravljena lozinka -->
-      <div class="auth-panel-form">
+  <!-- =================================================================== -->
+  <!-- EKRAN PRIJAVE / ZABORAVLJENE LOZINKE (PRIKAZUJE SE NA KLIK "PRIJAVA")-->
+  <!-- =================================================================== -->
+  <div id="authOverlay" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 820px; display: grid; grid-template-columns: 1.1fr 0.9fr;">
+      <div style="padding: 28px; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
-          <div class="brand-row" style="margin-bottom: 22px;">
-            <div class="brand-logo">WP</div>
-            <div>
-              <div style="font-size: 16px; font-weight: 800;">WebPOS Enterprise</div>
-              <div style="font-size: 12px; color: var(--text-muted);">Multi-Tenant ERP &amp; POS (Sve poslovne godine u jednoj bazi)</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div class="brand-mark">WP</div>
+              <div>
+                <div style="font-weight: 800; font-size: 15px;">WebPos Enterprise</div>
+                <div style="font-size: 11.5px; color: var(--text-muted);">ASP.NET Core 9 Identity · PostgreSQL + SQLite</div>
+              </div>
             </div>
+            <button class="btn btn-ghost" onclick="closeAuthOverlay()">✕ Zatvori</button>
           </div>
 
-          <!-- Status poruka / Greška -->
-          <div id="authAlertBox" class="hidden" style="padding: 10px 12px; border-radius: 9px; margin-bottom: 14px; font-weight: 600;"></div>
+          <div id="authFeedback" class="hidden" style="padding: 9px 12px; border-radius: 8px; margin-bottom: 14px; font-weight: 600; font-size: 12px;"></div>
 
-          <!-- A) FORMA ZA STANDARDNU PRIJAVU -->
-          <div id="loginFormContainer">
-            <h1 style="font-size: 19px; font-weight: 800; margin-bottom: 4px;">Prijava u sistem</h1>
-            <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 18px;">
-              Unesite Vaš email/korisničko ime ili odaberite jedan od računa sa desne strane.
+          <!-- TAB A: PRIJAVA -->
+          <div id="authLoginView">
+            <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Prijava u sistem</h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+              Prijavite se kao Vlasnik sistema (Super-Admin), Administrator tenanta ili Blagajnik.
             </p>
-
-            <div class="form-group">
-              <label class="form-label">Email adresa ili korisničko ime</label>
-              <input id="loginIdentifier" type="text" class="form-input" value="superadmin@webpos.ba" placeholder="npr. admin@marketibosna.ba ili superadmin" />
+            <div style="margin-bottom: 12px;">
+              <label class="label">Korisničko ime ili e-mail</label>
+              <input id="loginUser" class="input" value="tenant.admin@firma-jedan.ba" />
             </div>
-
-            <div class="form-group">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label class="form-label">Lozinka</label>
-                <button type="button" onclick="showForgotPasswordView()" style="background: none; border: none; color: #3b82f6; font-size: 12px; font-weight: 600; cursor: pointer;">
-                  Zaboravljena lozinka?
-                </button>
+            <div style="margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between;">
+                <label class="label">Lozinka</label>
+                <button type="button" onclick="toggleAuthSubView('forgot')" style="background:none;border:none;color:var(--accent);font-size:11.5px;font-weight:600;cursor:pointer;">Zaboravljena lozinka?</button>
               </div>
-              <input id="loginPassword" type="password" class="form-input" value="Admin123!" placeholder="Unesite lozinku" onkeydown="if(event.key==='Enter') submitLogin()" />
+              <input id="loginPass" type="password" class="input" value="Lozinka2026!" />
             </div>
-
-            <div class="form-group">
-              <label class="form-label">Početna poslovna godina (opciono za tenante)</label>
-              <select id="loginFiscalYear" class="form-select">
-                <option value="2026" selected>Poslovna 2026. godina (Aktivna)</option>
-                <option value="2025">Poslovna 2025. godina (Arhiva u istoj bazi)</option>
+            <div style="margin-bottom: 16px;">
+              <label class="label">Poslovna godina (sve godine u jednoj bazi)</label>
+              <select id="loginYear" class="select">
+                <option value="2026">Poslovna 2026. godina (Aktivna)</option>
+                <option value="2025">Poslovna 2025. godina (Arhiva)</option>
               </select>
             </div>
-
-            <button onclick="submitLogin()" class="btn btn-primary btn-block" style="margin-top: 6px;">
-              Prijavi se u WebPOS ➔
-            </button>
+            <button class="btn btn-primary" style="width: 100%; padding: 10px;" onclick="performLogin()">Prijavi se u aplikaciju</button>
           </div>
 
-          <!-- B) FORMA ZA ZABORAVLJENU LOZINKU (KORAK 1 & KORAK 2) -->
-          <div id="forgotFormContainer" class="hidden">
-            <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Oporavak zaboravljene lozinke</h2>
-            <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
-              Unesite Vašu email adresu kako bi Vam sistem poslao 6-cifreni sigurnosni kod za postavljanje nove lozinke.
+          <!-- TAB B: ZABORAVLJENA LOZINKA -->
+          <div id="authForgotView" class="hidden">
+            <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Zaboravljena lozinka</h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+              Unesite e-mail adresu. Sistem generiše 6-cifreni sigurnosni kod putem SMTP-a (port 587 STARTTLS).
             </p>
-
-            <div class="form-group">
-              <label class="form-label">Vaša registrovana email adresa</label>
-              <div style="display: flex; gap: 8px;">
-                <input id="forgotEmailInput" type="email" class="form-input" value="admin@marketibosna.ba" placeholder="npr. admin@marketibosna.ba" />
-                <button onclick="requestPasswordResetCode()" class="btn btn-primary">Pošalji kod</button>
-              </div>
+            <div style="margin-bottom: 12px;">
+              <label class="label">Vaša e-mail adresa</label>
+              <input id="forgotEmail" class="input" value="tenant.admin@firma-jedan.ba" />
             </div>
+            <button class="btn btn-primary" style="width: 100%; margin-bottom: 12px;" onclick="sendResetCode()">Pošalji sigurnosni kod za reset</button>
 
-            <!-- Prikaz poslanog emaila sa 6-cifrenim kodom (za brzu provjeru) -->
-            <div id="resetCodePreviewBanner" class="hidden" style="padding: 12px; border-radius: 10px; background: var(--emerald-bg); border: 1px solid var(--emerald); margin-bottom: 14px;">
-              <div style="font-weight: 800; color: var(--emerald); margin-bottom: 4px;">✓ Email za oporavak lozinke je poslan!</div>
-              <div style="font-size: 12px;">Sigurnosni 6-cifreni kod poslan korisniku: <strong id="previewResetCodeVal" class="mono" style="font-size: 14px;"></strong></div>
+            <div id="resetCodeBox" class="hidden" style="padding: 12px; border-radius: 8px; background: var(--bg-subtle); border: 1px solid var(--border-hairline);">
+              <div style="margin-bottom: 8px;">
+                <label class="label">6-cifreni kod iz e-maila</label>
+                <input id="resetCodeInput" class="input mono" placeholder="Unesite kod" />
+              </div>
+              <div style="margin-bottom: 10px;">
+                <label class="label">Nova lozinka</label>
+                <input id="resetNewPass" type="password" class="input" value="NovaLozinka2026!" />
+              </div>
+              <button class="btn btn-emerald" style="width: 100%;" onclick="confirmPasswordReset()">Sačuvaj novu lozinku</button>
             </div>
-
-            <div id="resetStep2Box" style="padding-top: 10px; border-top: 1px solid var(--border-subtle);">
-              <div class="form-group">
-                <label class="form-label">Unesite primljeni 6-cifreni sigurnosni kod</label>
-                <input id="resetCodeInput" type="text" class="form-input mono" placeholder="npr. 482910" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Nova lozinka (najmanje 6 znakova)</label>
-                <input id="resetNewPasswordInput" type="password" class="form-input" placeholder="Unesite novu lozinku" />
-              </div>
-              <div style="display: flex; gap: 8px;">
-                <button onclick="showLoginView()" class="btn btn-secondary" style="flex: 1;">← Nazad na prijavu</button>
-                <button onclick="submitPasswordReset()" class="btn btn-emerald" style="flex: 2;">Sačuvaj novu lozinku</button>
-              </div>
-            </div>
+            <button class="btn btn-ghost" style="width: 100%; margin-top: 8px;" onclick="toggleAuthSubView('login')">← Nazad na prijavu</button>
           </div>
         </div>
 
-        <div style="font-size: 11.5px; color: var(--text-dim); display: flex; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
-          <span>Baza: SQLite WAL / PostgreSQL Ready</span>
-          <span>Multi-Tenant + Multi-Year Architecture</span>
+        <div style="font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border-hairline); padding-top: 10px; display: flex; justify-content: space-between;">
+          <span>ASP.NET Core 9 Identity (Cookie Session)</span>
+          <span>PostgreSQL + SQLite WAL</span>
         </div>
       </div>
 
-      <!-- Desna strana: Brzi odabir uloga za testiranje (Super-Admin vs Tenant 1 vs Tenant 2) -->
-      <div class="auth-panel-info">
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-          <div>
-            <span class="badge badge-sky">BRZI PRISTUP ULOGAMA U BAZI</span>
-            <h3 style="font-size: 15px; font-weight: 800; margin-top: 6px;">Odaberite nalog za brzu prijavu jednim klikom:</h3>
-            <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-              Svi tenanti i sve poslovne godine (2025, 2026...) smješteni su u istoj bazi sa potpunom izolacijom podataka.
-            </p>
+      <!-- Desni panel brze prijave po ulogama -->
+      <div style="background: var(--bg-subtle); border-left: 1px solid var(--border-hairline); padding: 24px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+          Brzi preklopnik uloga (1 klik)
+        </div>
+        <div class="card" style="padding: 11px; cursor: pointer;" onclick="switchRole('SUPER_ADMIN')">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="pill pill-amber">SystemSuperAdmin</span>
+            <span style="font-size: 11px; font-weight: 600; color: var(--accent);">Prijavi →</span>
           </div>
-
-          <!-- 1. Super-Admin Sistema -->
-          <div onclick="quickLogin('superadmin@webpos.ba', 'Admin123!', 2026)" class="demo-account-card">
-            <div>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span class="badge badge-amber">VLASNIK SISTEMA (SUPER-ADMIN)</span>
-              </div>
-              <div style="font-weight: 800; margin-top: 4px;">Sistemski Super Administrator</div>
-              <div class="mono" style="font-size: 11.5px; color: var(--text-muted);">superadmin@webpos.ba · Lozinka: Admin123!</div>
-              <div style="font-size: 11.5px; color: var(--emerald); margin-top: 2px;">➔ Kreira tenante i šalje im administratorski račun</div>
-            </div>
-            <span class="btn btn-primary">Prijavi ➔</span>
-          </div>
-
-          <!-- 2. Tenant 1 Admin -->
-          <div onclick="quickLogin('admin@marketibosna.ba', 'Bosna2026!', 2026)" class="demo-account-card">
-            <div>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span class="badge badge-emerald">TENANT 1 · TEN-001</span>
-                <span style="font-size: 11px; color: var(--text-muted);">Godine: 2025 i 2026</span>
-              </div>
-              <div style="font-weight: 800; margin-top: 4px;">Marketi Bosna d.o.o. Sarajevo (3 objekta)</div>
-              <div class="mono" style="font-size: 11.5px; color: var(--text-muted);">admin@marketibosna.ba · Lozinka: Bosna2026!</div>
-              <div style="font-size: 11.5px; color: var(--sky); margin-top: 2px;">➔ Glavna forma, Registri, Kalkulacije, Prelokacije i POS Kasa</div>
-            </div>
-            <span class="btn btn-emerald">Prijavi ➔</span>
-          </div>
-
-          <!-- 3. Tenant 2 Admin -->
-          <div onclick="quickLogin('direktor@adriatik.ba', 'Adriatik2026!', 2026)" class="demo-account-card">
-            <div>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span class="badge badge-sky">TENANT 2 · TEN-002</span>
-                <span style="font-size: 11px; color: var(--text-muted);">Godine: 2025 i 2026</span>
-              </div>
-              <div style="font-weight: 800; margin-top: 4px;">Adriatik Trade d.o.o. Mostar</div>
-              <div class="mono" style="font-size: 11.5px; color: var(--text-muted);">direktor@adriatik.ba · Lozinka: Adriatik2026!</div>
-            </div>
-            <span class="btn btn-secondary">Prijavi ➔</span>
-          </div>
+          <div style="font-weight: 700; margin-top: 4px;">Vlasnik sistema (IMEL Cloud)</div>
+          <div class="mono" style="font-size: 11px; color: var(--text-muted);">sistem.admin@webpos.ba</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Kreira tenante i šalje im administratorske račune</div>
         </div>
 
-        <div style="padding: 12px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--border-subtle); font-size: 12px;">
-          <strong>Kako testirati slanje administratorskog računa tenantu?</strong>
-          <p style="color: var(--text-muted); margin-top: 3px;">
-            Kliknite na <strong>Sistemski Super Administrator</strong> iznad, unesite podatke novog tenanta i kliknite <em>"Kreiraj Tenanta i Pošalji Administratorski Račun"</em>.
-          </p>
+        <div class="card" style="padding: 11px; cursor: pointer;" onclick="switchRole('TENANT_ADMIN')">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="pill pill-emerald">TenantAdmin · TEN-001</span>
+            <span style="font-size: 11px; font-weight: 600; color: var(--accent);">Prijavi →</span>
+          </div>
+          <div style="font-weight: 700; margin-top: 4px;">Firma Jedan d.o.o. (3 objekta)</div>
+          <div class="mono" style="font-size: 11px; color: var(--text-muted);">tenant.admin@firma-jedan.ba</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Glavna forma, Registri, Kalkulacije, Prelokacije, KEP i Kasa</div>
+        </div>
+
+        <div class="card" style="padding: 11px; cursor: pointer;" onclick="switchRole('CASHIER')">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="pill pill-sky">Cashier · Kasa #1</span>
+            <span style="font-size: 11px; font-weight: 600; color: var(--accent);">Prijavi →</span>
+          </div>
+          <div style="font-weight: 700; margin-top: 4px;">radnik.jedan (Blagajnik PJ-01)</div>
+          <div class="mono" style="font-size: 11px; color: var(--text-muted);">radnik.jedan@firma-jedan.ba</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Direktan režim POS Kase (kiosk/fokus ekran)</div>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- ===================================================================== -->
-  <!-- 2. GLAVNA FORMA APLIKACIJE (MAIN FORM SHELL ZA SUPER-ADMINA I TENANTE)-->
-  <!-- ===================================================================== -->
-  <div id="mainAppShell" class="app-shell hidden">
-
-    <!-- LIJEVI MENI GLAVNE FORME (MAIN FORM SIDEBAR) -->
-    <aside class="app-sidebar">
-      <div>
-        <!-- Zaglavlje Sidebara -->
-        <div style="padding: 14px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
-          <div class="brand-row">
-            <div class="brand-logo" style="width: 32px; height: 32px; font-size: 13px;">WP</div>
-            <div>
-              <div id="sidebarTenantTitle" style="font-weight: 800; font-size: 13.5px; line-height: 1.15;">WebPOS Cloud</div>
-              <div id="sidebarRoleSubtitle" style="font-size: 11px; color: var(--text-muted);">Multi-Tenant ERP</div>
-            </div>
+  <!-- =================================================================== -->
+  <!-- GLAVNI OKVIR APLIKACIJE (SIDEBAR + RADNI TABOVI + AKTIVNI EKRAN)    -->
+  <!-- =================================================================== -->
+  <div id="appShell" class="shell">
+    <!-- LIJEVI SIDEBAR (GLAVNA FORMA — POZIVANJE SVIH OPCIJA I REGISTARA) -->
+    <aside class="sidebar">
+      <div class="brand-bar">
+        <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+          <div class="brand-mark" onclick="togglePosFullscreen()" title="Skupi / proširi bočnu traku" style="cursor:pointer;">WP</div>
+          <div class="brand-subtitle" style="min-width: 0;">
+            <div style="font-weight: 800; font-size: 13.5px; letter-spacing: -0.02em; white-space: nowrap;">WebPos <span style="font-weight:500;color:var(--text-muted);">v1.0</span></div>
+            <div id="sidebarTenantName" style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Firma Jedan d.o.o.</div>
           </div>
-          <button onclick="toggleTheme()" class="btn btn-secondary" style="padding: 5px 8px; font-size: 11px;" title="Promijeni temu (Svijetla / Tamna)">
-            Tema
-          </button>
         </div>
+        <button class="btn btn-ghost brand-subtitle" style="padding: 4px 7px; font-size: 11px;" onclick="togglePosFullscreen()" title="Kompaktni prikaz">⇤</button>
+      </div>
 
-        <!-- Kontekst Tenanta: Odabir Poslovne Godine i Prodajnog Objekta (sve u istoj bazi!) -->
-        <div id="tenantContextSelectors" style="padding: 12px; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 8px; background: rgba(37, 99, 235, 0.05);">
-          <div>
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 3px;">Aktivna Poslovna Godina (u istoj bazi):</label>
-            <select id="activeFiscalYearSelect" onchange="switchFiscalYearOrStore()" class="form-select" style="padding: 6px 9px; font-weight: 700; font-size: 12px;"></select>
+      <!-- Kontekst Tenanta: Aktivna Poslovna Godina i Aktivni Objekat -->
+      <div class="context-card">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Poslovna godina</span>
+            <span class="pill pill-emerald" style="font-size:10px;padding:1px 6px;">1 Baza</span>
           </div>
-          <div>
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 3px;">Aktivni Prodajni Objekat:</label>
-            <select id="activeStoreSelect" onchange="switchFiscalYearOrStore()" class="form-select" style="padding: 6px 9px; font-weight: 700; font-size: 12px;"></select>
-          </div>
+          <select id="ctxYearSelect" class="context-select" onchange="onChangeContext()">
+            <option value="2026">2026 · Aktivna godina</option>
+            <option value="2025">2025 · Arhivska godina</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Poslovna jedinica (Objekat)</div>
+          <select id="ctxStoreSelect" class="context-select" onchange="onChangeContext()">
+            <option value="PJ-01">PJ-01 · Market Centar (MP)</option>
+            <option value="PJ-02">PJ-02 · Hipermarket Zapad (MP)</option>
+            <option value="MAG-01">MAG-01 · Centralni Magacin (VP)</option>
+          </select>
         </div>
       </div>
 
-      <!-- Navigacija Glavne Forme (Pozivanje Registara, Dokumenata, POS Kase i Super-Admin Konzole) -->
-      <div id="sidebarNavContainer" class="sidebar-scroll">
-        <!-- Popunjava JS na osnovu uloge (Super-Admin + Tenant Main Form) -->
-      </div>
+      <!-- Kompletno drvo opcija programa -->
+      <nav id="sidebarNav" class="nav-scroll"></nav>
 
-      <!-- Podnožje Sidebara: Prijavljeni korisnik & Odjava -->
-      <div style="padding: 12px; border-top: 1px solid var(--border-subtle); background: var(--bg-card); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-        <div style="overflow: hidden;">
-          <div id="footerUserName" style="font-weight: 700; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Korisnik</div>
-          <div id="footerUserEmail" class="mono" style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">email</div>
+      <!-- Korisnik i status baze u dnu -->
+      <div style="padding: 10px 12px; border-top: 1px solid var(--border-hairline); display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--bg-subtle);">
+        <div class="brand-subtitle" style="min-width: 0;">
+          <div id="activeUserLabel" style="font-weight: 700; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">tenant.admin</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--emerald);">
+            <span>●</span><span>PG + SQLite WAL</span>
+          </div>
         </div>
-        <button onclick="logoutUser()" class="btn btn-secondary" style="padding: 6px 10px; font-size: 11.5px; color: var(--danger);">
-          Odjava
-        </button>
+        <button class="btn btn-outline" style="padding: 5px 9px; font-size: 11px;" onclick="openAuthOverlay()">Nalog / Prijava</button>
       </div>
     </aside>
 
-    <!-- DESNA STRANA GLAVNE FORME: RADNI TABOVI + GLAVNI SADRŽAJ -->
-    <div class="app-main">
+    <!-- DESNA RADNA POVRŠINA -->
+    <div class="workspace">
+      <header class="topbar">
+        <!-- Otvoreni radni tabovi (MDI / ERP Tab Strip) -->
+        <div id="openTabsBar" class="open-tabs"></div>
 
-      <!-- Gornja traka sa otvorenim radnim prozorima (Tabovima) i brzim akcijama -->
-      <header class="app-topbar">
-        <div id="workspaceTabsStrip" class="tabs-strip"></div>
-
-        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-          <button onclick="openWorkspaceTab('doc-calc', 'Ulazne Kalkulacije')" class="btn btn-emerald" style="padding: 6px 11px; font-size: 12px;">
-            + Nova Kalkulacija
-          </button>
-          <button onclick="openWorkspaceTab('doc-transfer', 'Prelokacije između objekata')" class="btn btn-sky" style="padding: 6px 11px; font-size: 12px;">
-            ⇄ Nova Prelokacija
-          </button>
-          <button onclick="openWorkspaceTab('pos', 'POS Kasa (Terminal)')" class="btn btn-primary" style="padding: 6px 11px; font-size: 12px;">
-            POS Kasa (F1)
-          </button>
+        <!-- Desne brze komande -->
+        <div style="display: flex; align-items: center; gap: 7px; flex-shrink: 0;">
+          <button class="btn btn-outline" onclick="openTab('calc-new')" title="Nova ulazna kalkulacija">+ Kalkulacija</button>
+          <button class="btn btn-outline" onclick="openTab('transfer-new')" title="Nova međuskladišnica / prelokacija">⇄ Prelokacija</button>
+          <button class="btn btn-primary" onclick="openTab('pos')">▣ POS Kasa <span class="kbd" style="background:rgba(255,255,255,0.2);color:#fff;border:none;">F1</span></button>
+          <button class="btn btn-ghost" onclick="toggleTheme()" id="themeBtn" title="Svijetla / Tamna tema">◐ Tema</button>
         </div>
       </header>
 
-      <!-- Obavještenje (Toast Banner) -->
-      <div id="appToastBanner" class="hidden" style="background: var(--primary); color: #fff; padding: 9px 18px; font-weight: 700; font-size: 12.5px; display: flex; align-items: center; justify-content: space-between;">
-        <span id="appToastText"></span>
-        <button onclick="document.getElementById('appToastBanner').classList.add('hidden')" style="background: none; border: none; color: #fff; text-decoration: underline; cursor: pointer; font-size: 12px;">Zatvori</button>
+      <!-- Obavještenje (Toast) -->
+      <div id="toastBar" class="hidden" style="background: var(--text-primary); color: var(--bg-surface); padding: 8px 16px; font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+        <span id="toastMsg"></span>
+        <button onclick="document.getElementById('toastBar').classList.add('hidden')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:700;">✕</button>
       </div>
 
-      <!-- Glavni radni prostor u koji se renderuje aktivna forma / registar -->
-      <main id="workspaceBody" class="workspace-body"></main>
-
+      <!-- Glavni kontejner aktivnog prozora -->
+      <main id="viewContainer" style="flex: 1; overflow-y: auto;"></main>
     </div>
   </div>
 
-  <!-- MODAL: PRIKAZ POSLANOG ADMINISTRATORSKOG RAČUNA TENANTU ILI FISKALNOG RAČUNA -->
-  <div id="globalModal" class="modal-backdrop hidden">
-    <div class="modal-box">
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px; margin-bottom: 14px;">
-        <h3 id="globalModalTitle" style="font-size: 15px; font-weight: 800;">Detalji</h3>
-        <button onclick="closeGlobalModal()" class="btn btn-secondary" style="padding: 4px 9px;">✕</button>
+  <!-- UNIVERZALNI MODAL ZA DETALJE / ŠTAMPU / NOVI UNOS -->
+  <div id="appModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-hairline); display: flex; align-items: center; justify-content: space-between;">
+        <h3 id="appModalTitle" style="font-size: 15px; font-weight: 800;">Detalji</h3>
+        <button class="btn btn-ghost" style="padding: 4px 8px;" onclick="closeModal()">✕</button>
       </div>
-      <div id="globalModalContent"></div>
+      <div id="appModalBody" style="padding: 18px; overflow-y: auto;"></div>
     </div>
   </div>
 
-  <script src="js/app.js"></script>
+  <script>
+    // =========================================================================
+    // 1. CENTRALNO STANJE APLIKACIJE (SVI MODULI, GENERIČKI PODACI PREMA PRAVILIMA)
+    // =========================================================================
+    const state = {
+      theme: 'light',
+      posFullscreen: false,
+      currentUser: { username: 'tenant.admin', email: 'tenant.admin@firma-jedan.ba', role: 'TENANT_ADMIN', fullName: 'Administrator Tenanta (radnik.jedan)' },
+      activeTenant: 'TEN-001',
+      activeYear: '2026',
+      activeStore: 'PJ-01',
+      activeTab: 'pos',
+      openTabs: [
+        { id: 'pos', title: 'POS Kasa (Terminal)', icon: '▣' },
+        { id: 'dashboard', title: 'Početna · Glavna forma', icon: '◈' },
+        { id: 'items', title: 'Registar artikala', icon: '▤' },
+        { id: 'calc-new', title: 'Ulazne kalkulacije', icon: '＋' },
+        { id: 'transfer-new', title: 'Prelokacije između objekata', icon: '⇄' }
+      ],
+      posCategory: 'SVE',
+      posSearch: '',
+      posMode: 'QTY', // QTY, DISC, PRICE
+      posKeypadBuffer: '',
+      posCustomer: null, // Za identifikovani / VP račun (JIB)
+      posPaymentMethod: 'GOTOVINA',
+      posCashGiven: '',
+      heldReceipts: [
+        { id: 'HOLD-1', time: '09:42', note: 'Kupac otišao po karticu', itemsCount: 3, total: 18.40 }
+      ],
+      cart: [
+        { sku: '10045', barcode: '3870001001012', name: 'Mljevena kafa Tradicija 500g', uom: 'kom', qty: 2, price: 9.90, disc: 0, tax: 17 },
+        { sku: '10088', barcode: '3870003003018', name: 'Suncokretovo ulje 1L', uom: 'kom', qty: 1, price: 3.40, disc: 0, tax: 17 },
+        { sku: '27105', barcode: '2710005004258', name: 'Polutvrdi sir Edamer 45% (Vaga)', uom: 'kg', qty: 0.425, price: 14.50, disc: 5, tax: 17 }
+      ],
+      selectedItemSku: '10045',
+      selectedItemSubTab: 'osnovno', // osnovno | barkodovi | normativ | deklaracija | stanja
+
+      tenants: [
+        { code: 'TEN-001', name: 'Firma Jedan d.o.o.', jib: '4200001110001', pdv: '200001110001', city: 'Sarajevo', adminEmail: 'tenant.admin@firma-jedan.ba', years: ['2026', '2025'], storesCount: 3, plan: 'Enterprise', status: 'Aktivan' },
+        { code: 'TEN-002', name: 'Firma Dva d.o.o.', jib: '4220002220002', pdv: '220002220002', city: 'Mostar', adminEmail: 'tenant.admin@firma-dva.ba', years: ['2026', '2025'], storesCount: 2, plan: 'Standard', status: 'Aktivan' }
+      ],
+      outboxEmails: [
+        { date: '07.11.2026. 08:15', to: 'tenant.admin@firma-jedan.ba', type: 'Administratorski račun tenanta', tenant: 'TEN-001', user: 'tenant.admin', tempPass: 'WP-9482Km!' },
+        { date: '06.11.2026. 14:20', to: 'tenant.admin@firma-dva.ba', type: 'Administratorski račun tenanta', tenant: 'TEN-002', user: 'tenant.dva', tempPass: 'WP-3310Ax!' }
+      ],
+
+      items: [
+        {
+          sku: '10045', barcode: '3870001001012', name: 'Mljevena kafa Tradicija 500g', category: 'Kafa i napici', uom: 'kom', tax: 17,
+          origin: 'Bosna i Hercegovina', importer: 'Domaća proizvodnja d.o.o.', weighted: false, plu: '',
+          barcodes: [
+            { code: '3870001001012', pack: 'Komad (1x)', mult: 1 },
+            { code: '3870001001098', pack: 'Transportni karton (12x)', mult: 12 }
+          ],
+          normatives: [],
+          prices: {
+            '2026': {
+              'PJ-01': { nc: 6.96, vp: 7.80, mp: 9.90, stock: 64 },
+              'PJ-02': { nc: 6.96, vp: 7.80, mp: 9.40, stock: 140 },
+              'MAG-01': { nc: 6.96, vp: 7.60, mp: 7.80, stock: 520 }
+            },
+            '2025': {
+              'PJ-01': { nc: 6.10, vp: 6.90, mp: 8.80, stock: 38 },
+              'PJ-02': { nc: 6.10, vp: 6.90, mp: 8.50, stock: 90 },
+              'MAG-01': { nc: 6.10, vp: 6.80, mp: 6.90, stock: 210 }
+            }
+          }
+        },
+        {
+          sku: '10088', barcode: '3870003003018', name: 'Suncokretovo ulje 1L', category: 'Prehrana', uom: 'kom', tax: 17,
+          origin: 'Bosna i Hercegovina', importer: 'Prehrana Distribucija d.o.o.', weighted: false, plu: '',
+          barcodes: [
+            { code: '3870003003018', pack: 'Boca 1L (1x)', mult: 1 },
+            { code: '3870003003995', pack: 'Karton (15x 1L)', mult: 15 }
+          ],
+          normatives: [],
+          prices: {
+            '2026': {
+              'PJ-01': { nc: 2.43, vp: 2.75, mp: 3.40, stock: 95 },
+              'PJ-02': { nc: 2.43, vp: 2.75, mp: 3.15, stock: 240 },
+              'MAG-01': { nc: 2.43, vp: 2.65, mp: 2.65, stock: 860 }
+            },
+            '2025': {
+              'PJ-01': { nc: 2.15, vp: 2.45, mp: 2.95, stock: 50 },
+              'PJ-02': { nc: 2.15, vp: 2.45, mp: 2.85, stock: 120 },
+              'MAG-01': { nc: 2.15, vp: 2.40, mp: 2.40, stock: 400 }
+            }
+          }
+        },
+        {
+          sku: '27105', barcode: '2710005004258', name: 'Polutvrdi sir Edamer 45% (Vaga)', category: 'Delikates i vaga', uom: 'kg', tax: 17,
+          origin: 'Njemačka', importer: 'Mliječna Industrija d.o.o.', weighted: true, plu: '01005',
+          barcodes: [{ code: '2710005000005', pack: 'Prefiks vage 27 + PLU 10005', mult: 1 }],
+          normatives: [],
+          prices: {
+            '2026': {
+              'PJ-01': { nc: 9.80, vp: 11.20, mp: 14.50, stock: 22.4 },
+              'PJ-02': { nc: 9.80, vp: 11.20, mp: 13.80, stock: 48.0 },
+              'MAG-01': { nc: 9.80, vp: 10.90, mp: 11.20, stock: 150.0 }
+            },
+            '2025': {
+              'PJ-01': { nc: 8.90, vp: 10.10, mp: 12.90, stock: 14.0 },
+              'PJ-02': { nc: 8.90, vp: 10.10, mp: 12.50, stock: 30.0 },
+              'MAG-01': { nc: 8.90, vp: 9.80, mp: 10.10, stock: 80.0 }
+            }
+          }
+        },
+        {
+          sku: '20012', barcode: '3870002002247', name: 'Prirodna izvorska voda 0,5L', category: 'Kafa i napici', uom: 'kom', tax: 17,
+          origin: 'Bosna i Hercegovina', importer: 'Izvor d.o.o.', weighted: false, plu: '',
+          barcodes: [
+            { code: '3870002002247', pack: 'Boca 0,5L (1x)', mult: 1 },
+            { code: '3870002002995', pack: 'Paket folija (24x)', mult: 24 }
+          ],
+          normatives: [],
+          prices: {
+            '2026': {
+              'PJ-01': { nc: 0.45, vp: 0.58, mp: 0.80, stock: 312 },
+              'PJ-02': { nc: 0.45, vp: 0.58, mp: 0.70, stock: 540 },
+              'MAG-01': { nc: 0.45, vp: 0.55, mp: 0.55, stock: 1800 }
+            },
+            '2025': {
+              'PJ-01': { nc: 0.40, vp: 0.50, mp: 0.70, stock: 180 },
+              'PJ-02': { nc: 0.40, vp: 0.50, mp: 0.65, stock: 300 },
+              'MAG-01': { nc: 0.40, vp: 0.48, mp: 0.50, stock: 950 }
+            }
+          }
+        },
+        {
+          sku: '90010', barcode: '3870009001005', name: 'Gastro Sendvič Classic + Kafa (Normativ)', category: 'Gastro i pekara', uom: 'kom', tax: 17,
+          origin: 'Vlastita proizvodnja', importer: 'Interni pogon PJ-01', weighted: false, plu: '',
+          barcodes: [{ code: '3870009001005', pack: 'Porcija / Meni (1x)', mult: 1 }],
+          normatives: [
+            { compSku: '27105', compName: 'Polutvrdi sir Edamer 45%', qty: 0.080, uom: 'kg', wastePct: 2.0 },
+            { compSku: '10045', compName: 'Mljevena kafa Tradicija', qty: 0.018, uom: 'kg', wastePct: 0.0 }
+          ],
+          prices: {
+            '2026': {
+              'PJ-01': { nc: 2.48, vp: 3.50, mp: 4.50, stock: 40 },
+              'PJ-02': { nc: 2.48, vp: 3.50, mp: 4.20, stock: 65 },
+              'MAG-01': { nc: 2.48, vp: 3.20, mp: 3.50, stock: 0 }
+            },
+            '2025': {
+              'PJ-01': { nc: 2.20, vp: 3.10, mp: 3.90, stock: 25 },
+              'PJ-02': { nc: 2.20, vp: 3.10, mp: 3.80, stock: 40 },
+              'MAG-01': { nc: 2.20, vp: 2.90, mp: 3.10, stock: 0 }
+            }
+          }
+        },
+        {
+          sku: '30041', barcode: '3870004001129', name: 'Čokolada Mliječna 100g', category: 'Slatkiši', uom: 'kom', tax: 17,
+          origin: 'Bosna i Hercegovina', importer: 'Konditor d.o.o.', weighted: false, plu: '',
+          barcodes: [{ code: '3870004001129', pack: 'Komad 100g (1x)', mult: 1 }],
+          normatives: [],
+          prices: {
+            '2026': {
+              'PJ-01': { nc: 1.45, vp: 1.80, mp: 2.30, stock: 128 },
+              'PJ-02': { nc: 1.45, vp: 1.80, mp: 2.15, stock: 210 },
+              'MAG-01': { nc: 1.45, vp: 1.75, mp: 1.80, stock: 600 }
+            },
+            '2025': {
+              'PJ-01': { nc: 1.30, vp: 1.60, mp: 2.00, stock: 90 },
+              'PJ-02': { nc: 1.30, vp: 1.60, mp: 1.90, stock: 140 },
+              'MAG-01': { nc: 1.30, vp: 1.55, mp: 1.60, stock: 400 }
+            }
+          }
+        }
+      ],
+
+      partners: [
+        { code: 'DOB-001', name: 'Dobavljač Jedan d.o.o.', type: 'Dobavljač', jib: '4200100010001', pdv: '200100010001', city: 'Sarajevo', dueDays: 30, rebate: 5.0 },
+        { code: 'DOB-002', name: 'Prehrana Distribucija d.o.o.', type: 'Dobavljač', jib: '4200200020002', pdv: '200200020002', city: 'Tuzla', dueDays: 45, rebate: 8.0 },
+        { code: 'KUP-101', name: 'Kupac Privreda d.o.o. (VP / Virman)', type: 'Kupac (VP)', jib: '4200300030003', pdv: '200300030003', city: 'Sarajevo', dueDays: 15, rebate: 3.0 },
+        { code: 'KUP-102', name: 'Ugostiteljstvo Centar d.o.o.', type: 'Kupac (VP)', jib: '4200400040004', pdv: '200400040004', city: 'Zenica', dueDays: 7, rebate: 5.0 }
+      ],
+
+      calculations: [
+        { num: 'KAL-2026-0142', date: '07.11.2026.', store: 'PJ-01', partner: 'Dobavljač Jedan d.o.o.', inv: 'RN-8841/26', ncTotal: 1392.00, mpTotal: 1980.00, levelingDoc: 'NIV-2026-0039 (+25,60 KM)', status: 'Proknjiženo' },
+        { num: 'KAL-2026-0141', date: '05.11.2026.', store: 'PJ-01', partner: 'Prehrana Distribucija d.o.o.', inv: 'FAK-412/26', ncTotal: 840.50, mpTotal: 1145.00, levelingDoc: 'Bez promjene cijene', status: 'Proknjiženo' }
+      ],
+
+      transfers: [
+        { num: 'MS-2026-0058', date: '07.11.2026.', from: 'PJ-01 · Market Centar', to: 'PJ-02 · Hipermarket Zapad', item: 'Mljevena kafa Tradicija 500g', qty: 20, oldMp: 9.90, newMp: 9.40, diffTotal: -10.00, status: 'Proknjiženo (Dvostruka nivelacija)' }
+      ],
+
+      levelings: [
+        { num: 'NIV-2026-0039', date: '07.11.2026.', store: 'PJ-01', type: 'Automatska (uz KAL-2026-0142)', item: 'Mljevena kafa Tradicija 500g', stockQty: 64, oldMp: 9.50, newMp: 9.90, diff: +25.60 },
+        { num: 'NIV-2026-0038', date: '03.11.2026.', store: 'PJ-02', type: 'Ručna akcijska nivelacija', item: 'Suncokretovo ulje 1L', stockQty: 240, oldMp: 3.40, newMp: 3.15, diff: -60.00 }
+      ],
+
+      otherDocs: [
+        { num: 'VP-2026-0088', type: 'Veleprodajna faktura', date: '07.11.2026.', store: 'MAG-01', partner: 'Kupac Privreda d.o.o.', amount: 1450.00, status: 'Fiskalizovano / Virman' },
+        { num: 'POV-2026-0012', type: 'Povrat dobavljaču (Knjižno odobrenje)', date: '04.11.2026.', store: 'PJ-01', partner: 'Dobavljač Jedan d.o.o.', amount: -139.20, status: 'Proknjiženo' },
+        { num: 'OTP-2026-0009', type: 'Kalo, rastur, kvar i lom', date: '02.11.2026.', store: 'PJ-01', partner: 'Interna komisija PJ-01', amount: -42.50, status: 'Proknjiženo' }
+      ],
+
+      receiptsHistory: [
+        { num: 'BF-14290', date: '07.11.2026. 10:14', store: 'PJ-01', terminal: 'K1', cashier: 'radnik.jedan', type: 'Maloprodajni račun', payment: 'Gotovina', total: 29.36, status: 'Fiskalizovan' },
+        { num: 'BF-14289', date: '07.11.2026. 09:58', store: 'PJ-01', terminal: 'K1', cashier: 'radnik.jedan', type: 'Identifikovani VP (JIB: 4200300030003)', payment: 'Virman / Odgođeno', total: 198.00, status: 'Fiskalizovan' },
+        { num: 'REK-00412', date: '06.11.2026. 17:20', store: 'PJ-01', terminal: 'K1', cashier: 'radnik.dva', type: 'Reklamirani / Storno (veza BF-14250)', payment: 'Gotovina', total: -9.90, status: 'Storniran' }
+      ]
+    };
+
+    // Formatiranje brojeva sa decimalnim zarezom (bosanski standard iz Poglavlja 8)
+    function fmt(val, dec = 2) {
+      const n = Number(val || 0);
+      const parts = n.toFixed(dec).split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      return parts.join(',');
+    }
+
+    function showToast(msg) {
+      const bar = document.getElementById('toastBar');
+      document.getElementById('toastMsg').textContent = msg;
+      bar.classList.remove('hidden');
+      setTimeout(() => bar.classList.add('hidden'), 4500);
+    }
+
+    function getItemPriceObj(item, storeCode = state.activeStore, year = state.activeYear) {
+      const byYear = item.prices[year] || item.prices['2026'];
+      return byYear[storeCode] || byYear['PJ-01'] || { nc: 0, vp: 0, mp: 0, stock: 0 };
+    }
+
+    // =========================================================================
+    // 2. KOMPLETNA MAPA SVIH OPCIJA PROGRAMA (GLAVNA FORMA — LIJEVI MENI)
+    // =========================================================================
+    const NAV_SECTIONS = [
+      {
+        label: 'Prodaja i Kasa',
+        items: [
+          { id: 'pos', title: 'POS Kasa (Terminal)', icon: '▣', kbd: 'F1' },
+          { id: 'receipts', title: 'Pregled i storno računa', icon: '🧾', kbd: 'F9' },
+          { id: 'dashboard', title: 'Početna · Glavna forma', icon: '◈', kbd: '' }
+        ]
+      },
+      {
+        label: 'Registri (Šifarnici)',
+        items: [
+          { id: 'items', title: 'Registar artikala', icon: '▤', kbd: 'F2' },
+          { id: 'pricelists', title: 'Cjenovnici po objektima', icon: '🏷', kbd: 'F3' },
+          { id: 'partners', title: 'Kupci i dobavljači', icon: '👥', kbd: 'F4' },
+          { id: 'stores', title: 'Objekti, kase i PDV stope', icon: '🏢', kbd: '' },
+          { id: 'labels', title: 'Deklaracije i cijene za police', icon: '⎙', kbd: '' }
+        ]
+      },
+      {
+        label: 'Robno-materijalno',
+        items: [
+          { id: 'calc-new', title: 'Ulazne kalkulacije', icon: '＋', kbd: 'F6' },
+          { id: 'transfer-new', title: 'Prelokacije (Međuskladišnice)', icon: '⇄', kbd: 'F7' },
+          { id: 'levelings', title: 'Nivelacije cijena', icon: '⇅', kbd: '' },
+          { id: 'other-docs', title: 'VP Fakture, Povrat i Otpis', icon: '📄', kbd: '' },
+          { id: 'inventory', title: 'Inventure i skeniranje', icon: '📋', kbd: '' }
+        ]
+      },
+      {
+        label: 'Knjige i Administracija',
+        items: [
+          { id: 'kep', title: 'KEP / TKP Trgovačka knjiga', icon: '📘', kbd: '' },
+          { id: 'superadmin', title: 'Tenanti i Poslovne godine', icon: '⚙', kbd: '' }
+        ]
+      }
+    ];
+
+    function findNavMeta(id) {
+      for (const sec of NAV_SECTIONS) {
+        const found = sec.items.find(x => x.id === id);
+        if (found) return found;
+      }
+      return { id, title: id, icon: '•' };
+    }
+
+    function openTab(id) {
+      const meta = findNavMeta(id);
+      if (!state.openTabs.some(t => t.id === id)) {
+        state.openTabs.push({ id: meta.id, title: meta.title, icon: meta.icon });
+      }
+      state.activeTab = id;
+      renderAll();
+    }
+
+    function closeTab(id, ev) {
+      if (ev) ev.stopPropagation();
+      if (state.openTabs.length <= 1) return;
+      state.openTabs = state.openTabs.filter(t => t.id !== id);
+      if (state.activeTab === id) {
+        state.activeTab = state.openTabs[state.openTabs.length - 1].id;
+      }
+      renderAll();
+    }
+
+    function renderSidebarAndTabs() {
+      document.getElementById('activeUserLabel').textContent = state.currentUser.username + ' (' + state.currentUser.role + ')';
+      const activeTenantObj = state.tenants.find(t => t.code === state.activeTenant) || state.tenants[0];
+      document.getElementById('sidebarTenantName').textContent = activeTenantObj.code + ' · ' + activeTenantObj.name;
+
+      // Render Sidebar
+      const navEl = document.getElementById('sidebarNav');
+      navEl.innerHTML = NAV_SECTIONS.map(sec => `
+        <div class="nav-group-label">${sec.label}</div>
+        ${sec.items.map(it => `
+          <button class="nav-btn ${state.activeTab === it.id ? 'active' : ''}" onclick="openTab('${it.id}')">
+            <span class="nav-btn-left">
+              <span class="nav-icon">${it.icon}</span>
+              <span class="nav-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${it.title}</span>
+            </span>
+            ${it.kbd ? `<span class="kbd nav-text">${it.kbd}</span>` : ''}
+          </button>
+        `).join('')}
+      `).join('');
+
+      // Render Open Workspace Tabs
+      const tabsEl = document.getElementById('openTabsBar');
+      tabsEl.innerHTML = state.openTabs.map(t => `
+        <div class="ws-tab ${state.activeTab === t.id ? 'active' : ''}" onclick="openTab('${t.id}')">
+          <span>${t.icon}</span>
+          <span>${t.title}</span>
+          ${state.openTabs.length > 1 ? `<span class="ws-tab-close" onclick="closeTab('${t.id}', event)">✕</span>` : ''}
+        </div>
+      `).join('');
+    }
+
+    // =========================================================================
+    // 3. EKRAN 1: MODERNA POS KASA (TERMINAL PRODAJE)
+    // =========================================================================
+    function renderPosView() {
+      const categories = ['SVE', 'Kafa i napici', 'Prehrana', 'Delikates i vaga', 'Gastro i pekara', 'Slatkiši'];
+      const filteredItems = state.items.filter(it => {
+        const matchCat = state.posCategory === 'SVE' || it.category === state.posCategory;
+        const q = state.posSearch.trim().toLowerCase();
+        const matchQ = !q || it.name.toLowerCase().includes(q) || it.sku.includes(q) || it.barcode.includes(q);
+        return matchCat && matchQ;
+      });
+
+      let subtotal = 0;
+      let discountTotal = 0;
+      state.cart.forEach(line => {
+        const gross = line.qty * line.price;
+        const discAmt = gross * (line.disc / 100);
+        subtotal += gross;
+        discountTotal += discAmt;
+      });
+      const grandTotal = Math.max(0, subtotal - discountTotal);
+      const vatIncluded = grandTotal - (grandTotal / 1.17);
+      const netBase = grandTotal - vatIncluded;
+      const givenNum = parseFloat(String(state.posCashGiven).replace(',', '.')) || 0;
+      const changeAmt = givenNum > grandTotal ? (givenNum - grandTotal) : 0;
+
+      return `
+        <div class="pos-grid">
+          <!-- LIJEVA STRANA: SKENER, KATEGORIJE, KATALOG ARTIKALA I FUNKCIJSKE TIPKE -->
+          <div class="pos-catalog-pane">
+            <!-- Gornja traka skenera i statusa kase -->
+            <div class="card" style="padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+              <div style="position: relative; flex: 1;">
+                <input id="posScannerInput" class="input mono" style="padding-left: 12px; font-size: 13.5px; font-weight: 600; height: 38px;"
+                  placeholder="Skenirajte barkod, vagani kod (2710005004258), 5*barkod ili tražite naziv..."
+                  value="${state.posSearch}"
+                  oninput="state.posSearch=this.value; renderPosCatalogOnly()"
+                  onkeydown="if(event.key==='Enter') handlePosBarcodeScan(this.value)" />
+              </div>
+              <button class="btn btn-outline" onclick="handlePosBarcodeScan('2710005003600')" title="Simuliraj skeniranje naljepnice sa vage (27 + PLU 10005 + 0,360 kg)">
+                ⚖ Vagani kod (0,360 kg)
+              </button>
+              <button class="btn btn-outline" onclick="openHoldModal()">
+                ⏸ Na čekanju (${state.heldReceipts.length})
+              </button>
+              <button class="btn btn-outline" onclick="openTab('receipts')" style="color: var(--rose);">
+                ↺ Storno / Reklamacija (F9)
+              </button>
+            </div>
+
+            <!-- Traka kategorija -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;">
+                ${categories.map(cat => `
+                  <button class="cat-chip ${state.posCategory === cat ? 'active' : ''}" onclick="state.posCategory='${cat}'; renderAll()">
+                    ${cat}
+                  </button>
+                `).join('')}
+              </div>
+              <span style="font-size: 11.5px; color: var(--text-muted); white-space: nowrap;">
+                Objekat: <strong>${state.activeStore}</strong> · Godina: <strong>${state.activeYear}</strong>
+              </span>
+            </div>
+
+            <!-- Mreža artikala -->
+            <div id="posCatalogGrid" style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; align-content: start;">
+              ${filteredItems.map(it => {
+                const p = getItemPriceObj(it);
+                return `
+                  <div class="product-tile" onclick="addItemToPosCart('${it.sku}', 1)">
+                    <div>
+                      <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-bottom: 5px;">
+                        <span class="mono" style="font-size: 11px; color: var(--text-muted);">#${it.sku}</span>
+                        <span class="pill ${it.weighted ? 'pill-amber' : (it.normatives.length ? 'pill-sky' : 'pill-neutral')}" style="font-size: 10px;">
+                          ${it.weighted ? '⚖ Vaga (kg)' : (it.normatives.length ? '⚙ Normativ' : 'Zaliha: ' + fmt(p.stock, 0) + ' ' + it.uom)}
+                        </span>
+                      </div>
+                      <div style="font-weight: 700; font-size: 13px; color: var(--text-primary); line-height: 1.3;">${it.name}</div>
+                    </div>
+                    <div style="display: flex; align-items: baseline; justify-content: space-between; border-top: 1px dashed var(--border-hairline); padding-top: 7px; margin-top: 4px;">
+                      <span style="font-size: 11px; color: var(--text-muted);">PDV ${it.tax}%</span>
+                      <span class="num" style="font-size: 15px; font-weight: 800; color: var(--accent);">${fmt(p.mp)} <small style="font-size:11px;font-weight:600;">KM</small></span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Donja statusna traka terminala -->
+            <div class="card" style="padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--text-muted);">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <span><strong style="color:var(--emerald);">● FISKALNI UREĐAJ:</strong> Spreman (Kasa #1)</span>
+                <span><strong>LOKALNA BAZA:</strong> SQLite WAL (0 računa u redu za sync)</span>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <span class="kbd">F2 Artikli</span>
+                <span class="kbd">F4 Kupac (VP)</span>
+                <span class="kbd">F5 Gotovina</span>
+                <span class="kbd">F6 Kartica</span>
+                <span class="kbd">F8 Virman</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- DESNA STRANA: DIGITALNA TRAKA FISKALNOG RAČUNA + NUMERIČKI TASTATURA + NAPLATA -->
+          <div class="pos-receipt-pane">
+            <!-- Zaglavlje računa + Identifikacija kupca (JIB/VP) -->
+            <div style="padding: 12px 14px; border-bottom: 1px solid var(--border-hairline); display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--bg-subtle);">
+              <div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-weight: 800; font-size: 13.5px;">Račun #BF-14291</span>
+                  <span class="pill ${state.posCustomer ? 'pill-amber' : 'pill-emerald'}">${state.posCustomer ? 'VP / Identifikovani kupac' : 'Maloprodaja'}</span>
+                </div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                  ${state.posCustomer ? ('Kupac: <strong>' + state.posCustomer.name + '</strong> (JIB: ' + state.posCustomer.jib + ')') : 'Fizičko lice · Standardni fiskalni račun'}
+                </div>
+              </div>
+              <div style="display: flex; gap: 5px;">
+                <button class="btn btn-outline" style="padding: 5px 8px; font-size: 11.5px;" onclick="selectPosCustomerModal()">
+                  ${state.posCustomer ? 'Promijeni kupca' : '+ JIB / Kupac (F4)'}
+                </button>
+                <button class="btn btn-ghost" style="padding: 5px 8px; color: var(--rose);" onclick="clearPosCart()" title="Očisti račun">✕</button>
+              </div>
+            </div>
+
+            <!-- Lista stavki na računu -->
+            <div style="flex: 1; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; background: var(--bg-receipt);">
+              ${state.cart.length === 0 ? `
+                <div style="margin: auto; text-align: center; color: var(--text-muted); padding: 30px 10px;">
+                  <div style="font-size: 24px; margin-bottom: 6px;">▣</div>
+                  <div style="font-weight: 600;">Račun je prazan</div>
+                  <div style="font-size: 11.5px;">Skenirajte barkod ili kliknite na artikal sa lijeve strane</div>
+                </div>
+              ` : state.cart.map((line, idx) => {
+                const lineTotal = line.qty * line.price * (1 - line.disc / 100);
+                return `
+                  <div style="padding: 8px 10px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-hairline); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="min-width: 0; flex: 1;">
+                      <div style="font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${idx + 1}. ${line.name}
+                      </div>
+                      <div class="mono" style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+                        <span>${fmt(line.qty, line.uom === 'kg' ? 3 : 0)} ${line.uom} × ${fmt(line.price)} KM</span>
+                        ${line.disc > 0 ? `<span class="pill pill-amber" style="font-size:10px;padding:0 5px;">-${fmt(line.disc, 0)}% rabat</span>` : ''}
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                      <button class="btn btn-outline" style="padding: 2px 7px; font-size: 12px;" onclick="changeCartQty(${idx}, -1)">−</button>
+                      <button class="btn btn-outline" style="padding: 2px 7px; font-size: 12px;" onclick="changeCartQty(${idx}, 1)">+</button>
+                      <button class="btn btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="promptLineDiscount(${idx})" title="Rabat na stavku">%</button>
+                      <div class="num" style="font-weight: 800; font-size: 13.5px; min-width: 68px; text-align: right;">${fmt(lineTotal)}</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Poreska rekapitulacija i veliki total -->
+            <div style="padding: 12px 14px; border-top: 1px solid var(--border-hairline); background: var(--bg-subtle);">
+              <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted); margin-bottom: 3px;">
+                <span>Osnovica bez PDV-a: <strong class="num">${fmt(netBase)} KM</strong></span>
+                <span>PDV E (17%): <strong class="num">${fmt(vatIncluded)} KM</strong></span>
+                ${discountTotal > 0 ? `<span style="color:var(--amber);">Popust: -${fmt(discountTotal)} KM</span>` : ''}
+              </div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; padding-top: 6px; border-top: 1px solid var(--border-hairline);">
+                <span style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary);">Ukupno za naplatu</span>
+                <span class="num" style="font-size: 26px; font-weight: 800; color: var(--text-primary);">${fmt(grandTotal)} <small style="font-size: 13px; color: var(--text-muted);">KM</small></span>
+              </div>
+            </div>
+
+            <!-- Brzi apoeni gotovine i izračun kusura -->
+            <div style="padding: 10px 14px; border-top: 1px solid var(--border-hairline); background: var(--bg-surface); display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Primljeno (KM):</span>
+                <input class="input num" style="height: 30px; font-weight: 700; width: 92px;" placeholder="${fmt(grandTotal)}" value="${state.posCashGiven}" oninput="state.posCashGiven=this.value; renderAll()" />
+                <button class="btn btn-outline" style="padding: 4px 7px; font-size: 11px;" onclick="state.posCashGiven=String(${grandTotal.toFixed(2)}); renderAll()">Tačno</button>
+                <button class="btn btn-outline" style="padding: 4px 7px; font-size: 11px;" onclick="state.posCashGiven='10'; renderAll()">10</button>
+                <button class="btn btn-outline" style="padding: 4px 7px; font-size: 11px;" onclick="state.posCashGiven='20'; renderAll()">20</button>
+                <button class="btn btn-outline" style="padding: 4px 7px; font-size: 11px;" onclick="state.posCashGiven='50'; renderAll()">50</button>
+                <button class="btn btn-outline" style="padding: 4px 7px; font-size: 11px;" onclick="state.posCashGiven='100'; renderAll()">100</button>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 7px; background: var(--emerald-soft); color: var(--emerald-text); font-size: 12px; font-weight: 700;">
+                <span>Kusur za vratiti kupcu:</span>
+                <span class="num" style="font-size: 14px;">${fmt(changeAmt)} KM</span>
+              </div>
+
+              <!-- Glavne tipke naplate i fiskalizacije -->
+              <div style="display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 7px;">
+                <button class="btn btn-emerald" style="padding: 11px 10px; font-size: 13px;" onclick="completePosCheckout('Gotovina')">
+                  💵 F5 Gotovina
+                </button>
+                <button class="btn btn-primary" style="padding: 11px 10px; font-size: 12.5px;" onclick="completePosCheckout('Kartica')">
+                  💳 F6 Kartica
+                </button>
+                <button class="btn btn-outline" style="padding: 11px 8px; font-size: 12px;" onclick="openSplitPaymentModal(${grandTotal})">
+                  ⚖ Kombinovano
+                </button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 7px;">
+                <button class="btn btn-outline" style="padding: 7px;" onclick="completePosCheckout('Virman / Odgođeno')">
+                  🏦 F8 Virman / VP Faktura
+                </button>
+                <button class="btn btn-outline" style="padding: 7px;" onclick="holdCurrentReceipt(${grandTotal})">
+                  ⏸ Stavi račun na čekanje
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 4. EKRAN 2: POČETNA · GLAVNA FORMA (PREGLED I BRZI POZIV REGISTARA)
+    // =========================================================================
+    function renderDashboardView() {
+      return `
+        <div style="padding: 20px; display: flex; flex-direction: column; gap: 18px; max-width: 1400px; margin: 0 auto;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h1 style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em;">Glavna forma · Pregled poslovanja (${state.activeStore}, Poslovna ${state.activeYear}.)</h1>
+              <p style="font-size: 12.5px; color: var(--text-muted);">
+                Svi tenanti i sve poslovne godine u jednoj bazi (PostgreSQL centralno + SQLite WAL lokalno na kasi).
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-outline" onclick="openTab('superadmin')">⚙ Super-Admin: Tenanti i Poslovne godine</button>
+              <button class="btn btn-primary" onclick="openTab('pos')">▣ Otvori POS Kasu (F1)</button>
+            </div>
+          </div>
+
+          <!-- Ključni pokazatelji za odabrani objekat i poslovnu godinu -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+            <div class="card" style="padding: 14px 16px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Dnevni promet (${state.activeStore})</div>
+              <div class="num" style="font-size: 22px; font-weight: 800; margin-top: 4px;">4.820,50 KM</div>
+              <div style="font-size: 11.5px; color: var(--emerald); margin-top: 3px;">142 fiskalizovana računa danas</div>
+            </div>
+            <div class="card" style="padding: 14px 16px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Vrijednost zaliha po MP (${state.activeYear})</div>
+              <div class="num" style="font-size: 22px; font-weight: 800; margin-top: 4px;">84.190,00 KM</div>
+              <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 3px;">Prosječna marža objekta: 29,40%</div>
+            </div>
+            <div class="card" style="padding: 14px 16px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Aktivni tenanti / godine u bazi</div>
+              <div class="num" style="font-size: 22px; font-weight: 800; margin-top: 4px;">${state.tenants.length} tenanta · 2 godine</div>
+              <div style="font-size: 11.5px; color: var(--accent); margin-top: 3px;">Izolacija: TenantId + FiscalYear</div>
+            </div>
+            <div class="card" style="padding: 14px 16px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Status sinhronizacije kasa</div>
+              <div class="num" style="font-size: 22px; font-weight: 800; color: var(--emerald); margin-top: 4px;">100% Sinhronizovano</div>
+              <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 3px;">PostgreSQL ⇄ Lokalni SQLite WAL</div>
+            </div>
+          </div>
+
+          <!-- Brzi lanser svih modula i registara -->
+          <div class="card" style="padding: 16px;">
+            <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 12px;">
+              Direktno pozivanje registara, robnih dokumenata i izvještaja iz Glavne forme
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('items')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">▤ Registar artikala</span><span class="kbd">F2</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Više barkodova, normativi, deklaracije i vage</div>
+              </div>
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('pricelists')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">🏷 Cjenovnici po objektima</span><span class="kbd">F3</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Različite MP i VP cijene za PJ-01, PJ-02 i Magacin</div>
+              </div>
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('partners')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">👥 Kupci i dobavljači</span><span class="kbd">F4</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">JIB/PDV, valute plaćanja i rabatne skale</div>
+              </div>
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('calc-new')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">＋ Ulazne kalkulacije</span><span class="kbd">F6</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Prijem robe sa automatskom nivelacijom cijena</div>
+              </div>
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('transfer-new')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">⇄ Prelokacije objekata</span><span class="kbd">F7</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Međuskladišnice s dvostrukom nivelacijom</div>
+              </div>
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('labels')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">⎙ Štampa deklaracija i cijena</span><span class="pill pill-sky">PDF/ZPL</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Etikete za police, cijena po kg/l i uvoznik</div>
+              </div>
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('inventory')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">📋 Inventure i skeniranje</span><span class="pill pill-emerald">Mobilni</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Popis zaliha barkod skenerom i knjiženje razlika</div>
+              </div>
+              <div class="product-tile" style="min-height: 76px;" onclick="openTab('kep')">
+                <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">📘 KEP / TKP Knjiga</span><span class="pill pill-amber">Excel</span></div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Zakonska trgovačka knjiga zaduženja i razduženja</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 5. EKRAN 3: PREGLED I STORNO / REKLAMACIJA FISKALNIH RAČUNA (F9)
+    // =========================================================================
+    function renderReceiptsView() {
+      return `
+        <div style="padding: 20px; max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h1 style="font-size: 18px; font-weight: 800;">Pregled izdatih računa i Storno / Reklamacija (F9)</h1>
+              <p style="font-size: 12px; color: var(--text-muted);">Svaki reklamirani račun obavezno čuva referencu na originalni broj fiskalnog računa.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openTab('pos')">← Povratak na POS Kasu</button>
+          </div>
+          <div class="card" style="overflow: hidden;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Broj računa</th>
+                  <th>Datum i vrijeme</th>
+                  <th>Objekat / Kasa</th>
+                  <th>Blagajnik</th>
+                  <th>Vrsta računa</th>
+                  <th>Način plaćanja</th>
+                  <th style="text-align:right;">Ukupan iznos</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Akcija</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${state.receiptsHistory.map((r, i) => `
+                  <tr>
+                    <td class="mono" style="font-weight:700;">${r.num}</td>
+                    <td class="mono">${r.date}</td>
+                    <td>${r.store} / ${r.terminal}</td>
+                    <td class="mono">${r.cashier}</td>
+                    <td>${r.type}</td>
+                    <td>${r.payment}</td>
+                    <td class="num" style="text-align:right;font-weight:800;color:${r.total < 0 ? 'var(--rose)' : 'var(--text-primary)'};">${fmt(r.total)} KM</td>
+                    <td><span class="pill ${r.total < 0 ? 'pill-rose' : 'pill-emerald'}">${r.status}</span></td>
+                    <td style="text-align:right;">
+                      ${r.total > 0 ? `<button class="btn btn-outline" style="padding:4px 9px;font-size:11.5px;color:var(--rose);" onclick="stornoReceipt(${i})">↺ Storniraj / Reklamiraj</button>` : '<span style="font-size:11px;color:var(--text-muted);">Storniran</span>'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 6. EKRAN 4: REGISTAR ARTIKALA (SA TABOVIMA: BARKODOVI, NORMATIV, DEKLARACIJA)
+    // =========================================================================
+    function renderItemsRegistryView() {
+      const sel = state.items.find(x => x.sku === state.selectedItemSku) || state.items[0];
+      const p26 = getItemPriceObj(sel, state.activeStore, state.activeYear);
+
+      return `
+        <div style="padding: 18px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; height: calc(100vh - 54px); overflow: hidden;">
+          <!-- Lijeva tabela artikala -->
+          <div class="card" style="display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 12px 14px; border-bottom: 1px solid var(--border-hairline); display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+              <div>
+                <h2 style="font-size: 15px; font-weight: 800;">Registar artikala (F2)</h2>
+                <div style="font-size: 11.5px; color: var(--text-muted);">Kliknite na artikal za pregled barkodova, normativa, deklaracije i cijena po objektima</div>
+              </div>
+              <button class="btn btn-primary" onclick="openNewItemModal()">+ Novi artikal</button>
+            </div>
+            <div style="flex: 1; overflow-y: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Šifra</th>
+                    <th>Primarni barkod</th>
+                    <th>Naziv artikla</th>
+                    <th>JM</th>
+                    <th style="text-align:right;">NC (${state.activeStore})</th>
+                    <th style="text-align:right;">MP (${state.activeStore})</th>
+                    <th style="text-align:right;">Zaliha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${state.items.map(it => {
+                    const pr = getItemPriceObj(it);
+                    const isSel = it.sku === sel.sku;
+                    return `
+                      <tr style="cursor:pointer;${isSel ? 'background:var(--bg-active);' : ''}" onclick="state.selectedItemSku='${it.sku}'; renderAll()">
+                        <td class="mono" style="font-weight:700;">${it.sku}</td>
+                        <td class="mono" style="font-size:11.5px;color:var(--text-muted);">${it.barcode}</td>
+                        <td style="font-weight:600;">${it.name}</td>
+                        <td>${it.uom}</td>
+                        <td class="num" style="text-align:right;">${fmt(pr.nc)}</td>
+                        <td class="num" style="text-align:right;font-weight:700;color:var(--accent);">${fmt(pr.mp)}</td>
+                        <td class="num" style="text-align:right;">${fmt(pr.stock, it.uom==='kg'?2:0)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Desni detaljni karton artikla sa 5 pod-tabova -->
+          <div class="card" style="display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-hairline); background: var(--bg-subtle);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="mono pill pill-sky">Šifra #${sel.sku} · EAN ${sel.barcode}</span>
+                <span class="pill pill-emerald">PDV ${sel.tax}%</span>
+              </div>
+              <h3 style="font-size: 16px; font-weight: 800; margin-top: 6px;">${sel.name}</h3>
+              <div style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;">
+                ${[
+                  { id: 'osnovno', label: '1. Osnovni podaci' },
+                  { id: 'barkodovi', label: '2. Više barkodova (' + sel.barcodes.length + ')' },
+                  { id: 'normativ', label: '3. Normativ / Sastavnica' },
+                  { id: 'deklaracija', label: '4. Deklaracija' },
+                  { id: 'stanja', label: '5. Cijene po objektima' }
+                ].map(st => `
+                  <button class="btn ${state.selectedItemSubTab === st.id ? 'btn-primary' : 'btn-outline'}" style="padding: 5px 10px; font-size: 11.5px;"
+                    onclick="state.selectedItemSubTab='${st.id}'; renderAll()">${st.label}</button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div style="padding: 16px; flex: 1; overflow-y: auto;">
+              ${renderItemSubTabContent(sel, p26)}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderItemSubTabContent(sel, p26) {
+      if (state.selectedItemSubTab === 'osnovno') {
+        return `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div><label class="label">Šifra artikla (SKU)</label><input class="input mono" value="${sel.sku}" readonly /></div>
+            <div><label class="label">Primarni EAN barkod</label><input class="input mono" value="${sel.barcode}" /></div>
+            <div style="grid-column: span 2;"><label class="label">Pun naziv artikla</label><input class="input" value="${sel.name}" /></div>
+            <div><label class="label">Kategorija</label><input class="input" value="${sel.category}" /></div>
+            <div><label class="label">Jedinica mjere</label><input class="input" value="${sel.uom}" /></div>
+            <div><label class="label">Nabavna cijena (${state.activeStore})</label><input class="input num" value="${fmt(p26.nc)} KM" /></div>
+            <div><label class="label">Maloprodajna cijena (${state.activeStore})</label><input class="input num" style="font-weight:700;color:var(--accent);" value="${fmt(p26.mp)} KM" /></div>
+            <div style="grid-column: span 2; padding-top: 8px;">
+              <button class="btn btn-emerald" onclick="showToast('Izmjene na artiklu #' + '${sel.sku}' + ' sačuvane u bazu.')">✓ Sačuvaj izmjene artikla</button>
+            </div>
+          </div>
+        `;
+      }
+      if (state.selectedItemSubTab === 'barkodovi') {
+        return `
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+            Jedan artikal može imati neograničen broj barkodova (pojedinačni komad, transportni paket, paleta ili interni kod vage).
+          </p>
+          <table class="data-table">
+            <thead><tr><th>Barkod (EAN)</th><th>Vrsta pakovanja</th><th style="text-align:right;">Množilac količine</th></tr></thead>
+            <tbody>
+              ${sel.barcodes.map(b => `
+                <tr><td class="mono" style="font-weight:700;">${b.code}</td><td>${b.pack}</td><td class="num" style="text-align:right;">${b.mult}x</td></tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <button class="btn btn-outline" style="margin-top: 12px;" onclick="addBarcodeToSelectedItem()">+ Dodaj novi barkod pakovanja</button>
+        `;
+      }
+      if (state.selectedItemSubTab === 'normativ') {
+        return `
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+            Sastavnica (Normativ) automatski razdužuje utrošene sirovine sa zaliha prilikom prodaje složenog artikla na POS kasi.
+          </p>
+          ${sel.normatives.length === 0 ? `
+            <div style="padding: 18px; border-radius: 8px; background: var(--bg-subtle); border: 1px dashed var(--border-strong); text-align: center; color: var(--text-muted);">
+              Ovaj artikal je obična trgovačka roba (nema sastavnicu). Odaberite artikal <strong>#90010 Gastro Sendvič Classic + Kafa</strong> u tabeli lijevo da vidite aktivnu sastavnicu.
+            </div>
+          ` : `
+            <table class="data-table">
+              <thead><tr><th>Šifra komponente</th><th>Naziv sirovine</th><th style="text-align:right;">Utrošak</th><th>JM</th><th style="text-align:right;">Kalo %</th></tr></thead>
+              <tbody>
+                ${sel.normatives.map(n => `
+                  <tr><td class="mono">${n.compSku}</td><td>${n.compName}</td><td class="num" style="text-align:right;font-weight:700;">${fmt(n.qty, 3)}</td><td>${n.uom}</td><td class="num" style="text-align:right;">${fmt(n.wastePct, 1)}%</td></tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `}
+        `;
+      }
+      if (state.selectedItemSubTab === 'deklaracija') {
+        return `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div><label class="label">Zemlja porijekla</label><input class="input" value="${sel.origin}" /></div>
+            <div><label class="label">Uvoznik / Proizvođač</label><input class="input" value="${sel.importer}" /></div>
+            <div style="grid-column: span 2;">
+              <label class="label">Tekst deklaracije / Sastav za štampu etikete</label>
+              <textarea class="input" rows="3">Naziv: ${sel.name}. Zemlja porijekla: ${sel.origin}. Distributer/Uvoznik: ${sel.importer}. Čuvati na suhom i hladnom mjestu.</textarea>
+            </div>
+            <div style="grid-column: span 2;">
+              <button class="btn btn-primary" onclick="openTab('labels')">⎙ Otvori štampu deklaracije i cijene za policu</button>
+            </div>
+          </div>
+        `;
+      }
+      // Stanja po objektima i poslovnim godinama
+      return `
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+          Prikaz cijena i zaliha artikla kroz sve poslovne jedinice za aktivnu poslovnu godinu (<strong>${state.activeYear}</strong>):
+        </p>
+        <table class="data-table">
+          <thead><tr><th>Objekat</th><th style="text-align:right;">Nabavna (NC)</th><th style="text-align:right;">Veleprodajna (VP)</th><th style="text-align:right;">Maloprodajna (MP)</th><th style="text-align:right;">Zaliha</th></tr></thead>
+          <tbody>
+            ${['PJ-01', 'PJ-02', 'MAG-01'].map(stCode => {
+              const stPrice = getItemPriceObj(sel, stCode, state.activeYear);
+              return `
+                <tr>
+                  <td style="font-weight:700;">${stCode}</td>
+                  <td class="num" style="text-align:right;">${fmt(stPrice.nc)} KM</td>
+                  <td class="num" style="text-align:right;">${fmt(stPrice.vp)} KM</td>
+                  <td class="num" style="text-align:right;font-weight:700;color:var(--accent);">${fmt(stPrice.mp)} KM</td>
+                  <td class="num" style="text-align:right;font-weight:700;">${fmt(stPrice.stock, sel.uom==='kg'?2:0)} ${sel.uom}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // =========================================================================
+    // 7. EKRAN 5: CJENOVNICI PO OBJEKTIMA (F3)
+    // =========================================================================
+    function renderPricelistsView() {
+      return `
+        <div style="padding: 20px; max-width: 1380px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h1 style="font-size: 18px; font-weight: 800;">Cjenovnici i zalihe po prodajnim objektima (Poslovna ${state.activeYear}.)</h1>
+              <p style="font-size: 12px; color: var(--text-muted);">Svaki prodajni objekat ima sopstvenu maloprodajnu cijenu, maržu i zalihu u tabeli StoreItemStates.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openTab('levelings')">⇅ Ručna / Akcijska nivelacija cijena</button>
+          </div>
+          <div class="card" style="overflow: hidden;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Šifra</th>
+                  <th>Artikal</th>
+                  <th style="text-align:right;">Nabavna (NC)</th>
+                  <th style="text-align:right;">PJ-01 Market Centar (MP)</th>
+                  <th style="text-align:right;">PJ-01 Zaliha</th>
+                  <th style="text-align:right;">PJ-02 Hipermarket (MP)</th>
+                  <th style="text-align:right;">PJ-02 Zaliha</th>
+                  <th style="text-align:right;">MAG-01 Magacin (VP)</th>
+                  <th style="text-align:right;">MAG-01 Zaliha</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${state.items.map(it => {
+                  const p1 = getItemPriceObj(it, 'PJ-01', state.activeYear);
+                  const p2 = getItemPriceObj(it, 'PJ-02', state.activeYear);
+                  const pm = getItemPriceObj(it, 'MAG-01', state.activeYear);
+                  return `
+                    <tr>
+                      <td class="mono" style="font-weight:700;">${it.sku}</td>
+                      <td style="font-weight:600;">${it.name}</td>
+                      <td class="num" style="text-align:right;">${fmt(p1.nc)} KM</td>
+                      <td class="num" style="text-align:right;font-weight:700;color:var(--accent);">${fmt(p1.mp)} KM</td>
+                      <td class="num" style="text-align:right;">${fmt(p1.stock, 0)}</td>
+                      <td class="num" style="text-align:right;font-weight:700;color:var(--emerald);">${fmt(p2.mp)} KM</td>
+                      <td class="num" style="text-align:right;">${fmt(p2.stock, 0)}</td>
+                      <td class="num" style="text-align:right;font-weight:700;">${fmt(pm.vp)} KM</td>
+                      <td class="num" style="text-align:right;">${fmt(pm.stock, 0)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 8. EKRAN 6: REGISTAR PARTNERA — KUPCI I DOBAVLJAČI (F4)
+    // =========================================================================
+    function renderPartnersView() {
+      return `
+        <div style="padding: 20px; max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h1 style="font-size: 18px; font-weight: 800;">Registar partnera — Kupci i Dobavljači (F4)</h1>
+              <p style="font-size: 12px; color: var(--text-muted);">Koristi se za ulazne kalkulacije, veleprodajne fakture i identifikovane račune (JIB) na POS kasi.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openNewPartnerModal()">+ Novi partner</button>
+          </div>
+          <div class="card" style="overflow: hidden;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Šifra</th>
+                  <th>Naziv partnera</th>
+                  <th>Vrsta</th>
+                  <th>JIB (Poreski broj)</th>
+                  <th>PDV broj</th>
+                  <th>Sjedište</th>
+                  <th style="text-align:right;">Valuta (dana)</th>
+                  <th style="text-align:right;">Ugovoreni rabat</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${state.partners.map(p => `
+                  <tr>
+                    <td class="mono" style="font-weight:700;">${p.code}</td>
+                    <td style="font-weight:700;">${p.name}</td>
+                    <td><span class="pill ${p.type.includes('Dobavljač') ? 'pill-amber' : 'pill-sky'}">${p.type}</span></td>
+                    <td class="mono">${p.jib}</td>
+                    <td class="mono">${p.pdv}</td>
+                    <td>${p.city}</td>
+                    <td class="num" style="text-align:right;">${p.dueDays} d</td>
+                    <td class="num" style="text-align:right;font-weight:700;">${fmt(p.rebate, 1)}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 9. EKRAN 7: POSLOVNE JEDINICE, KASE I PDV STOPE
+    // =========================================================================
+    function renderStoresView() {
+      return `
+        <div style="padding: 20px; max-width: 1360px; margin: 0 auto; display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px;">
+          <div class="card" style="padding: 16px;">
+            <h2 style="font-size: 15px; font-weight: 800; margin-bottom: 10px;">Poslovne jedinice (Objekti) i pripadajuće POS kase</h2>
+            <table class="data-table">
+              <thead><tr><th>Šifra</th><th>Naziv objekta</th><th>Vrsta</th><th>Aktivne kase</th><th>Lokalna baza</th></tr></thead>
+              <tbody>
+                <tr><td class="mono" style="font-weight:700;">PJ-01</td><td>Market Centar (Sarajevo)</td><td><span class="pill pill-emerald">Maloprodaja</span></td><td>Kasa #1, Kasa #2</td><td><span class="pill pill-sky">SQLite WAL Sync</span></td></tr>
+                <tr><td class="mono" style="font-weight:700;">PJ-02</td><td>Hipermarket Zapad</td><td><span class="pill pill-emerald">Maloprodaja</span></td><td>Kasa #1, Kasa #2, Kasa #3</td><td><span class="pill pill-sky">SQLite WAL Sync</span></td></tr>
+                <tr><td class="mono" style="font-weight:700;">MAG-01</td><td>Centralni Magacin</td><td><span class="pill pill-amber">Veleprodaja</span></td><td>VP Fakturisanje</td><td><span class="pill pill-neutral">Centralni PostgreSQL</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card" style="padding: 16px;">
+            <h2 style="font-size: 15px; font-weight: 800; margin-bottom: 10px;">Poreske tarife (Fiskalni uređaj)</h2>
+            <table class="data-table">
+              <thead><tr><th>Oznaka</th><th>Naziv poreske stope</th><th style="text-align:right;">Stopa %</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td class="mono" style="font-weight:700;">E</td><td>Opšta stopa PDV-a u BiH</td><td class="num" style="text-align:right;font-weight:700;">17,00%</td><td><span class="pill pill-emerald">Podrazumijevana</span></td></tr>
+                <tr><td class="mono" style="font-weight:700;">K</td><td>Oslobođeno PDV-a / Izvoz</td><td class="num" style="text-align:right;font-weight:700;">0,00%</td><td><span class="pill pill-neutral">Aktivna</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 10. EKRAN 8: ŠTAMPA DEKLARACIJA I CIJENA ZA POLICE
+    // =========================================================================
+    function renderLabelsView() {
+      const sel = state.items.find(x => x.sku === state.selectedItemSku) || state.items[0];
+      const pr = getItemPriceObj(sel);
+      return `
+        <div style="padding: 20px; max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+          <div class="card" style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+            <h2 style="font-size: 16px; font-weight: 800;">Štampa cijena za police i deklaracija artikala</h2>
+            <div>
+              <label class="label">Odaberite artikal za štampu</label>
+              <select class="select" onchange="state.selectedItemSku=this.value; renderAll()">
+                ${state.items.map(it => `<option value="${it.sku}" ${it.sku === sel.sku ? 'selected' : ''}>#${it.sku} · ${it.name}</option>`).join('')}
+              </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div><label class="label">Format etikete</label><select class="select"><option>Cijena za policu (60 × 40 mm)</option><option>Deklaracija uvoznika (50 × 30 mm)</option><option>Akcijska cijena A6</option></select></div>
+              <div><label class="label">Broj kopija za štampu</label><input class="input num" type="number" value="10" /></div>
+            </div>
+            <div style="display: flex; gap: 8px; padding-top: 6px;">
+              <button class="btn btn-primary" onclick="showToast('Poslato 10 etiketa na termalni štampač (ZPL/PDF) za artikal ' + '${sel.name}')">⎙ Štampaj etikete za policu</button>
+              <button class="btn btn-outline" onclick="showToast('Generisane etikete za sve artikle sa današnje kalkulacije KAL-2026-0142.')">Štampaj sve sa zadnje kalkulacije</button>
+            </div>
+          </div>
+
+          <!-- Vizuelni prikaz etikete za policu i deklaracije -->
+          <div class="card" style="padding: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--bg-subtle);">
+            <div style="width: 340px; background: #fff; color: #0f172a; border: 2px solid #0f172a; border-radius: 8px; padding: 14px; box-shadow: var(--shadow-md);">
+              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #475569; display: flex; justify-content: space-between;">
+                <span>${state.activeStore} · Datum: 07.11.2026.</span>
+                <span>Šifra: #${sel.sku}</span>
+              </div>
+              <div style="font-size: 15px; font-weight: 800; margin: 6px 0 8px; line-height: 1.25;">${sel.name}</div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; padding-top: 8px;">
+                <div>
+                  <div style="font-size: 10px; color: #475569;">Zemlja porijekla: <strong>${sel.origin}</strong></div>
+                  <div style="font-size: 9.5px; color: #64748b;">Uvoznik: ${sel.importer}</div>
+                  <div class="mono" style="font-size: 11px; font-weight: 700; margin-top: 4px; letter-spacing: 0.12em;">|| ||| | |||| ||| |||</div>
+                  <div class="mono" style="font-size: 10px;">${sel.barcode}</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 10px; font-weight: 700; color: #475569;">MPC sa PDV:</div>
+                  <div class="num" style="font-size: 28px; font-weight: 900; line-height: 1;">${fmt(pr.mp)} <small style="font-size:13px;">KM</small></div>
+                  <div style="font-size: 10px; color: #475569; margin-top: 2px;">1 ${sel.uom} = ${fmt(pr.mp)} KM</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 11. EKRAN 9: ULAZNE KALKULACIJE SA AUTOMATSKOM NIVELACIJOM (F6)
+    // =========================================================================
+    function renderCalculationView() {
+      const item = state.items[0];
+      const currentMp = getItemPriceObj(item, state.activeStore, state.activeYear).mp;
+      const existingStock = getItemPriceObj(item, state.activeStore, state.activeYear).stock;
+      return `
+        <div style="padding: 18px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div class="card" style="padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <span class="pill pill-emerald">Robno-materijalno · Ulaz robe</span>
+                <h2 style="font-size: 17px; font-weight: 800; margin-top: 3px;">Nova ulazna kalkulacija (${state.activeStore} · Poslovna ${state.activeYear}.)</h2>
+              </div>
+              <button class="btn btn-emerald" onclick="postNewCalculation()">✓ Proknjiži kalkulaciju i automatsku nivelaciju</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;">
+              <div><label class="label">Dobavljač</label><select id="calcPartner" class="select">${state.partners.filter(p=>p.type.includes('Dobavljač')).map(p=>`<option>${p.name}</option>`).join('')}</select></div>
+              <div><label class="label">Broj fakture / otpremnice dobavljača</label><input id="calcInvNum" class="input mono" value="FAK-2026-992" /></div>
+              <div><label class="label">Datum kalkulacije</label><input class="input mono" value="07.11.2026." /></div>
+              <div><label class="label">Poslovna jedinica prijema</label><input class="input" value="${state.activeStore}" readonly /></div>
+            </div>
+
+            <!-- Unos stavke sa automatskom detekcijom nivelacije -->
+            <div style="padding: 12px; border-radius: 8px; background: var(--bg-subtle); border: 1px solid var(--border-hairline);">
+              <div style="font-size: 11.5px; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary);">
+                Stavka kalkulacije (promijenite "Nova MP cijena" da vidite automatsku nivelaciju postojeće zalihe od ${fmt(existingStock, 0)} kom):
+              </div>
+              <div style="display: grid; grid-template-columns: 2fr 0.8fr 1fr 0.8fr 1fr 1fr 1.1fr; gap: 8px; align-items: end;">
+                <div><label class="label">Artikal</label><select id="calcItemSku" class="select" onchange="updateCalcPreview()">${state.items.map(i=>`<option value="${i.sku}">#${i.sku} · ${i.name}</option>`).join('')}</select></div>
+                <div><label class="label">Količina</label><input id="calcQty" type="number" class="input num" value="50" oninput="updateCalcPreview()" /></div>
+                <div><label class="label">Fakturna cijena</label><input id="calcSupPrice" type="number" step="0.01" class="input num" value="7.20" oninput="updateCalcPreview()" /></div>
+                <div><label class="label">Rabat %</label><input id="calcRebate" type="number" step="0.5" class="input num" value="5" oninput="updateCalcPreview()" /></div>
+                <div><label class="label">Nabavna (NC)</label><input id="calcNcOut" class="input num" value="6,84" readonly /></div>
+                <div><label class="label">Postojeća MP</label><input id="calcOldMp" class="input num" value="${fmt(currentMp)}" readonly /></div>
+                <div><label class="label" style="color:var(--accent);">Nova MP sa PDV</label><input id="calcNewMp" type="number" step="0.10" class="input num" style="font-weight:800;color:var(--accent);" value="10.20" oninput="updateCalcPreview()" /></div>
+              </div>
+              <div id="calcLevelingNotice" style="margin-top: 10px; padding: 8px 12px; border-radius: 7px; background: var(--amber-soft); color: var(--amber-text); font-size: 12px; font-weight: 600;">
+                ⚡ Automatska nivelacija: Postojeća zaliha u objektu ${state.activeStore} (${fmt(existingStock, 0)} kom) mijenja cijenu sa ${fmt(currentMp)} KM na 10,20 KM → Sistem će pri knjiženju automatski kreirati Nivelaciju na iznos +${fmt(existingStock * (10.20 - currentMp))} KM!
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="overflow: hidden;">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-hairline); font-weight: 800;">Proknjižene ulazne kalkulacije (${state.activeYear})</div>
+            <table class="data-table">
+              <thead><tr><th>Broj kalkulacije</th><th>Datum</th><th>Objekat</th><th>Dobavljač</th><th>Faktura</th><th style="text-align:right;">Nabavna vr.</th><th style="text-align:right;">Prodajna vr.</th><th>Automatska nivelacija</th></tr></thead>
+              <tbody>
+                ${state.calculations.map(c => `
+                  <tr>
+                    <td class="mono" style="font-weight:700;">${c.num}</td>
+                    <td class="mono">${c.date}</td>
+                    <td>${c.store}</td>
+                    <td style="font-weight:600;">${c.partner}</td>
+                    <td class="mono">${c.inv}</td>
+                    <td class="num" style="text-align:right;">${fmt(c.ncTotal)} KM</td>
+                    <td class="num" style="text-align:right;font-weight:800;">${fmt(c.mpTotal)} KM</td>
+                    <td><span class="pill pill-amber">${c.levelingDoc}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 12. EKRAN 10: PRELOKACIJE / MEĐUSKLADIŠNICE S DVOSTRUKOM NIVELACIJOM (F7)
+    // =========================================================================
+    function renderTransferView() {
+      const it = state.items[0];
+      const pFrom = getItemPriceObj(it, 'PJ-01', state.activeYear);
+      const pTo = getItemPriceObj(it, 'PJ-02', state.activeYear);
+      return `
+        <div style="padding: 18px; max-width: 1380px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div class="card" style="padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <span class="pill pill-sky">Međuskladišno poslovanje · Dvostruka nivelacija</span>
+                <h2 style="font-size: 17px; font-weight: 800; margin-top: 3px;">Nova prelokacija robe između objekata</h2>
+              </div>
+              <button class="btn btn-primary" onclick="postNewTransfer()">⇄ Proknjiži prelokaciju između objekata</button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1.6fr 0.8fr 1fr 1fr; gap: 10px; align-items: end;">
+              <div><label class="label">Izlazni objekat</label><select id="trFrom" class="select"><option value="PJ-01">PJ-01 · Market Centar</option><option value="MAG-01">MAG-01 · Magacin</option></select></div>
+              <div><label class="label">Ulazni objekat</label><select id="trTo" class="select"><option value="PJ-02">PJ-02 · Hipermarket Zapad</option><option value="PJ-01">PJ-01 · Market Centar</option></select></div>
+              <div><label class="label">Artikal za prenos</label><select id="trItem" class="select">${state.items.map(x=>`<option value="${x.sku}">#${x.sku} · ${x.name}</option>`).join('')}</select></div>
+              <div><label class="label">Količina</label><input id="trQty" type="number" class="input num" value="15" /></div>
+              <div><label class="label">MP cijena u PJ-01</label><input class="input num" value="${fmt(pFrom.mp)} KM" readonly /></div>
+              <div><label class="label">MP cijena u PJ-02</label><input class="input num" style="font-weight:700;color:var(--emerald);" value="${fmt(pTo.mp)} KM" readonly /></div>
+            </div>
+            <div style="margin-top: 10px; padding: 8px 12px; border-radius: 7px; background: var(--accent-soft); color: var(--accent-text); font-size: 12px; font-weight: 600;">
+              ℹ Pošto objekti PJ-01 (${fmt(pFrom.mp)} KM) i PJ-02 (${fmt(pTo.mp)} KM) imaju različite cjenovnike, sistem automatski razdužuje PJ-01 po ${fmt(pFrom.mp)} KM i zadužuje PJ-02 po ${fmt(pTo.mp)} KM uz evidenciju razlike u cijeni u KEP knjigama oba objekta.
+            </div>
+          </div>
+
+          <div class="card" style="overflow: hidden;">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-hairline); font-weight: 800;">Proknjižene međuskladišnice / prelokacije</div>
+            <table class="data-table">
+              <thead><tr><th>Broj dokumenta</th><th>Datum</th><th>Iz objekta</th><th>U objekat</th><th>Artikal</th><th style="text-align:right;">Kol.</th><th style="text-align:right;">Izlazna MP</th><th style="text-align:right;">Ulazna MP</th><th>Status</th></tr></thead>
+              <tbody>
+                ${state.transfers.map(t => `
+                  <tr>
+                    <td class="mono" style="font-weight:700;">${t.num}</td>
+                    <td class="mono">${t.date}</td>
+                    <td>${t.from}</td>
+                    <td>${t.to}</td>
+                    <td style="font-weight:600;">${t.item}</td>
+                    <td class="num" style="text-align:right;">${t.qty}</td>
+                    <td class="num" style="text-align:right;">${fmt(t.oldMp)} KM</td>
+                    <td class="num" style="text-align:right;font-weight:700;color:var(--accent);">${fmt(t.newMp)} KM</td>
+                    <td><span class="pill pill-emerald">${t.status}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 13. EKRANI 11, 12, 13, 14: NIVELACIJE, OSTALI DOKUMENTI, INVENTURE, KEP KNJIGA
+    // =========================================================================
+    function renderLevelingsView() {
+      return `
+        <div style="padding: 20px; max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h1 style="font-size:18px;font-weight:800;">Zapisnici o promjeni cijena — Nivelacije (${state.activeYear})</h1>
+              <p style="font-size:12px;color:var(--text-muted);">Obuhvata automatske nivelacije nastale pri ulaznim kalkulacijama i ručne akcijske nivelacije.</p>
+            </div>
+            <button class="btn btn-primary" onclick="createManualLeveling()">+ Nova ručna nivelacija cijene</button>
+          </div>
+          <div class="card" style="overflow:hidden;">
+            <table class="data-table">
+              <thead><tr><th>Broj zapisnika</th><th>Datum</th><th>Objekat</th><th>Vrsta nivelacije</th><th>Artikal</th><th style="text-align:right;">Zatečena zaliha</th><th style="text-align:right;">Stara MP</th><th style="text-align:right;">Nova MP</th><th style="text-align:right;">Efekat u KEP</th></tr></thead>
+              <tbody>
+                ${state.levelings.map(l => `
+                  <tr>
+                    <td class="mono" style="font-weight:700;">${l.num}</td>
+                    <td class="mono">${l.date}</td>
+                    <td>${l.store}</td>
+                    <td><span class="pill pill-amber">${l.type}</span></td>
+                    <td style="font-weight:600;">${l.item}</td>
+                    <td class="num" style="text-align:right;">${fmt(l.stockQty, 0)}</td>
+                    <td class="num" style="text-align:right;">${fmt(l.oldMp)} KM</td>
+                    <td class="num" style="text-align:right;font-weight:700;">${fmt(l.newMp)} KM</td>
+                    <td class="num" style="text-align:right;font-weight:800;color:${l.diff>=0?'var(--emerald)':'var(--rose)'};">${l.diff>=0?'+':''}${fmt(l.diff)} KM</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderOtherDocsView() {
+      return `
+        <div style="padding: 20px; max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h1 style="font-size:18px;font-weight:800;">Veleprodajne fakture, Povrat dobavljaču i Otpis (Kalo, rastur i lom)</h1>
+              <p style="font-size:12px;color:var(--text-muted);">Svi izlazni i korektivni robni dokumenti automatski se evidentiraju u KEP knjizi objekta.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-primary" onclick="addOtherDoc('Veleprodajna faktura')">+ Nova VP Faktura</button>
+              <button class="btn btn-outline" onclick="addOtherDoc('Povrat dobavljaču')">+ Povrat dobavljaču</button>
+              <button class="btn btn-outline" onclick="addOtherDoc('Kalo, rastur i lom')">+ Otpis / Kalo</button>
+            </div>
+          </div>
+          <div class="card" style="overflow:hidden;">
+            <table class="data-table">
+              <thead><tr><th>Broj dokumenta</th><th>Vrsta dokumenta</th><th>Datum</th><th>Objekat</th><th>Partner / Komisija</th><th style="text-align:right;">Vrijednost sa PDV</th><th>Status</th></tr></thead>
+              <tbody>
+                ${state.otherDocs.map(d => `
+                  <tr>
+                    <td class="mono" style="font-weight:700;">${d.num}</td>
+                    <td><span class="pill pill-sky">${d.type}</span></td>
+                    <td class="mono">${d.date}</td>
+                    <td>${d.store}</td>
+                    <td style="font-weight:600;">${d.partner}</td>
+                    <td class="num" style="text-align:right;font-weight:800;">${fmt(d.amount)} KM</td>
+                    <td><span class="pill pill-emerald">${d.status}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderInventoryView() {
+      return `
+        <div style="padding: 20px; max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h1 style="font-size:18px;font-weight:800;">Inventure i skeniranje zaliha (${state.activeStore} · ${state.activeYear})</h1>
+              <p style="font-size:12px;color:var(--text-muted);">Podržano istovremeno skeniranje sa više mobilnih uređaja ili ručnih barkod čitača bez zaustavljanja rada.</p>
+            </div>
+            <button class="btn btn-emerald" onclick="showToast('Popisne razlike (manjkovi i viškovi) proknjižene za objekat ' + state.activeStore)">✓ Proknjiži popisne razlike</button>
+          </div>
+          <div class="card" style="overflow:hidden;">
+            <table class="data-table">
+              <thead><tr><th>Šifra</th><th>Barkod</th><th>Naziv artikla</th><th style="text-align:right;">Knjigovodstveno</th><th style="text-align:right;">Skenirano (Stvarno)</th><th style="text-align:right;">Razlika</th><th style="text-align:right;">Vrijednosna razlika (MP)</th></tr></thead>
+              <tbody>
+                ${state.items.map((it, idx) => {
+                  const pr = getItemPriceObj(it);
+                  const diff = idx === 0 ? -2 : (idx === 1 ? +1 : 0);
+                  const scanned = pr.stock + diff;
+                  return `
+                    <tr>
+                      <td class="mono" style="font-weight:700;">${it.sku}</td>
+                      <td class="mono">${it.barcode}</td>
+                      <td style="font-weight:600;">${it.name}</td>
+                      <td class="num" style="text-align:right;">${fmt(pr.stock, 0)}</td>
+                      <td class="num" style="text-align:right;font-weight:700;">${fmt(scanned, 0)}</td>
+                      <td class="num" style="text-align:right;font-weight:800;color:${diff<0?'var(--rose)':(diff>0?'var(--emerald)':'var(--text-muted)')};">${diff>0?'+':''}${diff}</td>
+                      <td class="num" style="text-align:right;font-weight:700;">${fmt(diff * pr.mp)} KM</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderKepView() {
+      return `
+        <div style="padding: 20px; max-width: 1380px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h1 style="font-size:18px;font-weight:800;">Knjiga evidencije prometa — KEP / TKP (${state.activeStore} · Poslovna ${state.activeYear}.)</h1>
+              <p style="font-size:12px;color:var(--text-muted);">Hronološki pregled svih zaduženja (kalkulacije, nivelacije, ulazne prelokacije) i razduženja (dnevni fiskalni promet, storno, otpis).</p>
+            </div>
+            <button class="btn btn-outline" onclick="showToast('KEP knjiga izvezena u Excel putem ClosedXML-a (KEP_' + state.activeStore + '_' + state.activeYear + '.xlsx).')">⬇ Izvezi u Excel (ClosedXML)</button>
+          </div>
+          <div class="card" style="overflow:hidden;">
+            <table class="data-table">
+              <thead><tr><th>R.br.</th><th>Datum knjiženja</th><th>Broj i opis isprave</th><th style="text-align:right;">Zaduženje (Ulaz sa PDV)</th><th style="text-align:right;">Razduženje (Izlaz / Promet)</th><th style="text-align:right;">Saldo zaliha u objektu</th></tr></thead>
+              <tbody>
+                <tr><td class="num">1.</td><td class="mono">01.01.${state.activeYear}.</td><td>PS-${state.activeYear}-0001 · Početno stanje iz prethodne poslovne godine</td><td class="num" style="text-align:right;font-weight:700;">81.200,00 KM</td><td class="num" style="text-align:right;">0,00 KM</td><td class="num" style="text-align:right;font-weight:700;">81.200,00 KM</td></tr>
+                <tr><td class="num">2.</td><td class="mono">07.11.${state.activeYear}.</td><td>KAL-${state.activeYear}-0142 · Ulazna kalkulacija (Dobavljač Jedan d.o.o.)</td><td class="num" style="text-align:right;font-weight:700;color:var(--emerald);">+1.980,00 KM</td><td class="num" style="text-align:right;">0,00 KM</td><td class="num" style="text-align:right;font-weight:700;">83.180,00 KM</td></tr>
+                <tr><td class="num">3.</td><td class="mono">07.11.${state.activeYear}.</td><td>NIV-${state.activeYear}-0039 · Automatska nivelacija uz KAL-${state.activeYear}-0142</td><td class="num" style="text-align:right;font-weight:700;color:var(--amber);">+25,60 KM</td><td class="num" style="text-align:right;">0,00 KM</td><td class="num" style="text-align:right;font-weight:700;">83.205,60 KM</td></tr>
+                <tr><td class="num">4.</td><td class="mono">07.11.${state.activeYear}.</td><td>DP-${state.activeYear}-311 · Dnevni promet fiskalne kase K1</td><td class="num" style="text-align:right;">0,00 KM</td><td class="num" style="text-align:right;font-weight:700;color:var(--accent);">4.820,50 KM</td><td class="num" style="text-align:right;font-weight:700;">78.385,10 KM</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 14. EKRAN 15: SUPER-ADMIN KONZOLA (TENANTI, SLANJE RAČUNA I POSLOVNE GODINE)
+    // =========================================================================
+    function renderSuperAdminView() {
+      return `
+        <div style="padding: 20px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px;">
+            <!-- Lijevo: Kreiranje novog Tenanta i slanje Administratorskog računa -->
+            <div class="card" style="padding: 18px;">
+              <span class="pill pill-amber">SystemSuperAdmin · Multi-Tenant Onboarding</span>
+              <h2 style="font-size: 16px; font-weight: 800; margin-top: 6px; margin-bottom: 4px;">Kreiraj novog Tenanta i pošalji mu Administratorski račun</h2>
+              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+                Kreiranjem tenanta u istoj bazi otvara se početna poslovna godina, prodajni objekat i šalje e-mail sa privremenom lozinkom administratoru tenanta.
+              </p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div><label class="label">Naziv firme (Tenanta)</label><input id="saTenantName" class="input" placeholder="npr. Firma Tri d.o.o." value="Firma Tri d.o.o." /></div>
+                <div><label class="label">JIB (13 cifara)</label><input id="saTenantJib" class="input mono" value="4200003330003" /></div>
+                <div><label class="label">E-mail administratora tenanta</label><input id="saAdminEmail" class="input" value="tenant.admin@firma-tri.ba" /></div>
+                <div><label class="label">Korisničko ime administratora</label><input id="saAdminUser" class="input mono" value="tenant.tri" /></div>
+                <div><label class="label">Grad / Sjedište</label><input id="saCity" class="input" value="Banja Luka" /></div>
+                <div><label class="label">Početna poslovna godina</label><input id="saStartYear" class="input mono" value="2026" /></div>
+              </div>
+              <button class="btn btn-primary" style="width: 100%; margin-top: 14px; padding: 10px;" onclick="createTenantAndSendAccount()">
+                ✉ Kreiraj Tenanta u bazi i pošalji Administratorski račun
+              </button>
+            </div>
+
+            <!-- Desno: Otvaranje nove poslovne godine i prenos početnog stanja -->
+            <div class="card" style="padding: 18px; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <span class="pill pill-emerald">Sve poslovne godine u jednoj bazi</span>
+                <h2 style="font-size: 16px; font-weight: 800; margin-top: 6px; margin-bottom: 4px;">Otvaranje nove poslovne godine (Prenos stanja)</h2>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+                  Bez kreiranja nove baze podataka: sve zalihe i cjenovnici iz 2026. godine prenose se kao početno stanje (PS) u novu poslovnu godinu.
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                  <div><label class="label">Odaberite tenanta</label><select id="fyTenant" class="select">${state.tenants.map(t=>`<option value="${t.code}">${t.code} · ${t.name}</option>`).join('')}</select></div>
+                  <div><label class="label">Nova poslovna godina</label><input id="fyNewYear" class="input mono" value="2027" /></div>
+                </div>
+              </div>
+              <button class="btn btn-emerald" style="width: 100%; margin-top: 14px; padding: 10px;" onclick="openNewFiscalYear()">
+                ＋ Otvori poslovnu godinu u istoj bazi i prenesi početno stanje
+              </button>
+            </div>
+          </div>
+
+          <!-- Tabela aktivnih tenanata i poslanih računa -->
+          <div class="card" style="overflow: hidden;">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-hairline); font-weight: 800;">Aktivni tenanti i poslovne godine u bazi</div>
+            <table class="data-table">
+              <thead><tr><th>Šifra</th><th>Naziv Tenanta</th><th>JIB</th><th>Grad</th><th>Administrator</th><th>Poslovne godine u bazi</th><th>Status</th></tr></thead>
+              <tbody>
+                ${state.tenants.map(t => `
+                  <tr>
+                    <td class="mono" style="font-weight:700;">${t.code}</td>
+                    <td style="font-weight:700;">${t.name}</td>
+                    <td class="mono">${t.jib}</td>
+                    <td>${t.city}</td>
+                    <td class="mono">${t.adminEmail}</td>
+                    <td>${t.years.map(y=>`<span class="pill pill-sky" style="margin-right:4px;">${y}</span>`).join('')}</td>
+                    <td><span class="pill pill-emerald">${t.status}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card" style="overflow: hidden;">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-hairline); font-weight: 800;">SMTP Outbox — Poslani administratorski računi tenantima</div>
+            <table class="data-table">
+              <thead><tr><th>Vrijeme slanja</th><th>Primalac (Tenant Admin)</th><th>Tenant</th><th>Korisničko ime</th><th>Privremena lozinka</th><th>Akcija</th></tr></thead>
+              <tbody>
+                ${state.outboxEmails.map(e => `
+                  <tr>
+                    <td class="mono">${e.date}</td>
+                    <td class="mono" style="font-weight:600;">${e.to}</td>
+                    <td><span class="pill pill-amber">${e.tenant}</span></td>
+                    <td class="mono">${e.user}</td>
+                    <td class="mono" style="font-weight:700;color:var(--accent);">${e.tempPass}</td>
+                    <td><button class="btn btn-outline" style="padding:4px 8px;font-size:11px;" onclick="loginAsNewTenant('${e.user}', '${e.to}', '${e.tenant}')">Prijavi se ovim računom →</button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 15. AKCIJE, MODALNI DIJALOZI I INTERAKTIVNA LOGIKA SVIH MODULA
+    // =========================================================================
+    function renderAll() {
+      renderSidebarAndTabs();
+      const container = document.getElementById('viewContainer');
+      const tab = state.activeTab;
+      if (tab === 'pos') container.innerHTML = renderPosView();
+      else if (tab === 'dashboard') container.innerHTML = renderDashboardView();
+      else if (tab === 'receipts') container.innerHTML = renderReceiptsView();
+      else if (tab === 'items') container.innerHTML = renderItemsRegistryView();
+      else if (tab === 'pricelists') container.innerHTML = renderPricelistsView();
+      else if (tab === 'partners') container.innerHTML = renderPartnersView();
+      else if (tab === 'stores') container.innerHTML = renderStoresView();
+      else if (tab === 'labels') container.innerHTML = renderLabelsView();
+      else if (tab === 'calc-new') container.innerHTML = renderCalculationView();
+      else if (tab === 'transfer-new') container.innerHTML = renderTransferView();
+      else if (tab === 'levelings') container.innerHTML = renderLevelingsView();
+      else if (tab === 'other-docs') container.innerHTML = renderOtherDocsView();
+      else if (tab === 'inventory') container.innerHTML = renderInventoryView();
+      else if (tab === 'kep') container.innerHTML = renderKepView();
+      else if (tab === 'superadmin') container.innerHTML = renderSuperAdminView();
+      else container.innerHTML = renderDashboardView();
+    }
+
+    function renderPosCatalogOnly() {
+      if (state.activeTab === 'pos') renderAll();
+    }
+
+    function toggleTheme() {
+      state.theme = state.theme === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', state.theme);
+    }
+
+    function togglePosFullscreen() {
+      state.posFullscreen = !state.posFullscreen;
+      document.getElementById('appShell').classList.toggle('pos-fullscreen', state.posFullscreen);
+    }
+
+    function onChangeContext() {
+      state.activeYear = document.getElementById('ctxYearSelect').value;
+      state.activeStore = document.getElementById('ctxStoreSelect').value;
+      showToast('Kontekst prebačen na: ' + state.activeStore + ' · Poslovna ' + state.activeYear + '. godina (u istoj bazi).');
+      renderAll();
+    }
+
+    // POS Akcije
+    function addItemToPosCart(sku, qtyToAdd = 1) {
+      const it = state.items.find(x => x.sku === sku);
+      if (!it) return;
+      const pr = getItemPriceObj(it);
+      const existing = state.cart.find(c => c.sku === sku);
+      if (existing) {
+        existing.qty = Number((existing.qty + qtyToAdd).toFixed(3));
+      } else {
+        state.cart.push({
+          sku: it.sku,
+          barcode: it.barcode,
+          name: it.name,
+          uom: it.uom,
+          qty: qtyToAdd,
+          price: pr.mp,
+          disc: 0,
+          tax: it.tax
+        });
+      }
+      renderAll();
+    }
+
+    function handlePosBarcodeScan(rawInput) {
+      const code = String(rawInput || '').trim();
+      if (!code) return;
+      let multQty = 1;
+      let cleanCode = code;
+      if (code.includes('*')) {
+        const parts = code.split('*');
+        multQty = parseFloat(parts[0].replace(',', '.')) || 1;
+        cleanCode = parts[1].trim();
+      }
+      // Provjera vaganog barkoda 27 + 5 cifara PLU + 5 cifara masa u gramima
+      if (cleanCode.startsWith('27') && cleanCode.length >= 12) {
+        const weightGrams = parseInt(cleanCode.substring(7, 12), 10) || 350;
+        const weightKg = weightGrams / 1000;
+        addItemToPosCart('27105', weightKg);
+        state.posSearch = '';
+        showToast('Skeniran vagani barkod (' + cleanCode + ') → Polutvrdi sir Edamer: ' + fmt(weightKg, 3) + ' kg');
+        renderAll();
+        return;
+      }
+      // Pretraga po šifri ili barkodu pakovanja
+      for (const it of state.items) {
+        if (it.sku === cleanCode || it.barcode === cleanCode) {
+          addItemToPosCart(it.sku, multQty);
+          state.posSearch = '';
+          renderAll();
+          return;
+        }
+        const subBar = it.barcodes.find(b => b.code === cleanCode);
+        if (subBar) {
+          addItemToPosCart(it.sku, multQty * subBar.mult);
+          state.posSearch = '';
+          showToast('Skenirano pakovanje ' + subBar.pack + ' (' + subBar.mult + 'x) za ' + it.name);
+          renderAll();
+          return;
+        }
+      }
+      showToast('Artikal sa barkodom "' + cleanCode + '" nije pronađen.');
+    }
+
+    function changeCartQty(idx, delta) {
+      const line = state.cart[idx];
+      if (!line) return;
+      const step = line.uom === 'kg' ? 0.100 : 1;
+      line.qty = Number((line.qty + delta * step).toFixed(3));
+      if (line.qty <= 0) state.cart.splice(idx, 1);
+      renderAll();
+    }
+
+    function promptLineDiscount(idx) {
+      const line = state.cart[idx];
+      if (!line) return;
+      line.disc = line.disc === 0 ? 10 : (line.disc === 10 ? 20 : 0);
+      showToast('Rabat na stavku "' + line.name + '" postavljen na ' + line.disc + '%.');
+      renderAll();
+    }
+
+    function clearPosCart() {
+      state.cart = [];
+      state.posCustomer = null;
+      state.posCashGiven = '';
+      renderAll();
+    }
+
+    function selectPosCustomerModal() {
+      const vpCustomers = state.partners.filter(p => p.type.includes('Kupac'));
+      openModal('Identifikacija kupca (JIB) za Veleprodajni / Identifikovani fiskalni račun', `
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+          Odabirom pravnog lica na fiskalnom računu se štampa JIB kupca (identifikovani račun).
+        </p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${vpCustomers.map(c => `
+            <div class="card" style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;"
+              onclick="setPosCustomer('${c.code}')">
+              <div>
+                <div style="font-weight:700;">${c.name}</div>
+                <div class="mono" style="font-size:11.5px;color:var(--text-muted);">JIB: ${c.jib} · PDV: ${c.pdv} · Rabat: ${fmt(c.rebate,1)}%</div>
+              </div>
+              <span class="btn btn-primary" style="padding:5px 10px;font-size:11.5px;">Odaberi kupca</span>
+            </div>
+          `).join('')}
+          <button class="btn btn-outline" onclick="state.posCustomer=null; closeModal(); renderAll()">Ukloni kupca (Obični maloprodajni račun)</button>
+        </div>
+      `);
+    }
+
+    function setPosCustomer(code) {
+      state.posCustomer = state.partners.find(p => p.code === code) || null;
+      closeModal();
+      showToast('Odabran kupac na računu: ' + (state.posCustomer ? state.posCustomer.name : 'Fizičko lice'));
+      renderAll();
+    }
+
+    function openSplitPaymentModal(total) {
+      const half = (total / 2).toFixed(2);
+      openModal('Kombinovano plaćanje (Gotovina + Kartica)', `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+          <div><label class="label">Iznos Gotovina (KM)</label><input id="splitCash" class="input num" value="${half}" /></div>
+          <div><label class="label">Iznos Kartica (KM)</label><input id="splitCard" class="input num" value="${(total - parseFloat(half)).toFixed(2)}" /></div>
+        </div>
+        <button class="btn btn-emerald" style="width:100%;" onclick="closeModal(); completePosCheckout('Kombinovano (Gotovina + Kartica)')">
+          ✓ Fiskalizuj račun (Ukupno: ${fmt(total)} KM)
+        </button>
+      `);
+    }
+
+    function holdCurrentReceipt(total) {
+      if (state.cart.length === 0) return;
+      state.heldReceipts.push({
+        id: 'HOLD-' + (state.heldReceipts.length + 1),
+        time: '10:25',
+        note: 'Račun na čekanju',
+        itemsCount: state.cart.length,
+        total
+      });
+      clearPosCart();
+      showToast('Račun stavljen na čekanje. Možete uslužiti sljedećeg kupca.');
+    }
+
+    function openHoldModal() {
+      openModal('Računi na čekanju (Hold)', `
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${state.heldReceipts.map((h, i) => `
+            <div class="card" style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-weight:700;">${h.id} · Vrijeme: ${h.time} (${h.itemsCount} stavke)</div>
+                <div style="font-size:11.5px;color:var(--text-muted);">${h.note} · Ukupno: <strong>${fmt(h.total)} KM</strong></div>
+              </div>
+              <button class="btn btn-primary" onclick="closeModal(); showToast('Račun ' + '${h.id}' + ' vraćen na aktivnu kasu.')">Vrati na kasu</button>
+            </div>
+          `).join('')}
+        </div>
+      `);
+    }
+
+    function completePosCheckout(method) {
+      if (state.cart.length === 0) {
+        showToast('Dodajte barem jednu stavku na račun prije naplate.');
+        return;
+      }
+      let total = 0;
+      state.cart.forEach(l => {
+        total += l.qty * l.price * (1 - l.disc / 100);
+        // Razduži zalihu (ili komponente ako ima normativ)
+        const itemObj = state.items.find(x => x.sku === l.sku);
+        if (itemObj) {
+          const p = getItemPriceObj(itemObj);
+          p.stock = Math.max(0, Number((p.stock - l.qty).toFixed(3)));
+        }
+      });
+      const newBf = 'BF-' + (14291 + state.receiptsHistory.length);
+      state.receiptsHistory.unshift({
+        num: newBf,
+        date: '07.11.2026. 10:30',
+        store: state.activeStore,
+        terminal: 'K1',
+        cashier: state.currentUser.username,
+        type: state.posCustomer ? ('Identifikovani VP (JIB: ' + state.posCustomer.jib + ')') : 'Maloprodajni račun',
+        payment: method,
+        total,
+        status: 'Fiskalizovan'
+      });
+      clearPosCart();
+      showToast('Fiskalni račun ' + newBf + ' (' + fmt(total) + ' KM · ' + method + ') uspješno izdat i upisan u lokalnu SQLite i centralnu PostgreSQL bazu.');
+    }
+
+    function stornoReceipt(idx) {
+      const orig = state.receiptsHistory[idx];
+      if (!orig || orig.total < 0) return;
+      const rekNum = 'REK-00' + (413 + state.receiptsHistory.length);
+      state.receiptsHistory.unshift({
+        num: rekNum,
+        date: '07.11.2026. 10:32',
+        store: orig.store,
+        terminal: orig.terminal,
+        cashier: state.currentUser.username,
+        type: 'Reklamirani / Storno (veza ' + orig.num + ')',
+        payment: orig.payment,
+        total: -orig.total,
+        status: 'Storniran'
+      });
+      showToast('Kreiran reklamirani račun ' + rekNum + ' po osnovu računa ' + orig.num + ' (' + fmt(-orig.total) + ' KM). Roba vraćena na zalihu.');
+      renderAll();
+    }
+
+    // Registar artikala i partnera
+    function openNewItemModal() {
+      openModal('Unos novog artikla u centralni registar', `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div><label class="label">Šifra artikla</label><input id="newItSku" class="input mono" value="40025" /></div>
+          <div><label class="label">Primarni EAN barkod</label><input id="newItBar" class="input mono" value="3870004002508" /></div>
+          <div style="grid-column:span 2;"><label class="label">Naziv artikla</label><input id="newItName" class="input" value="Domaći Keks 400g" /></div>
+          <div><label class="label">Nabavna cijena (KM)</label><input id="newItNc" class="input num" value="2.10" /></div>
+          <div><label class="label">Maloprodajna cijena sa PDV (KM)</label><input id="newItMp" class="input num" value="3.20" /></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="saveNewItem()">Sačuvaj novi artikal u bazu</button>
+      `);
+    }
+
+    function saveNewItem() {
+      const sku = document.getElementById('newItSku').value || '40025';
+      const bar = document.getElementById('newItBar').value || '3870004002508';
+      const name = document.getElementById('newItName').value || 'Novi Artikal';
+      const nc = parseFloat(document.getElementById('newItNc').value) || 2.10;
+      const mp = parseFloat(document.getElementById('newItMp').value) || 3.20;
+      state.items.unshift({
+        sku, barcode: bar, name, category: 'Slatkiši', uom: 'kom', tax: 17,
+        origin: 'Bosna i Hercegovina', importer: 'Domaća proizvodnja d.o.o.', weighted: false, plu: '',
+        barcodes: [{ code: bar, pack: 'Komad (1x)', mult: 1 }],
+        normatives: [],
+        prices: {
+          '2026': { 'PJ-01': { nc, vp: nc * 1.15, mp, stock: 50 }, 'PJ-02': { nc, vp: nc * 1.15, mp, stock: 50 }, 'MAG-01': { nc, vp: nc * 1.1, mp, stock: 100 } },
+          '2025': { 'PJ-01': { nc, vp: nc * 1.15, mp, stock: 0 }, 'PJ-02': { nc, vp: nc * 1.15, mp, stock: 0 }, 'MAG-01': { nc, vp: nc * 1.1, mp, stock: 0 } }
+        }
+      });
+      state.selectedItemSku = sku;
+      closeModal();
+      showToast('Artikal #' + sku + ' (' + name + ') dodat u registar.');
+      renderAll();
+    }
+
+    function addBarcodeToSelectedItem() {
+      const sel = state.items.find(x => x.sku === state.selectedItemSku) || state.items[0];
+      sel.barcodes.push({ code: '387999000' + Math.floor(100 + Math.random() * 899), pack: 'Transportno pakovanje (6x)', mult: 6 });
+      showToast('Dodat novi barkod pakovanja za artikal ' + sel.name);
+      renderAll();
+    }
+
+    function openNewPartnerModal() {
+      openModal('Unos novog partnera (Kupac / Dobavljač)', `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div><label class="label">Šifra partnera</label><input id="npCode" class="input mono" value="KUP-105" /></div>
+          <div><label class="label">Vrsta</label><select id="npType" class="select"><option>Kupac (VP)</option><option>Dobavljač</option></select></div>
+          <div style="grid-column:span 2;"><label class="label">Naziv pravnog lica</label><input id="npName" class="input" value="Trgovina Sjever d.o.o." /></div>
+          <div><label class="label">JIB (13 cifara)</label><input id="npJib" class="input mono" value="4200998870005" /></div>
+          <div><label class="label">Grad</label><input id="npCity" class="input" value="Bihać" /></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="saveNewPartner()">Sačuvaj partnera</button>
+      `);
+    }
+
+    function saveNewPartner() {
+      state.partners.unshift({
+        code: document.getElementById('npCode').value,
+        name: document.getElementById('npName').value,
+        type: document.getElementById('npType').value,
+        jib: document.getElementById('npJib').value,
+        pdv: document.getElementById('npJib').value.substring(1),
+        city: document.getElementById('npCity').value,
+        dueDays: 30,
+        rebate: 5.0
+      });
+      closeModal();
+      showToast('Novi partner uspješno sačuvan.');
+      renderAll();
+    }
+
+    // Kalkulacije, Prelokacije i Nivelacije
+    function updateCalcPreview() {
+      const sku = document.getElementById('calcItemSku').value;
+      const it = state.items.find(x => x.sku === sku) || state.items[0];
+      const pr = getItemPriceObj(it);
+      const sup = parseFloat(document.getElementById('calcSupPrice').value) || 0;
+      const reb = parseFloat(document.getElementById('calcRebate').value) || 0;
+      const newMp = parseFloat(document.getElementById('calcNewMp').value) || pr.mp;
+      const nc = sup * (1 - reb / 100);
+      document.getElementById('calcNcOut').value = fmt(nc);
+      document.getElementById('calcOldMp').value = fmt(pr.mp);
+      const diff = (newMp - pr.mp) * pr.stock;
+      const notice = document.getElementById('calcLevelingNotice');
+      if (Math.abs(newMp - pr.mp) > 0.001) {
+        notice.innerHTML = '⚡ Automatska nivelacija: Postojeća zaliha u objektu ' + state.activeStore + ' (' + fmt(pr.stock, 0) + ' ' + it.uom + ') mijenja cijenu sa ' + fmt(pr.mp) + ' KM na ' + fmt(newMp) + ' KM → Sistem će pri knjiženju automatski kreirati Nivelaciju na iznos ' + (diff >= 0 ? '+' : '') + fmt(diff) + ' KM!';
+      } else {
+        notice.innerHTML = '✓ Nova MP cijena je identična postojećoj cijeni u objektu (' + fmt(pr.mp) + ' KM) — nije potrebna nivelacija.';
+      }
+    }
+
+    function postNewCalculation() {
+      const sku = document.getElementById('calcItemSku').value;
+      const it = state.items.find(x => x.sku === sku) || state.items[0];
+      const pr = getItemPriceObj(it);
+      const qty = parseFloat(document.getElementById('calcQty').value) || 10;
+      const newMp = parseFloat(document.getElementById('calcNewMp').value) || pr.mp;
+      const partner = document.getElementById('calcPartner').value;
+      const inv = document.getElementById('calcInvNum').value;
+      const diff = (newMp - pr.mp) * pr.stock;
+      const kalNum = 'KAL-' + state.activeYear + '-0' + (143 + state.calculations.length);
+      let nivLabel = 'Bez promjene cijene';
+      if (Math.abs(newMp - pr.mp) > 0.001) {
+        const nivNum = 'NIV-' + state.activeYear + '-00' + (40 + state.levelings.length);
+        nivLabel = nivNum + ' (' + (diff >= 0 ? '+' : '') + fmt(diff) + ' KM)';
+        state.levelings.unshift({
+          num: nivNum, date: '07.11.2026.', store: state.activeStore,
+          type: 'Automatska (uz ' + kalNum + ')', item: it.name,
+          stockQty: pr.stock, oldMp: pr.mp, newMp, diff
+        });
+      }
+      pr.stock += qty;
+      pr.mp = newMp;
+      state.calculations.unshift({
+        num: kalNum, date: '07.11.2026.', store: state.activeStore, partner, inv,
+        ncTotal: qty * pr.nc, mpTotal: qty * newMp, levelingDoc: nivLabel, status: 'Proknjiženo'
+      });
+      showToast('Kalkulacija ' + kalNum + ' proknjižena u bazu (' + nivLabel + ').');
+      renderAll();
+    }
+
+    function postNewTransfer() {
+      const fromSt = document.getElementById('trFrom').value;
+      const toSt = document.getElementById('trTo').value;
+      const sku = document.getElementById('trItem').value;
+      const qty = parseFloat(document.getElementById('trQty').value) || 10;
+      const it = state.items.find(x => x.sku === sku) || state.items[0];
+      const pFrom = getItemPriceObj(it, fromSt, state.activeYear);
+      const pTo = getItemPriceObj(it, toSt, state.activeYear);
+      pFrom.stock = Math.max(0, pFrom.stock - qty);
+      pTo.stock += qty;
+      const msNum = 'MS-' + state.activeYear + '-00' + (59 + state.transfers.length);
+      state.transfers.unshift({
+        num: msNum, date: '07.11.2026.', from: fromSt, to: toSt,
+        item: it.name, qty, oldMp: pFrom.mp, newMp: pTo.mp,
+        diffTotal: (pTo.mp - pFrom.mp) * qty, status: 'Proknjiženo (Dvostruka nivelacija)'
+      });
+      showToast('Međuskladišnica ' + msNum + ' proknjižena uz automatsku nivelaciju razlike u cijeni između ' + fromSt + ' i ' + toSt + '.');
+      renderAll();
+    }
+
+    function createManualLeveling() {
+      const it = state.items[0];
+      const pr = getItemPriceObj(it);
+      const oldMp = pr.mp;
+      const newMp = Number((oldMp - 0.50).toFixed(2));
+      const diff = (newMp - oldMp) * pr.stock;
+      pr.mp = newMp;
+      const nivNum = 'NIV-' + state.activeYear + '-00' + (40 + state.levelings.length);
+      state.levelings.unshift({
+        num: nivNum, date: '07.11.2026.', store: state.activeStore,
+        type: 'Ručna akcijska nivelacija', item: it.name,
+        stockQty: pr.stock, oldMp, newMp, diff
+      });
+      showToast('Kreiran zapisnik o promjeni cijene ' + nivNum + ' za artikal ' + it.name + '.');
+      renderAll();
+    }
+
+    function addOtherDoc(type) {
+      const num = 'DOK-2026-0' + (100 + state.otherDocs.length);
+      state.otherDocs.unshift({
+        num, type, date: '07.11.2026.', store: state.activeStore,
+        partner: 'Kupac Privreda d.o.o.', amount: type.includes('Veleprodajna') ? 680.00 : -95.00,
+        status: 'Proknjiženo'
+      });
+      showToast('Dokument ' + num + ' (' + type + ') uspješno kreiran i proknjižen.');
+      renderAll();
+    }
+
+    // Super-Admin: Kreiranje Tenanta + Slanje Administratorskog Računa + Poslovne godine
+    function createTenantAndSendAccount() {
+      const name = document.getElementById('saTenantName').value || 'Novi Tenant d.o.o.';
+      const jib = document.getElementById('saTenantJib').value || '4200009990009';
+      const email = document.getElementById('saAdminEmail').value || 'admin@novi-tenant.ba';
+      const user = document.getElementById('saAdminUser').value || 'tenant.novi';
+      const city = document.getElementById('saCity').value || 'Sarajevo';
+      const startYear = document.getElementById('saStartYear').value || '2026';
+      const code = 'TEN-00' + (state.tenants.length + 1);
+      const tempPass = 'WP-' + Math.floor(1000 + Math.random() * 8999) + 'Km!';
+
+      state.tenants.unshift({
+        code, name, jib, pdv: jib.substring(1), city, adminEmail: email,
+        years: [startYear], storesCount: 1, plan: 'Enterprise', status: 'Aktivan'
+      });
+      state.outboxEmails.unshift({
+        date: '07.11.2026. 10:35', to: email, type: 'Administratorski račun tenanta',
+        tenant: code, user, tempPass
+      });
+      openModal('Poslan Administratorski račun za novog Tenanta (' + code + ')', `
+        <div style="padding:12px;border-radius:8px;background:var(--emerald-soft);color:var(--emerald-text);font-weight:700;margin-bottom:12px;">
+          ✓ Tenant ${code} (${name}) je kreiran u bazi i administratorski račun je poslan na ${email}!
+        </div>
+        <div class="card" style="padding:12px;background:var(--bg-subtle);font-size:12.5px;display:flex;flex-direction:column;gap:6px;">
+          <div><strong> Šifra tenanta u bazi:</strong> <span class="mono">${code}</span></div>
+          <div><strong> Početna poslovna godina:</strong> <span class="mono">${startYear}</span></div>
+          <div><strong> Korisničko ime (TenantAdmin):</strong> <span class="mono">${user}</span></div>
+          <div><strong> Privremena lozinka (SMTP Outbox):</strong> <span class="mono" style="font-weight:800;color:var(--accent);">${tempPass}</span></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="closeModal(); loginAsNewTenant('${user}', '${email}', '${code}')">
+          Prijavi se odmah kao ${user} (${code}) →
+        </button>
+      `);
+      renderAll();
+    }
+
+    function openNewFiscalYear() {
+      const tCode = document.getElementById('fyTenant').value;
+      const newY = document.getElementById('fyNewYear').value || '2027';
+      const t = state.tenants.find(x => x.code === tCode);
+      if (t && !t.years.includes(newY)) {
+        t.years.unshift(newY);
+        const sel = document.getElementById('ctxYearSelect');
+        const opt = document.createElement('option');
+        opt.value = newY;
+        opt.textContent = newY + ' · Nova poslovna godina';
+        sel.prepend(opt);
+      }
+      showToast('U istoj bazi otvorena poslovna ' + newY + '. godina za ' + tCode + ' sa automatskim prenosom početnog stanja zaliha i cjenovnika.');
+      renderAll();
+    }
+
+    function loginAsNewTenant(username, email, tenantCode) {
+      state.currentUser = { username, email, role: 'TENANT_ADMIN', fullName: username };
+      state.activeTenant = tenantCode;
+      state.activeTab = 'dashboard';
+      showToast('Prijavljeni ste kao administrator tenanta ' + tenantCode + ' (' + username + ').');
+      renderAll();
+    }
+
+    // Prijava i Zaboravljena lozinka
+    function openAuthOverlay() {
+      document.getElementById('authOverlay').classList.remove('hidden');
+    }
+    function closeAuthOverlay() {
+      document.getElementById('authOverlay').classList.add('hidden');
+    }
+    function toggleAuthSubView(which) {
+      document.getElementById('authLoginView').classList.toggle('hidden', which !== 'login');
+      document.getElementById('authForgotView').classList.toggle('hidden', which !== 'forgot');
+      document.getElementById('authFeedback').classList.add('hidden');
+    }
+    function performLogin() {
+      const u = document.getElementById('loginUser').value.trim();
+      const y = document.getElementById('loginYear').value;
+      state.activeYear = y;
+      document.getElementById('ctxYearSelect').value = y;
+      state.currentUser = {
+        username: u.split('@')[0],
+        email: u,
+        role: u.includes('sistem') ? 'SUPER_ADMIN' : 'TENANT_ADMIN',
+        fullName: u
+      };
+      closeAuthOverlay();
+      showToast('Uspješna prijava: ' + u + ' · Aktivna poslovna godina: ' + y);
+      renderAll();
+    }
+    function switchRole(role) {
+      if (role === 'SUPER_ADMIN') {
+        state.currentUser = { username: 'sistem.admin', email: 'sistem.admin@webpos.ba', role: 'SUPER_ADMIN', fullName: 'Sistemski Super Administrator' };
+        closeAuthOverlay();
+        openTab('superadmin');
+        showToast('Prijavljeni ste kao Vlasnik sistema (SystemSuperAdmin).');
+      } else if (role === 'TENANT_ADMIN') {
+        state.currentUser = { username: 'tenant.admin', email: 'tenant.admin@firma-jedan.ba', role: 'TENANT_ADMIN', fullName: 'Administrator Tenanta' };
+        closeAuthOverlay();
+        openTab('dashboard');
+        showToast('Prijavljeni ste kao Administrator tenanta TEN-001 (Firma Jedan d.o.o.).');
+      } else {
+        state.currentUser = { username: 'radnik.jedan', email: 'radnik.jedan@firma-jedan.ba', role: 'CASHIER', fullName: 'Blagajnik K1' };
+        closeAuthOverlay();
+        openTab('pos');
+        showToast('Prijavljeni ste kao Blagajnik (radnik.jedan) na POS Kasi #1.');
+      }
+    }
+    function sendResetCode() {
+      const em = document.getElementById('forgotEmail').value;
+      const fb = document.getElementById('authFeedback');
+      fb.classList.remove('hidden');
+      fb.style.background = 'var(--emerald-soft)';
+      fb.style.color = 'var(--emerald-text)';
+      fb.textContent = 'Sigurnosni 6-cifreni kod (849201) poslan na ' + em + ' putem SMTP-a.';
+      document.getElementById('resetCodeBox').classList.remove('hidden');
+      document.getElementById('resetCodeInput').value = '849201';
+    }
+    function confirmPasswordReset() {
+      toggleAuthSubView('login');
+      const fb = document.getElementById('authFeedback');
+      fb.classList.remove('hidden');
+      fb.style.background = 'var(--emerald-soft)';
+      fb.style.color = 'var(--emerald-text)';
+      fb.textContent = 'Lozinka je uspješno promijenjena. Možete se prijaviti sa novom lozinkom.';
+    }
+
+    // Univerzalni Modal
+    function openModal(title, html) {
+      document.getElementById('appModalTitle').textContent = title;
+      document.getElementById('appModalBody').innerHTML = html;
+      document.getElementById('appModal').classList.remove('hidden');
+    }
+    function closeModal() {
+      document.getElementById('appModal').classList.add('hidden');
+    }
+
+    // Funkcijske prečice tastature (F1 - F9)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'F1') { e.preventDefault(); openTab('pos'); }
+      else if (e.key === 'F2') { e.preventDefault(); openTab('items'); }
+      else if (e.key === 'F3') { e.preventDefault(); openTab('pricelists'); }
+      else if (e.key === 'F4') { e.preventDefault(); if (state.activeTab === 'pos') selectPosCustomerModal(); else openTab('partners'); }
+      else if (e.key === 'F5' && state.activeTab === 'pos') { e.preventDefault(); completePosCheckout('Gotovina'); }
+      else if (e.key === 'F6') { e.preventDefault(); if (state.activeTab === 'pos') completePosCheckout('Kartica'); else openTab('calc-new'); }
+      else if (e.key === 'F7') { e.preventDefault(); openTab('transfer-new'); }
+      else if (e.key === 'F8' && state.activeTab === 'pos') { e.preventDefault(); completePosCheckout('Virman / Odgođeno'); }
+      else if (e.key === 'F9') { e.preventDefault(); openTab('receipts'); }
+    });
+
+    // Inicijalno renderovanje
+    renderAll();
+  </script>
 </body>
 </html>
