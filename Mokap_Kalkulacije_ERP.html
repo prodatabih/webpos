@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERP Kalkulacija Cijena - Mokap</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- Top Bar / App Shell Header -->
+  <header class="no-print bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-sm">
+        WP
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400">WebPos ERP</span>
+          <span class="text-slate-600">/</span>
+          <span class="text-sm font-medium text-slate-300">Robno poslovanje</span>
+          <span class="text-slate-600">/</span>
+          <span class="text-sm font-semibold text-white">Ulazna kalkulacija (Primka)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Document Status & Actions -->
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        U pripremi (Draft)
+      </span>
+      <div class="h-4 w-px bg-slate-800"></div>
+      <button onclick="togglePrintPreview()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+        <span id="previewBtnText">Pregled štampe (A4)</span>
+      </button>
+      <button onclick="exportToExcelMock()" class="px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/50 text-xs font-medium flex items-center gap-1.5 transition">
+        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Izvoz u Excel (.xlsx)
+      </button>
+      <button onclick="postDocument()" class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        Knjiži kalkulaciju (F9)
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 p-6 space-y-6 max-w-[1700px] w-full mx-auto" id="editWorkspace">
+    
+    <!-- 1. Document Header & Dependent Costs Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 no-print">
+      
+      <!-- General Header Info (Cols 1-3) -->
+      <div class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Zaglavlje kalkulacije</span>
+            <span class="px-2 py-0.5 rounded text-xs font-mono bg-slate-800 text-indigo-300 font-bold">KL-2026/00042</span>
+          </div>
+          <div class="flex items-center gap-4 text-xs text-slate-400">
+            <div>Operater: <span class="font-medium text-slate-200">radnik.jedan</span></div>
+            <div>Datum unosa: <span class="font-medium text-slate-200">08.11.2026.</span></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+          <!-- Supplier (Fast Autocomplete) -->
+          <div class="md:col-span-2 space-y-1">
+            <label class="block font-medium text-slate-300">
+              Dobavljač / Poslovni partner <span class="text-rose-400">*</span>
+            </label>
+            <div class="relative">
+              <input type="text" id="partnerInput" value="MEGGLE BH D.O.O. BIHAĆ (JIB: 4263123450001)" 
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-medium"
+                placeholder="Kucajte naziv, JIB ili PIB partnera...">
+              <span class="absolute right-2.5 top-2.5 text-slate-500 text-[11px]">Rabat: 5%</span>
+            </div>
+          </div>
+
+          <!-- Invoice Number -->
+          <div class="space-y-1">
+            <label class="block font-medium text-slate-300">
+              Broj fakture dobavljača <span class="text-rose-400">*</span>
+            </label>
+            <input type="text" id="invNumber" value="FA-9842/26" 
+              class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono">
+          </div>
+
+          <!-- Target Warehouse -->
+          <div class="space-y-1">
+            <label class="block font-medium text-slate-300">
+              Ulazno skladište <span class="text-rose-400">*</span>
+            </label>
+            <select id="warehouseSelect" onchange="handleWarehouseChange()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500 font-medium">
+              <option value="MP1" selected>PJ-1 Maloprodaja Centar (MP)</option>
+              <option value="MP2">PJ-2 Maloprodaja Istok (MP)</option>
+              <option value="VP1">VP-1 Centralno Veleprodajno Skladište (VP)</option>
+              <option value="MAT1">MAT-1 Magacin repromaterijala / sirovina (NC)</option>
+            </select>
+          </div>
+
+          <!-- Invoice Date -->
+          <div class="space-y-1">
+            <label class="block font-medium text-slate-300">Datum fakture</label>
+            <input type="date" value="2026-11-06" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <!-- Receipt Date -->
+          <div class="space-y-1">
+            <label class="block font-medium text-slate-300">Datum prijema robe</label>
+            <input type="date" value="2026-11-08" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <!-- Due Date -->
+          <div class="space-y-1">
+            <label class="block font-medium text-slate-300">Datum dospijeća (Valuta)</label>
+            <input type="date" value="2026-12-08" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <!-- Allocation Method -->
+          <div class="space-y-1">
+            <label class="block font-medium text-slate-300">Raspodjela zavisnih troškova</label>
+            <select id="allocMethod" onchange="recalculateAll()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500">
+              <option value="value" selected>Proporcionalno vrijednosti (KM)</option>
+              <option value="weight">Proporcionalno težini (kg)</option>
+              <option value="quantity">Proporcionalno količini</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dependent Costs (Zavisni troškovi ZTR) (Col 4) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Zavisni troškovi (ZTR)</span>
+            <span class="text-xs text-indigo-400 font-medium cursor-pointer hover:underline" onclick="addCustomCost()">+ Dodaj trošak</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Prevoz / Transport:</span>
+              <div class="flex items-center gap-1 w-28">
+                <input type="number" step="0.01" id="costFreight" value="45.00" oninput="recalculateAll()" class="w-full text-right bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100 font-mono text-xs">
+                <span class="text-slate-500">KM</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Špedicija / Carina:</span>
+              <div class="flex items-center gap-1 w-28">
+                <input type="number" step="0.01" id="costCustoms" value="0.00" oninput="recalculateAll()" class="w-full text-right bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100 font-mono text-xs">
+                <span class="text-slate-500">KM</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Istovar / Manipulacija:</span>
+              <div class="flex items-center gap-1 w-28">
+                <input type="number" step="0.01" id="costHandling" value="15.00" oninput="recalculateAll()" class="w-full text-right bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100 font-mono text-xs">
+                <span class="text-slate-500">KM</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+          <span class="font-semibold text-slate-300">Ukupni ZTR:</span>
+          <span class="font-bold text-amber-400 font-mono text-sm" id="totalZtrDisplay">60,00 KM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Fast Item Search / Add Bar (Combobox simulation for 50k items) -->
+    <div class="no-print bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          Brzo dodavanje stavke (Baza: 50.000+ artikala)
+        </label>
+        <span class="text-xs text-slate-500">Pretražite po šifri, barkodu ili nazivu. Pritisnite [Enter] za dodavanje.</span>
+      </div>
+
+      <div class="relative">
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <input type="text" id="itemSearchBox" oninput="handleItemSearch(this.value)" onfocus="showItemDropdown()" 
+              placeholder="Počnite kucati... npr. 'Mlijeko', 'Ulje', '3870001001234' ili 'ART-004'"
+              class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-medium">
+            <svg class="w-4 h-4 text-slate-500 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          </div>
+          <button onclick="addNewCustomLine()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+            + Prazan red
+          </button>
+        </div>
+
+        <!-- Autocomplete Dropdown List -->
+        <div id="itemDropdown" class="hidden absolute left-0 right-0 top-12 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-20 overflow-hidden divide-y divide-slate-800 max-h-60 overflow-y-auto">
+          <!-- Sample matched items -->
+          <div onclick="selectItem('ART-101', 'Mlijeko Meggle 2.8% MM 1L', 'KOM', '3871234567890', 1.80, 2.30, 17)" class="p-3 hover:bg-slate-800/80 cursor-pointer flex items-center justify-between text-xs transition">
+            <div class="flex items-center gap-3">
+              <span class="font-mono bg-slate-800 text-indigo-400 px-2 py-0.5 rounded font-bold">ART-101</span>
+              <div>
+                <div class="font-semibold text-slate-100">Mlijeko Meggle 2.8% MM 1L</div>
+                <div class="text-[11px] text-slate-400">Barkod: 3871234567890 | Grupa: Mliječni proizvodi</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-medium text-slate-200">Zadnja NC: 1,8000 KM</div>
+              <div class="font-mono text-emerald-400 font-semibold">Trenutna MPC: 2,30 KM (Zaliha: 140 kom)</div>
+            </div>
+          </div>
+
+          <div onclick="selectItem('ART-102', 'Jogurt Meggle 2.8% MM 1kg', 'KOM', '3871234567891', 2.10, 2.85, 17)" class="p-3 hover:bg-slate-800/80 cursor-pointer flex items-center justify-between text-xs transition">
+            <div class="flex items-center gap-3">
+              <span class="font-mono bg-slate-800 text-indigo-400 px-2 py-0.5 rounded font-bold">ART-102</span>
+              <div>
+                <div class="font-semibold text-slate-100">Jogurt Meggle 2.8% MM 1kg</div>
+                <div class="text-[11px] text-slate-400">Barkod: 3871234567891 | Grupa: Mliječni proizvodi</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-medium text-slate-200">Zadnja NC: 2,1000 KM</div>
+              <div class="font-mono text-emerald-400 font-semibold">Trenutna MPC: 2,85 KM (Zaliha: 65 kom)</div>
+            </div>
+          </div>
+
+          <div onclick="selectItem('ART-205', 'Ulje Bimal Suncokretovo 1L', 'KOM', '3879988776655', 2.45, 3.20, 17)" class="p-3 hover:bg-slate-800/80 cursor-pointer flex items-center justify-between text-xs transition">
+            <div class="flex items-center gap-3">
+              <span class="font-mono bg-slate-800 text-indigo-400 px-2 py-0.5 rounded font-bold">ART-205</span>
+              <div>
+                <div class="font-semibold text-slate-100">Ulje Bimal Suncokretovo 1L</div>
+                <div class="text-[11px] text-slate-400">Barkod: 3879988776655 | Grupa: Osnovne namirnice</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-medium text-slate-200">Zadnja NC: 2,4500 KM</div>
+              <div class="font-mono text-emerald-400 font-semibold">Trenutna MPC: 3,20 KM (Zaliha: 310 kom)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Spreadsheet-grade Calculation Line Items Table -->
+    <div class="no-print bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Stavke ulazne kalkulacije</span>
+          <span id="lineCountBadge" class="bg-indigo-950 text-indigo-300 border border-indigo-800/50 px-2 py-0.5 rounded text-xs font-mono font-semibold">2 stavke</span>
+        </div>
+        <div class="text-xs text-slate-400 flex items-center gap-4">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Izmjena marže računa novu MPC</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Izmjena MPC računa novu maržu</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-950/70 border-b border-slate-800 text-slate-400 font-semibold uppercase text-[11px] tracking-wider">
+              <th class="py-3 px-3 w-10 text-center">#</th>
+              <th class="py-3 px-3 min-w-[200px]">Artikal / Naziv</th>
+              <th class="py-3 px-2 w-14 text-center">JM</th>
+              <th class="py-3 px-2 w-20 text-right">Količina</th>
+              <th class="py-3 px-2 w-24 text-right">Fakturna (KM)</th>
+              <th class="py-3 px-2 w-16 text-right">Rabat %</th>
+              <th class="py-3 px-2 w-24 text-right">Neto Fakturna</th>
+              <th class="py-3 px-2 w-20 text-right">ZTR / kom</th>
+              <th class="py-3 px-2 w-24 text-right bg-indigo-950/20 text-indigo-300 font-bold">Nabavna cijena</th>
+              <th class="py-3 px-2 w-28 text-right bg-indigo-950/20 text-indigo-300">Ukupno nabavna</th>
+              <th class="py-3 px-2 w-20 text-right">Marža %</th>
+              <th class="py-3 px-2 w-24 text-right">Prodajna b.PDV</th>
+              <th class="py-3 px-2 w-14 text-center">PDV</th>
+              <th class="py-3 px-2 w-24 text-right bg-emerald-950/20 text-emerald-300 font-bold">MP Cijena</th>
+              <th class="py-3 px-3 w-28 text-right bg-emerald-950/20 text-emerald-300">Ukupno MPC</th>
+              <th class="py-3 px-2 w-10 text-center"></th>
+            </tr>
+          </thead>
+          <tbody id="linesTableBody" class="divide-y divide-slate-800/60 font-mono">
+            <!-- Dynamic rows rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 4. Financial Summary Recap Panel -->
+    <div class="no-print grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm text-xs">
+      <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+        <div class="text-slate-400 text-[11px]">Fakturni iznos:</div>
+        <div class="font-bold text-slate-200 text-sm font-mono mt-1" id="sumInvoice">405,00 KM</div>
+      </div>
+      <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+        <div class="text-slate-400 text-[11px]">Ukupan rabat:</div>
+        <div class="font-bold text-rose-400 text-sm font-mono mt-1" id="sumDiscount">-20,25 KM</div>
+      </div>
+      <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+        <div class="text-slate-400 text-[11px]">Zavisni troškovi (ZTR):</div>
+        <div class="font-bold text-amber-400 text-sm font-mono mt-1" id="sumZtr">60,00 KM</div>
+      </div>
+      <div class="p-3 bg-slate-950 rounded-lg border border-indigo-900/40">
+        <div class="text-indigo-400 text-[11px] font-semibold">Ukupna nabavna vrij.:</div>
+        <div class="font-bold text-indigo-200 text-sm font-mono mt-1" id="sumPurchase">444,75 KM</div>
+      </div>
+      <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+        <div class="text-slate-400 text-[11px]">Ukupna marža:</div>
+        <div class="font-bold text-cyan-400 text-sm font-mono mt-1" id="sumMargin">112,05 KM</div>
+      </div>
+      <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+        <div class="text-slate-400 text-[11px]">Ukupan PDV (17%):</div>
+        <div class="font-bold text-slate-300 text-sm font-mono mt-1" id="sumVat">94,66 KM</div>
+      </div>
+      <div class="p-3 bg-slate-950 rounded-lg border border-emerald-900/60 bg-emerald-950/20">
+        <div class="text-emerald-400 text-[11px] font-bold uppercase">Zaduženje MPC:</div>
+        <div class="font-extrabold text-emerald-300 text-base font-mono mt-1" id="sumTotalMpc">651,46 KM</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 5. Print Preview Container (Propisani A4 Zakonski Obrazac Kalkulacije) -->
+  <div id="printArea" class="hidden p-8 max-w-[1100px] mx-auto bg-white text-black min-h-screen font-sans">
+    
+    <!-- Header of Official A4 Document -->
+    <div class="border-b-2 border-black pb-4 mb-6">
+      <div class="flex justify-between items-start">
+        <div>
+          <h1 class="text-lg font-black tracking-tight uppercase">PRO DATA BIH D.O.O.</h1>
+          <p class="text-xs text-gray-700">Adresa: Maršala Tita 48, 71000 Sarajevo</p>
+          <p class="text-xs text-gray-700">ID / JIB: 4200112233001 | PDV: 200112233001</p>
+          <p class="text-xs text-gray-700">Prodajni objekat: <strong>PJ-1 Maloprodaja Centar</strong></p>
+        </div>
+        <div class="text-right">
+          <div class="inline-block border-2 border-black px-4 py-2 text-center">
+            <span class="block text-xs uppercase font-bold text-gray-600">Dokument</span>
+            <span class="text-lg font-black" id="printDocNumber">KL-2026/00042</span>
+          </div>
+          <p class="text-xs text-gray-600 mt-1">Datum kalkulacije: <strong id="printDocDate">08.11.2026.</strong></p>
+        </div>
+      </div>
+      <div class="mt-4 text-center">
+        <h2 class="text-xl font-black uppercase tracking-wider underline">PRIJEMNI LIST - MALOPRODAJNA KALKULACIJA CIJENA</h2>
+      </div>
+    </div>
+
+    <!-- Partner & Invoice Details -->
+    <div class="grid grid-cols-2 gap-4 text-xs mb-6 border border-gray-300 p-3 bg-gray-50">
+      <div>
+        <p><strong>Dobavljač:</strong> <span id="printPartner">MEGGLE BH D.O.O. BIHAĆ</span></p>
+        <p><strong>JIB / PIB:</strong> 4263123450001</p>
+        <p><strong>Sjedište:</strong> Bihać, Bosna i Hercegovina</p>
+      </div>
+      <div>
+        <p><strong>Broj računa/fakture:</strong> <span id="printInvNumber">FA-9842/26</span></p>
+        <p><strong>Datum fakture:</strong> 06.11.2026.</p>
+        <p><strong>Datum prijema robe:</strong> 08.11.2026.</p>
+      </div>
+    </div>
+
+    <!-- Official A4 Columns Table -->
+    <table class="w-full text-[10px] border-collapse border border-black mb-6">
+      <thead>
+        <tr class="bg-gray-200 text-center font-bold border-b border-black">
+          <th class="border border-black p-1 w-6">R.b</th>
+          <th class="border border-black p-1">Naziv artikla i šifra</th>
+          <th class="border border-black p-1 w-8">JM</th>
+          <th class="border border-black p-1 w-12">Količina</th>
+          <th class="border border-black p-1 w-14">Fakturna cijena</th>
+          <th class="border border-black p-1 w-10">Rabat %</th>
+          <th class="border border-black p-1 w-12">ZTR /kom</th>
+          <th class="border border-black p-1 w-14">Nabavna cijena</th>
+          <th class="border border-black p-1 w-16">Ukupno nabavna</th>
+          <th class="border border-black p-1 w-10">Marža %</th>
+          <th class="border border-black p-1 w-14">Marža iznos</th>
+          <th class="border border-black p-1 w-14">Prodajna b.PDV</th>
+          <th class="border border-black p-1 w-8">PDV %</th>
+          <th class="border border-black p-1 w-14">MPC sa PDV</th>
+          <th class="border border-black p-1 w-16">Ukupno MPC</th>
+        </tr>
+      </thead>
+      <tbody id="printTableBody" class="divide-y divide-black font-mono">
+        <!-- Rendered by JS -->
+      </tbody>
+      <tfoot class="font-bold bg-gray-100 border-t-2 border-black font-mono">
+        <tr id="printTableFoot">
+          <!-- Totals -->
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Financial Recap Box -->
+    <div class="grid grid-cols-2 gap-6 text-xs mb-10">
+      <div class="border border-gray-400 p-3">
+        <h4 class="font-bold border-b border-gray-300 pb-1 mb-2">REKAPITULACIJA TROŠKOVA I NABAVKE</h4>
+        <div class="flex justify-between py-0.5"><span>Ukupna fakturna vrijednost:</span><span id="printRecapInvoice" class="font-mono">405,00 KM</span></div>
+        <div class="flex justify-between py-0.5"><span>Ukupan odobreni rabat:</span><span id="printRecapDiscount" class="font-mono">-20,25 KM</span></div>
+        <div class="flex justify-between py-0.5"><span>Neto fakturna vrijednost:</span><span id="printRecapNetInvoice" class="font-mono">384,75 KM</span></div>
+        <div class="flex justify-between py-0.5"><span>Zavisni troškovi (prevoz, carina):</span><span id="printRecapZtr" class="font-mono">60,00 KM</span></div>
+        <div class="flex justify-between py-0.5 font-bold border-t border-gray-300 pt-1"><span>UKUPNA NABAVNA VRIJEDNOST:</span><span id="printRecapPurchase" class="font-mono">444,75 KM</span></div>
+      </div>
+
+      <div class="border border-gray-400 p-3">
+        <h4 class="font-bold border-b border-gray-300 pb-1 mb-2">REKAPITULACIJA PRODAJE I POREZA</h4>
+        <div class="flex justify-between py-0.5"><span>Ukupna nabavna vrijednost:</span><span id="printRecapPurchase2" class="font-mono">444,75 KM</span></div>
+        <div class="flex justify-between py-0.5"><span>Ukupna razlika u cijeni (marža):</span><span id="printRecapMargin" class="font-mono">112,05 KM</span></div>
+        <div class="flex justify-between py-0.5"><span>Prodajna vrijednost bez PDV-a:</span><span id="printRecapBeforeVat" class="font-mono">556,80 KM</span></div>
+        <div class="flex justify-between py-0.5"><span>Uračunati PDV (17%):</span><span id="printRecapVat" class="font-mono">94,66 KM</span></div>
+        <div class="flex justify-between py-0.5 font-bold border-t border-gray-300 pt-1 text-sm"><span>UKUPNA MALOPRODAJNA VRIJEDNOST:</span><span id="printRecapTotalMpc" class="font-mono">651,46 KM</span></div>
+      </div>
+    </div>
+
+    <!-- Signatures Section -->
+    <div class="grid grid-cols-3 gap-8 text-center text-xs mt-12 pt-6 border-t border-gray-400">
+      <div>
+        <div class="border-b border-black h-8 mb-1"></div>
+        <p class="font-bold">Robu primio / Kontrolisao</p>
+      </div>
+      <div>
+        <div class="border-b border-black h-8 mb-1"></div>
+        <p class="font-bold">Komisija za prijem</p>
+      </div>
+      <div>
+        <div class="border-b border-black h-8 mb-1"></div>
+        <p class="font-bold">Likvidirao / Odobrio</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="no-print fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-xl text-xs font-semibold hidden transition-all duration-300 z-50"></div>
+
+  <!-- Application Logic -->
+  <script>
+    // State of line items
+    let lines = [
+      {
+        id: 1,
+        code: 'ART-101',
+        name: 'Mlijeko Meggle 2.8% MM 1L',
+        unit: 'KOM',
+        qty: 150,
+        invoicePrice: 1.80,
+        discountPct: 5,
+        marginPct: 25,
+        vatRate: 17
+      },
+      {
+        id: 2,
+        code: 'ART-102',
+        name: 'Jogurt Meggle 2.8% MM 1kg',
+        unit: 'KOM',
+        qty: 60,
+        invoicePrice: 2.25,
+        discountPct: 5,
+        marginPct: 26.67,
+        vatRate: 17
+      }
+    ];
+
+    function format2(num) {
+      return Number(num).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function format4(num) {
+      return Number(num).toLocaleString('de-DE', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    }
+
+    function getTotalZtr() {
+      const freight = parseFloat(document.getElementById('costFreight').value) || 0;
+      const customs = parseFloat(document.getElementById('costCustoms').value) || 0;
+      const handling = parseFloat(document.getElementById('costHandling').value) || 0;
+      return freight + customs + handling;
+    }
+
+    function renderLines() {
+      const tbody = document.getElementById('linesTableBody');
+      tbody.innerHTML = '';
+      const totalZtr = getTotalZtr();
+      document.getElementById('totalZtrDisplay').innerText = format2(totalZtr) + ' KM';
+
+      // Calculate total net invoice amount for proportional allocation
+      let totalNetInvoice = 0;
+      lines.forEach(l => {
+        const netPrice = l.invoicePrice * (1 - (l.discountPct / 100));
+        totalNetInvoice += netPrice * l.qty;
+      });
+
+      let sumInv = 0;
+      let sumDisc = 0;
+      let sumPurch = 0;
+      let sumMrg = 0;
+      let sumVatVal = 0;
+      let sumMpcVal = 0;
+
+      lines.forEach((line, idx) => {
+        const grossInvLine = line.invoicePrice * line.qty;
+        const netUnitPrice = line.invoicePrice * (1 - (line.discountPct / 100));
+        const netInvLine = netUnitPrice * line.qty;
+        const discLine = grossInvLine - netInvLine;
+
+        // Proportional ZTR
+        const ztrLine = totalNetInvoice > 0 ? (netInvLine / totalNetInvoice) * totalZtr : 0;
+        const ztrPerUnit = line.qty > 0 ? ztrLine / line.qty : 0;
+
+        const purchasePrice = netUnitPrice + ztrPerUnit;
+        const totalPurchase = purchasePrice * line.qty;
+
+        const priceBeforeVat = purchasePrice * (1 + (line.marginPct / 100));
+        const vatAmount = priceBeforeVat * (line.vatRate / 100);
+        const mpc = priceBeforeVat + vatAmount;
+        const totalMpc = mpc * line.qty;
+        const marginTotal = (priceBeforeVat - purchasePrice) * line.qty;
+
+        sumInv += grossInvLine;
+        sumDisc += discLine;
+        sumPurch += totalPurchase;
+        sumMrg += marginTotal;
+        sumVatVal += vatAmount * line.qty;
+        sumMpcVal += totalMpc;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition border-b border-slate-800/60';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 text-center text-slate-500">${idx + 1}</td>
+          <td class="py-2.5 px-3">
+            <div class="font-medium text-slate-100 font-sans">${line.name}</div>
+            <div class="text-[10px] text-slate-500 font-mono">${line.code}</div>
+          </td>
+          <td class="py-2.5 px-2 text-center text-slate-400 font-sans">${line.unit}</td>
+          <td class="py-2.5 px-2 text-right">
+            <input type="number" step="1" value="${line.qty}" onchange="updateLine(${line.id}, 'qty', this.value)" 
+              class="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-right text-slate-100 font-mono focus:border-indigo-500">
+          </td>
+          <td class="py-2.5 px-2 text-right">
+            <input type="number" step="0.0001" value="${line.invoicePrice}" onchange="updateLine(${line.id}, 'invoicePrice', this.value)" 
+              class="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-right text-slate-100 font-mono focus:border-indigo-500">
+          </td>
+          <td class="py-2.5 px-2 text-right">
+            <input type="number" step="0.1" value="${line.discountPct}" onchange="updateLine(${line.id}, 'discountPct', this.value)" 
+              class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-right text-slate-100 font-mono focus:border-indigo-500">
+          </td>
+          <td class="py-2.5 px-2 text-right text-slate-300 font-mono">${format4(netUnitPrice)}</td>
+          <td class="py-2.5 px-2 text-right text-amber-400 font-mono">${format4(ztrPerUnit)}</td>
+          <td class="py-2.5 px-2 text-right font-bold text-indigo-300 bg-indigo-950/20 font-mono">${format4(purchasePrice)}</td>
+          <td class="py-2.5 px-2 text-right text-indigo-200 bg-indigo-950/20 font-mono">${format2(totalPurchase)}</td>
+          <td class="py-2.5 px-2 text-right">
+            <input type="number" step="0.01" value="${line.marginPct.toFixed(2)}" onchange="updateLine(${line.id}, 'marginPct', this.value)" 
+              class="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-right text-cyan-300 font-mono focus:border-cyan-500 font-semibold">
+          </td>
+          <td class="py-2.5 px-2 text-right text-slate-300 font-mono">${format2(priceBeforeVat)}</td>
+          <td class="py-2.5 px-2 text-center text-slate-400 font-mono">${line.vatRate}%</td>
+          <td class="py-2.5 px-2 text-right bg-emerald-950/20">
+            <input type="number" step="0.01" value="${mpc.toFixed(2)}" onchange="updateLineFromMpc(${line.id}, this.value, ${purchasePrice}, ${line.vatRate})" 
+              class="w-20 bg-slate-950 border border-emerald-700/60 rounded px-1.5 py-1 text-right text-emerald-300 font-mono font-bold focus:border-emerald-400">
+          </td>
+          <td class="py-2.5 px-3 text-right font-bold text-emerald-400 bg-emerald-950/20 font-mono">${format2(totalMpc)}</td>
+          <td class="py-2.5 px-2 text-center">
+            <button onclick="removeLine(${line.id})" class="text-slate-600 hover:text-rose-400 transition" title="Obriši stavku">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Update Recap Summary
+      document.getElementById('sumInvoice').innerText = format2(sumInv) + ' KM';
+      document.getElementById('sumDiscount').innerText = '-' + format2(sumDisc) + ' KM';
+      document.getElementById('sumZtr').innerText = format2(totalZtr) + ' KM';
+      document.getElementById('sumPurchase').innerText = format2(sumPurch) + ' KM';
+      document.getElementById('sumMargin').innerText = format2(sumMrg) + ' KM';
+      document.getElementById('sumVat').innerText = format2(sumVatVal) + ' KM';
+      document.getElementById('sumTotalMpc').innerText = format2(sumMpcVal) + ' KM';
+
+      document.getElementById('lineCountBadge').innerText = `${lines.length} stavke`;
+
+      renderPrintDocument(totalZtr, totalNetInvoice, sumInv, sumDisc, sumPurch, sumMrg, sumVatVal, sumMpcVal);
+    }
+
+    function renderPrintDocument(totalZtr, totalNetInvoice, sumInv, sumDisc, sumPurch, sumMrg, sumVatVal, sumMpcVal) {
+      const pbody = document.getElementById('printTableBody');
+      pbody.innerHTML = '';
+
+      lines.forEach((line, idx) => {
+        const netUnitPrice = line.invoicePrice * (1 - (line.discountPct / 100));
+        const netInvLine = netUnitPrice * line.qty;
+        const ztrLine = totalNetInvoice > 0 ? (netInvLine / totalNetInvoice) * totalZtr : 0;
+        const ztrPerUnit = line.qty > 0 ? ztrLine / line.qty : 0;
+        const purchasePrice = netUnitPrice + ztrPerUnit;
+        const totalPurchase = purchasePrice * line.qty;
+        const priceBeforeVat = purchasePrice * (1 + (line.marginPct / 100));
+        const marginAmt = (priceBeforeVat - purchasePrice) * line.qty;
+        const vatAmount = priceBeforeVat * (line.vatRate / 100);
+        const mpc = priceBeforeVat + vatAmount;
+        const totalMpc = mpc * line.qty;
+
+        const ptr = document.createElement('tr');
+        ptr.className = 'border-b border-gray-300';
+        ptr.innerHTML = `
+          <td class="p-1 text-center border border-black">${idx + 1}</td>
+          <td class="p-1 border border-black font-sans font-medium">${line.name}<br><span class="text-[9px] text-gray-600 font-mono">${line.code}</span></td>
+          <td class="p-1 text-center border border-black">${line.unit}</td>
+          <td class="p-1 text-right border border-black">${line.qty}</td>
+          <td class="p-1 text-right border border-black">${format4(line.invoicePrice)}</td>
+          <td class="p-1 text-right border border-black">${line.discountPct}%</td>
+          <td class="p-1 text-right border border-black">${format4(ztrPerUnit)}</td>
+          <td class="p-1 text-right border border-black font-bold">${format4(purchasePrice)}</td>
+          <td class="p-1 text-right border border-black">${format2(totalPurchase)}</td>
+          <td class="p-1 text-right border border-black">${line.marginPct.toFixed(2)}%</td>
+          <td class="p-1 text-right border border-black">${format2(marginAmt)}</td>
+          <td class="p-1 text-right border border-black">${format2(priceBeforeVat)}</td>
+          <td class="p-1 text-center border border-black">${line.vatRate}%</td>
+          <td class="p-1 text-right border border-black font-bold">${format2(mpc)}</td>
+          <td class="p-1 text-right border border-black font-bold">${format2(totalMpc)}</td>
+        `;
+        pbody.appendChild(ptr);
+      });
+
+      // Recap table footer
+      document.getElementById('printTableFoot').innerHTML = `
+        <td colspan="3" class="p-1 text-right border border-black uppercase">UKUPNO:</td>
+        <td class="p-1 text-right border border-black">${lines.reduce((acc, l) => acc + l.qty, 0)}</td>
+        <td colspan="4" class="border border-black"></td>
+        <td class="p-1 text-right border border-black">${format2(sumPurch)}</td>
+        <td></td>
+        <td class="p-1 text-right border border-black">${format2(sumMrg)}</td>
+        <td class="p-1 text-right border border-black">${format2(sumPurch + sumMrg)}</td>
+        <td></td>
+        <td></td>
+        <td class="p-1 text-right border border-black">${format2(sumMpcVal)}</td>
+      `;
+
+      // Update Recap Box in Print
+      document.getElementById('printRecapInvoice').innerText = format2(sumInv) + ' KM';
+      document.getElementById('printRecapDiscount').innerText = '-' + format2(sumDisc) + ' KM';
+      document.getElementById('printRecapNetInvoice').innerText = format2(sumInv - sumDisc) + ' KM';
+      document.getElementById('printRecapZtr').innerText = format2(totalZtr) + ' KM';
+      document.getElementById('printRecapPurchase').innerText = format2(sumPurch) + ' KM';
+      document.getElementById('printRecapPurchase2').innerText = format2(sumPurch) + ' KM';
+      document.getElementById('printRecapMargin').innerText = format2(sumMrg) + ' KM';
+      document.getElementById('printRecapBeforeVat').innerText = format2(sumPurch + sumMrg) + ' KM';
+      document.getElementById('printRecapVat').innerText = format2(sumVatVal) + ' KM';
+      document.getElementById('printRecapTotalMpc').innerText = format2(sumMpcVal) + ' KM';
+    }
+
+    function updateLine(id, field, value) {
+      const line = lines.find(l => l.id === id);
+      if (line) {
+        line[field] = parseFloat(value) || 0;
+        renderLines();
+      }
+    }
+
+    function updateLineFromMpc(id, newMpc, purchasePrice, vatRate) {
+      const line = lines.find(l => l.id === id);
+      if (line && purchasePrice > 0) {
+        const targetMpc = parseFloat(newMpc) || 0;
+        const targetPriceBeforeVat = targetMpc / (1 + (vatRate / 100));
+        const newMarginPct = ((targetPriceBeforeVat - purchasePrice) / purchasePrice) * 100;
+        line.marginPct = newMarginPct;
+        renderLines();
+      }
+    }
+
+    function removeLine(id) {
+      lines = lines.filter(l => l.id !== id);
+      renderLines();
+    }
+
+    function recalculateAll() {
+      renderLines();
+    }
+
+    function handleItemSearch(query) {
+      const dropdown = document.getElementById('itemDropdown');
+      if (query.trim().length > 0) {
+        dropdown.classList.remove('hidden');
+      } else {
+        dropdown.classList.add('hidden');
+      }
+    }
+
+    function showItemDropdown() {
+      document.getElementById('itemDropdown').classList.remove('hidden');
+    }
+
+    function selectItem(code, name, unit, barcode, lastNc, mpc, vatRate) {
+      document.getElementById('itemDropdown').classList.add('hidden');
+      document.getElementById('itemSearchBox').value = '';
+
+      // Auto calculate initial margin based on current MPC
+      const marginPct = lastNc > 0 ? (((mpc / 1.17) - lastNc) / lastNc) * 100 : 20;
+
+      const newLine = {
+        id: Date.now(),
+        code,
+        name,
+        unit,
+        qty: 10,
+        invoicePrice: lastNc,
+        discountPct: 0,
+        marginPct: Math.max(0, marginPct),
+        vatRate: vatRate || 17
+      };
+      lines.push(newLine);
+      renderLines();
+      showToast(`Artikal ${name} dodat u kalkulaciju!`, 'success');
+    }
+
+    function addNewCustomLine() {
+      const newLine = {
+        id: Date.now(),
+        code: 'ART-' + Math.floor(100 + Math.random() * 900),
+        name: 'Novi artikal iz kataloga',
+        unit: 'KOM',
+        qty: 1,
+        invoicePrice: 10.00,
+        discountPct: 0,
+        marginPct: 25.00,
+        vatRate: 17
+      };
+      lines.push(newLine);
+      renderLines();
+    }
+
+    function togglePrintPreview() {
+      const printArea = document.getElementById('printArea');
+      const editWorkspace = document.getElementById('editWorkspace');
+      const btn = document.getElementById('previewBtnText');
+
+      if (printArea.classList.contains('hidden')) {
+        printArea.classList.remove('hidden');
+        editWorkspace.classList.add('hidden');
+        btn.innerText = 'Nazad na uređivanje';
+      } else {
+        printArea.classList.add('hidden');
+        editWorkspace.classList.remove('hidden');
+        btn.innerText = 'Pregled štampe (A4)';
+      }
+    }
+
+    function exportToExcelMock() {
+      showToast('Generisan je validan Excel (.xlsx) fajl sa svim kolonama kalkulacije i rekapitulacijom!', 'success');
+    }
+
+    function postDocument() {
+      showToast('Kalkulacija KL-2026/00042 je uspješno proknjižena! Ažurirane su zalihe i formiran KEP zapis.', 'success');
+    }
+
+    function addCustomCost() {
+      const name = prompt('Unesite naziv zavisnog troška:', 'Trošak osiguranja');
+      if (name) {
+        showToast(`Dodat zavisni trošak: ${name}`, 'info');
+      }
+    }
+
+    function handleWarehouseChange() {
+      const wh = document.getElementById('warehouseSelect').value;
+      if (wh.startsWith('VP')) {
+        showToast('Izabrano Veleprodajno skladište: kalkulacija se vodi po cijenama bez PDV-a.', 'info');
+      } else if (wh.startsWith('MAT')) {
+        showToast('Izabran Magacin sirovina: zaliha se vodi strogo po nabavnim cijenama (NC).', 'info');
+      } else {
+        showToast('Izabrano Maloprodajno skladište: kalkulacija se vodi sa zaduženjem u MPC.', 'info');
+      }
+    }
+
+    function showToast(msg, type) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.className = `no-print fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-xl text-xs font-semibold z-50 transition-all duration-300 ${
+        type === 'success' ? 'bg-emerald-600 text-white' : type === 'info' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-200'
+      }`;
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3500);
+    }
+
+    // Initial render
+    renderLines();
+  </script>
+</body>
+</html>
