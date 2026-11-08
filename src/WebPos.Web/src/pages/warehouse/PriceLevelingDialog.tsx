@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import Decimal from 'decimal.js';
-import { Plus, Trash2, CheckCircle2, Save } from 'lucide-react';
+import { Plus, CheckCircle2, Save, Printer, FileSpreadsheet } from 'lucide-react';
 import { t } from '../../i18n';
-import { d, formatMoney2, formatQty, round2 } from '../../lib/money';
+import { d, formatMoney2, round2 } from '../../lib/money';
 import { generateUuidV7 } from '../../lib/utils';
 import type {
+  Company,
   Item,
   PriceLevelingDocument,
   PriceLevelingLine,
   StoreItemPrice,
+  StoreLocation,
   VatRate,
 } from '../../types/domain';
 import { Dialog } from '../../components/ui/Dialog';
@@ -16,11 +18,16 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Combobox } from '../../components/ui/Combobox';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
+import { PriceLevelingPrintView } from './PriceLevelingPrintView';
+import { PriceLevelingLinesTable } from './PriceLevelingLinesTable';
+import { exportPriceLevelingToExcel } from './priceLevelingExcelExport';
 
 interface PriceLevelingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialDoc: PriceLevelingDocument;
+  company: Company;
+  storeLocation: StoreLocation;
   items: Item[];
   vatRates: VatRate[];
   storePrices: StoreItemPrice[];
@@ -67,6 +74,8 @@ export function PriceLevelingDialog({
   open,
   onOpenChange,
   initialDoc,
+  company,
+  storeLocation,
   items,
   vatRates,
   storePrices,
@@ -75,10 +84,19 @@ export function PriceLevelingDialog({
 }: PriceLevelingDialogProps) {
   const [doc, setDoc] = useState<PriceLevelingDocument>(initialDoc);
   const [newItemId, setNewItemId] = useState('');
+  const [isPrintPreview, setIsPrintPreview] = useState(false);
   const isReadOnly = doc.status !== 'DRAFT';
 
   const itemOptions = useMemo(
-    () => items.filter((it) => it.isActive).map((it) => ({ value: it.id, code: it.sku, label: it.name, sublabel: `${it.primaryBarcode} · ${it.uom}` })),
+    () =>
+      items
+        .filter((it) => it.isActive)
+        .map((it) => ({
+          value: it.id,
+          code: it.sku,
+          label: it.name,
+          sublabel: `${it.primaryBarcode} · ${it.uom}`,
+        })),
     [items]
   );
 
@@ -111,7 +129,9 @@ export function PriceLevelingDialog({
 
   const handleNewPriceChange = (lineId: string, newPriceStr: string) => {
     if (isReadOnly) return;
-    const nextLines = doc.lines.map((line) => (line.id === lineId ? buildLevelingLine({ ...line, newRetailPriceWithVat: newPriceStr }) : line));
+    const nextLines = doc.lines.map((line) =>
+      line.id === lineId ? buildLevelingLine({ ...line, newRetailPriceWithVat: newPriceStr }) : line
+    );
     setDoc(recomputeDocTotals(nextLines));
   };
 
@@ -120,86 +140,83 @@ export function PriceLevelingDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={`${t('nav.priceLeveling')} — ${doc.docNumber}`}
-      size="xl"
+      size="full"
       footer={
-        <>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
-          {!isReadOnly && (
-            <>
-              <Button variant="secondary" onClick={() => onSaveDraft(doc)}>
-                <Save className="h-4 w-4" /><span>{t('common.saveDraft')}</span>
-              </Button>
-              <Button variant="success" disabled={doc.lines.length === 0} onClick={() => onPostDocument(doc)}>
-                <CheckCircle2 className="h-4 w-4" /><span>{t('common.postDocument')}</span>
-              </Button>
-            </>
-          )}
-        </>
-      }
-    >
-      <div className="space-y-4 text-xs">
-        <div className="flex items-center justify-between">
-          <DocumentStatusBadge status={doc.status} />
-          {isReadOnly && <span className="text-muted-foreground">{t('messages.postedImmutableError')}</span>}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Input label={t('warehouse.docNumber')} value={doc.docNumber} disabled={isReadOnly} onChange={(e) => setDoc({ ...doc, docNumber: e.target.value })} className="font-mono" />
-          <Input label={t('warehouse.docDate')} type="date" value={doc.docDate} disabled={isReadOnly} onChange={(e) => setDoc({ ...doc, docDate: e.target.value })} />
-          <Input label={t('common.description')} value={doc.reason} disabled={isReadOnly} onChange={(e) => setDoc({ ...doc, reason: e.target.value })} />
-        </div>
-
-        {!isReadOnly && (
-          <div className="flex items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
-            <div className="flex-1"><Combobox label={t('nav.items')} options={itemOptions} value={newItemId} onChange={setNewItemId} /></div>
-            <Button variant="primary" onClick={handleAddLine} disabled={!newItemId}>
-              <Plus className="h-4 w-4" /><span>{t('common.add')}</span>
+        <div className="flex w-full items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsPrintPreview(!isPrintPreview)}>
+              <Printer className="h-3.5 w-3.5" />
+              <span>{isPrintPreview ? t('warehouse.backToEdit') : t('warehouse.printA4Leveling')}</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => exportPriceLevelingToExcel(doc, items)}>
+              <FileSpreadsheet className="h-3.5 w-3.5 text-success" />
+              <span>{t('common.exportExcel')}</span>
             </Button>
           </div>
-        )}
-
-        <div className="overflow-x-auto rounded-md border border-border">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-border bg-muted/60 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-semibold">{t('common.name')}</th>
-                <th className="px-3 py-2 font-semibold text-right">{t('master.currentStock')}</th>
-                <th className="px-3 py-2 font-semibold text-right">{t('warehouse.oldRetailPrice')}</th>
-                <th className="px-3 py-2 font-semibold text-right">{t('warehouse.newRetailPrice')}</th>
-                <th className="px-3 py-2 font-semibold text-right">{t('warehouse.priceDifference')}</th>
-                <th className="px-3 py-2 font-semibold text-right">{t('warehouse.vatDifference')}</th>
-                <th className="px-3 py-2 font-semibold text-right">{t('warehouse.marginDifference')}</th>
-                {!isReadOnly && <th className="px-3 py-2 text-center">{t('common.actions')}</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {doc.lines.map((line) => {
-                const item = items.find((i) => i.id === line.itemId);
-                return (
-                  <tr key={line.id}>
-                    <td className="px-3 py-2 font-medium">{item?.name ?? line.itemId}</td>
-                    <td className="px-3 py-2 text-right font-mono">{formatQty(line.stockQuantity, 2)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{formatMoney2(line.oldRetailPriceWithVat, true)}</td>
-                    <td className="px-3 py-2 text-right">
-                      <input type="number" step="0.01" disabled={isReadOnly} value={line.newRetailPriceWithVat} onChange={(e) => handleNewPriceChange(line.id, e.target.value)} className="h-7 w-24 rounded border border-input bg-background px-2 text-right font-mono font-semibold" />
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono font-semibold">{formatMoney2(line.totalRetailDifference, true)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{formatMoney2(line.embeddedVatDifference, true)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{formatMoney2(line.marginDifference, true)}</td>
-                    {!isReadOnly && (
-                      <td className="px-3 py-2 text-center">
-                        <Button variant="ghost" size="icon" onClick={() => setDoc(recomputeDocTotals(doc.lines.filter((l) => l.id !== line.id)))}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
+            {!isReadOnly && (
+              <>
+                <Button variant="secondary" onClick={() => onSaveDraft(doc)}>
+                  <Save className="h-4 w-4" /><span>{t('common.saveDraft')}</span>
+                </Button>
+                <Button variant="success" disabled={doc.lines.length === 0} onClick={() => onPostDocument(doc)}>
+                  <CheckCircle2 className="h-4 w-4" /><span>{t('common.postDocument')}</span>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      }
+    >
+      {isPrintPreview ? (
+        <PriceLevelingPrintView doc={doc} company={company} storeLocation={storeLocation} items={items} onBack={() => setIsPrintPreview(false)} />
+      ) : (
+        <div className="space-y-4 text-xs">
+          <div className="flex items-center justify-between">
+            <DocumentStatusBadge status={doc.status} />
+            {isReadOnly && <span className="text-muted-foreground">{t('messages.postedImmutableError')}</span>}
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Input label={t('warehouse.docNumber')} value={doc.docNumber} disabled={isReadOnly} onChange={(e) => setDoc({ ...doc, docNumber: e.target.value })} className="font-mono" />
+            <Input label={t('warehouse.docDate')} type="date" value={doc.docDate} disabled={isReadOnly} onChange={(e) => setDoc({ ...doc, docDate: e.target.value })} />
+            <Input label={t('common.description')} value={doc.reason} disabled={isReadOnly} onChange={(e) => setDoc({ ...doc, reason: e.target.value })} />
+          </div>
+
+          {!isReadOnly && (
+            <div className="flex items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
+              <div className="flex-1"><Combobox label={t('nav.items')} options={itemOptions} value={newItemId} onChange={setNewItemId} /></div>
+              <Button variant="primary" onClick={handleAddLine} disabled={!newItemId}>
+                <Plus className="h-4 w-4" /><span>{t('common.add')}</span>
+              </Button>
+            </div>
+          )}
+
+          <PriceLevelingLinesTable
+            lines={doc.lines}
+            items={items}
+            isReadOnly={isReadOnly}
+            onNewPriceChange={handleNewPriceChange}
+            onRemoveLine={(id) => setDoc(recomputeDocTotals(doc.lines.filter((l) => l.id !== id)))}
+          />
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-lg border border-border bg-muted/40 p-3 text-xs">
+            <div>
+              <div className="text-muted-foreground">{t('warehouse.financialEffectStock')}</div>
+              <div className="font-mono text-sm font-bold text-primary">{formatMoney2(doc.totalRetailDifference, true)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">{t('warehouse.financialEffectVat')}</div>
+              <div className="font-mono text-sm font-semibold">{formatMoney2(doc.totalVatDifference, true)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">{t('warehouse.financialEffectMargin')}</div>
+              <div className="font-mono text-sm font-semibold">{formatMoney2(doc.totalMarginDifference, true)}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </Dialog>
   );
 }

@@ -107,6 +107,16 @@ export const initialStoreLocations: StoreLocation[] = [
     city: 'Sarajevo',
     isActive: true,
   },
+  {
+    id: 'store-4',
+    companyId: 'comp-1',
+    code: 'MAT-01',
+    name: 'Magacin sirovina i repromaterijala',
+    storeType: 'RAW_MATERIAL',
+    address: 'Rajlovačka cesta bb',
+    city: 'Sarajevo',
+    isActive: true,
+  },
 ];
 
 export const initialPosTerminals: PosTerminal[] = [

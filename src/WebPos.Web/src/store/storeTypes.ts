@@ -18,6 +18,7 @@ import type {
   PriceLevelingDocument,
   StoreItemPrice,
   StoreLocation,
+  SystemConfig,
   TransferDocument,
   VatRate,
 } from '../types/domain';
@@ -57,6 +58,7 @@ export interface AppStoreState {
   heldReceipts: HeldPosReceipt[];
   kepLedgerEntries: KepLedgerEntry[];
   auditLog: AuditLogEntry[];
+  systemConfig: SystemConfig;
   setActiveCompanyId: (id: string) => void;
   setActiveFiscalYearId: (id: string) => void;
   setActiveStoreId: (id: string) => void;
@@ -64,6 +66,7 @@ export interface AppStoreState {
   setPosWorkMode: (mode: PosWorkMode) => void;
   toggleTheme: () => void;
   setIsOnline: (online: boolean) => void;
+  setSystemConfig: (config: Partial<SystemConfig>) => void;
   isDateInLockedPeriod: (dateStr: string) => boolean;
   toggleFiscalPeriodLock: (periodId: string) => void;
   upsertCompany: (company: Company) => void;

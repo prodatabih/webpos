@@ -166,6 +166,8 @@ export function PriceLevelingPage() {
           open={Boolean(editingDoc)}
           onOpenChange={(open) => !open && setEditingDoc(null)}
           initialDoc={editingDoc}
+          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0]!}
+          storeLocation={store.storeLocations.find((s) => s.id === store.activeStoreId) ?? store.storeLocations[0]!}
           items={store.items}
           vatRates={store.vatRates}
           storePrices={store.storeItemPrices}

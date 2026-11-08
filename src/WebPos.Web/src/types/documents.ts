@@ -41,6 +41,13 @@ export interface CalculationDocument {
   status: DocumentStatus;
   reversedByDocId?: string;
   reversalOfDocId?: string;
+  dueDate?: string;
+  receiptDate?: string;
+  ztrFreight?: string;
+  ztrCustoms?: string;
+  ztrHandling?: string;
+  ztrOther?: string;
+  ztrAllocationMethod?: 'VALUE' | 'QUANTITY';
   notes: string;
   lines: CalculationLine[];
   totalPurchaseValue: string;
@@ -131,6 +138,11 @@ export interface InventoryCountLine {
   vatRatePercent: string;
   surplusRetailValue: string;
   shortageRetailValue: string;
+  allowedWasteQuantity?: string;
+  allowedWasteRetailValue?: string;
+  unrecognizedShortageQuantity?: string;
+  unrecognizedShortageRetailValue?: string;
+  unrecognizedShortageVat?: string;
 }
 
 export interface InventoryCountDocument {
@@ -149,6 +161,9 @@ export interface InventoryCountDocument {
   lines: InventoryCountLine[];
   totalSurplusRetailValue: string;
   totalShortageRetailValue: string;
+  totalAllowedWasteValue?: string;
+  totalUnrecognizedShortageValue?: string;
+  totalUnrecognizedShortageVat?: string;
   createdBy: string;
   createdAt: string;
 }

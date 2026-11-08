@@ -107,3 +107,18 @@
     color: var(--color-foreground);
   }
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

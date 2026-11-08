@@ -1,5 +1,5 @@
 export type DocumentStatus = 'DRAFT' | 'POSTED' | 'REVERSED';
-export type StoreType = 'RETAIL' | 'WHOLESALE' | 'PRODUCTION';
+export type StoreType = 'RETAIL' | 'WHOLESALE' | 'PRODUCTION' | 'RAW_MATERIAL';
 export type PartnerType = 'SUPPLIER' | 'BUYER' | 'BOTH';
 export type ItemType = 'GOODS' | 'SERVICE' | 'COMPOSITE' | 'RAW_MATERIAL';
 export type NormativeMode = 'NONE' | 'ON_SALE_BACKFLUSH' | 'PRODUCTION_ORDER';
@@ -111,6 +111,11 @@ export interface ItemBomLine {
   componentItemId: string;
   quantity: string;
   wastePercent: string;
+  sourceStoreId?: string;
+}
+
+export interface SystemConfig {
+  allowPriceChangeWithoutLeveling: boolean;
 }
 
 export interface Item {
@@ -130,6 +135,8 @@ export interface Item {
   countryOfOrigin: string;
   isWeighable: boolean;
   isActive: boolean;
+  groupCode?: string;
+  categoryPrefix?: string;
 }
 
 export interface StoreItemPrice {

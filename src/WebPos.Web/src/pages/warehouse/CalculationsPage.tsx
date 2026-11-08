@@ -193,6 +193,8 @@ export function CalculationsPage() {
           open={Boolean(editingDoc)}
           onOpenChange={(open) => !open && setEditingDoc(null)}
           initialDoc={editingDoc}
+          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0]!}
+          storeLocations={store.storeLocations}
           partners={store.partners}
           items={store.items}
           vatRates={store.vatRates}

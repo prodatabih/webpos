@@ -40,7 +40,7 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
-          'hidden md:flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-150 shrink-0',
+          'hidden md:flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-150 shrink-0 print:hidden',
           sidebarCollapsed ? 'w-16' : 'w-60'
         )}
       >
@@ -123,7 +123,7 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
       </aside>
 
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <header className="flex h-13 items-center justify-between gap-3 border-b border-border bg-card px-4 shrink-0">
+        <header className="flex h-13 items-center justify-between gap-3 border-b border-border bg-card px-4 shrink-0 print:hidden">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen((p) => !p)}>
               <Menu className="h-4 w-4" />
@@ -222,9 +222,11 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto">{children ?? <Outlet />}</main>
       </div>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
-      <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
-      <ToastViewport />
+      <div className="print:hidden">
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+        <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
+        <ToastViewport />
+      </div>
     </div>
   );
 }

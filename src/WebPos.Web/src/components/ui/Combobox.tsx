@@ -8,6 +8,10 @@ export interface ComboboxOption {
   label: string;
   sublabel?: string;
   code?: string;
+  barcode?: string;
+  stockQty?: string | number;
+  price?: string | number;
+  uom?: string;
 }
 
 export interface ComboboxProps {
@@ -54,6 +58,7 @@ export function Combobox({
         (opt) =>
           opt.label.toLowerCase().includes(q) ||
           (opt.code && opt.code.toLowerCase().includes(q)) ||
+          (opt.barcode && opt.barcode.toLowerCase().includes(q)) ||
           (opt.sublabel && opt.sublabel.toLowerCase().includes(q))
       )
       .slice(0, 80);
@@ -129,11 +134,19 @@ export function Combobox({
           error && 'border-destructive'
         )}
       >
-        <span className={cn('truncate', !selectedOption && 'text-muted-foreground')}>
-          {selectedOption
-            ? `${selectedOption.code ? `${selectedOption.code} — ` : ''}${selectedOption.label}`
-            : placeholder ?? t('common.selectOption')}
-        </span>
+        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+          <span className={cn('truncate', !selectedOption && 'text-muted-foreground')}>
+            {selectedOption
+              ? `${selectedOption.code ? `${selectedOption.code} — ` : ''}${selectedOption.label}`
+              : placeholder ?? t('common.selectOption')}
+          </span>
+          {selectedOption && (selectedOption.price !== undefined || selectedOption.stockQty !== undefined) && (
+            <span className="text-[11px] text-muted-foreground shrink-0">
+              {selectedOption.price !== undefined ? `${selectedOption.price} ${t('common.currencyKm')}` : ''}
+              {selectedOption.stockQty !== undefined ? ` (${selectedOption.stockQty} ${selectedOption.uom ?? ''})` : ''}
+            </span>
+          )}
+        </div>
         <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground ml-2" />
       </button>
 
@@ -174,22 +187,37 @@ export function Combobox({
                       setOpen(false);
                     }}
                     className={cn(
-                      'flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-left text-xs cursor-pointer transition-colors',
+                      'flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-left text-xs cursor-pointer transition-colors gap-2',
                       isHighlighted ? 'bg-accent text-accent-foreground' : 'text-foreground',
                       isSelected && 'font-semibold'
                     )}
                   >
-                    <div className="flex flex-col truncate pr-2">
+                    <div className="flex flex-col truncate pr-2 min-w-0 flex-1">
                       <span className="truncate">
-                        {opt.code ? `${opt.code} — ${opt.label}` : opt.label}
+                        {opt.code ? `${opt.code} — ` : ''}{opt.label}
                       </span>
-                      {opt.sublabel && (
-                        <span className="text-[11px] text-muted-foreground truncate">
-                          {opt.sublabel}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground truncate">
+                        {opt.barcode && <span>{t('master.barcode')}: {opt.barcode}</span>}
+                        {opt.sublabel && <span>{opt.sublabel}</span>}
+                      </div>
                     </div>
-                    {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(opt.price !== undefined || opt.stockQty !== undefined) && (
+                        <div className="text-right text-[11px]">
+                          {opt.price !== undefined && (
+                            <div className="font-semibold text-foreground">
+                              {typeof opt.price === 'number' ? opt.price.toFixed(2) : opt.price} {t('common.currencyKm')}
+                            </div>
+                          )}
+                          {opt.stockQty !== undefined && (
+                            <div className="text-muted-foreground">
+                              {opt.stockQty} {opt.uom ?? ''}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                    </div>
                   </button>
                 );
               })

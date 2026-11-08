@@ -40,7 +40,16 @@ export function executePostInventoryCount(
   });
   setState({
     inventoryCounts: state.inventoryCounts.map((ic) =>
-      ic.id === docId ? { ...ic, status: 'POSTED', postingDate: doc.docDate } : ic
+      ic.id === docId
+        ? {
+            ...ic,
+            status: 'POSTED',
+            postingDate: doc.docDate,
+            totalAllowedWasteValue: doc.totalAllowedWasteValue ?? '0.00',
+            totalUnrecognizedShortageValue: doc.totalUnrecognizedShortageValue ?? doc.totalShortageRetailValue,
+            totalUnrecognizedShortageVat: doc.totalUnrecognizedShortageVat ?? '0.00',
+          }
+        : ic
     ),
     storeItemPrices: nextPrices,
     kepLedgerEntries: nextKep,
@@ -51,7 +60,7 @@ export function executePostInventoryCount(
         entityId: doc.id,
         entityCode: doc.docNumber,
         action: 'POST',
-        summary: `${t('messages.documentPosted')} (${doc.docNumber})`,
+        summary: `${t('messages.documentPosted')} (${doc.docNumber}) [Višak: ${doc.totalSurplusRetailValue} KM | Kalo 0%: ${doc.totalAllowedWasteValue ?? '0.00'} KM | Manjak 17%: ${doc.totalUnrecognizedShortageValue ?? doc.totalShortageRetailValue} KM, PDV: ${doc.totalUnrecognizedShortageVat ?? '0.00'} KM]`,
         previousState: 'DRAFT',
         newState: 'POSTED',
       }),

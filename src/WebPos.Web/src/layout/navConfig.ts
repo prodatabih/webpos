@@ -16,6 +16,8 @@ import {
   Percent,
   Tags,
   ShieldCheck,
+  BarChart3,
+  Boxes,
 } from 'lucide-react';
 import type { TranslationKey } from '../i18n';
 
@@ -87,6 +89,13 @@ export const NAV_ITEMS: NavItemConfig[] = [
     icon: FileStack,
   },
   {
+    id: 'stock-cards',
+    path: '/warehouse/stock-cards',
+    labelKey: 'nav.stockCards',
+    groupKey: 'nav.groupWarehouse',
+    icon: Boxes,
+  },
+  {
     id: 'items',
     path: '/master/items',
     labelKey: 'nav.items',
@@ -127,6 +136,13 @@ export const NAV_ITEMS: NavItemConfig[] = [
     labelKey: 'nav.labelCenter',
     groupKey: 'nav.groupMasterData',
     icon: Tags,
+  },
+  {
+    id: 'daily-turnover',
+    path: '/reports/daily-turnover',
+    labelKey: 'nav.dailyTurnover',
+    groupKey: 'nav.groupReports',
+    icon: BarChart3,
   },
   {
     id: 'kep-ledger',

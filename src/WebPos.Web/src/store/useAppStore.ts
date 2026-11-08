@@ -108,6 +108,9 @@ state = {
   heldReceipts: [],
   kepLedgerEntries: initialKepEntries,
   auditLog: initialAuditLogs,
+  systemConfig: {
+    allowPriceChangeWithoutLeveling: false,
+  },
   setActiveCompanyId: (id) => setState({ activeCompanyId: id }),
   setActiveFiscalYearId: (id) => setState({ activeFiscalYearId: id }),
   setActiveStoreId: (id) => {
@@ -124,6 +127,8 @@ state = {
     setState({ theme: next });
   },
   setIsOnline: (online) => setState({ isOnline: online }),
+  setSystemConfig: (cfg) =>
+    setState({ systemConfig: { ...state.systemConfig, ...cfg } }),
   isDateInLockedPeriod: (dateStr) =>
     checkDateLocked(state.activeCompanyId, dateStr, state.fiscalYears, state.fiscalPeriods),
   toggleFiscalPeriodLock: (periodId) => {

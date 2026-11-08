@@ -1,52 +1,67 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, RotateCcw, ShoppingCart } from 'lucide-react';
+import { FileText, Printer, RotateCcw, Send, ShoppingCart } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
-import { formatMoney2, formatQty } from '../../lib/money';
+import { formatMoney2 } from '../../lib/money';
 import { formatDateTimeBs } from '../../lib/utils';
-import type { PaymentMethod, PosReceipt } from '../../types/domain';
+import type { PosReceipt } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Badge, DocumentStatusBadge } from '../../components/ui/Badge';
-import { Dialog } from '../../components/ui/Dialog';
 import { showToast } from '../../components/ui/Toast';
+import { PosTaxInvoiceModal } from './PosTaxInvoiceModal';
+import { PosReprintReceiptModal } from './PosReprintReceiptModal';
 
 export function PosReceiptsPage() {
   const navigate = useNavigate();
-  const activeStoreId = useAppStore((s) => s.activeStoreId);
-  const posReceipts = useAppStore((s) => s.posReceipts);
-  const items = useAppStore((s) => s.items);
-  const partners = useAppStore((s) => s.partners);
-  const refundPosReceipt = useAppStore((s) => s.refundPosReceipt);
-  const [selectedReceipt, setSelectedReceipt] = useState<PosReceipt | null>(null);
+  const { activeStoreId, activeCompanyId, posReceipts, items, partners, companies, storeLocations, refundPosReceipt } = useAppStore();
 
-  const storeReceipts = useMemo(
-    () => posReceipts.filter((r) => r.storeId === activeStoreId),
-    [posReceipts, activeStoreId]
-  );
+  const [receiptFilter, setReceiptFilter] = useState('');
+  const [fiscalFilter, setFiscalFilter] = useState('');
+  const [cashierFilter, setCashierFilter] = useState('');
+  const [partnerFilter, setPartnerFilter] = useState('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
-  const formatPaymentMethod = (method: PaymentMethod) => {
-    if (method === 'CASH') return t('pos.payCash');
-    if (method === 'CARD') return t('pos.payCard');
-    if (method === 'WIRE') return t('pos.payWire');
-    return t('pos.payCombined');
-  };
+  const [invoiceReceipt, setInvoiceReceipt] = useState<PosReceipt | null>(null);
+  const [reprintReceipt, setReprintReceipt] = useState<PosReceipt | null>(null);
+
+  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0]!;
+  const currentStore = storeLocations.find((s) => s.id === activeStoreId) ?? storeLocations[0]!;
+
+  const filteredReceipts = useMemo(() => {
+    return posReceipts
+      .filter((r) => r.storeId === activeStoreId)
+      .filter((r) => (receiptFilter ? r.receiptNumber.toLowerCase().includes(receiptFilter.toLowerCase()) : true))
+      .filter((r) => (fiscalFilter ? r.fiscalNumber.toLowerCase().includes(fiscalFilter.toLowerCase()) : true))
+      .filter((r) => (cashierFilter ? r.cashierName.toLowerCase().includes(cashierFilter.toLowerCase()) : true))
+      .filter((r) => (partnerFilter === 'ALL' ? true : r.partnerId === partnerFilter))
+      .filter((r) => {
+        const dStr = r.issuedAt.slice(0, 10);
+        if (dateFrom && dStr < dateFrom) return false;
+        if (dateTo && dStr > dateTo) return false;
+        return true;
+      });
+  }, [posReceipts, activeStoreId, receiptFilter, fiscalFilter, cashierFilter, partnerFilter, dateFrom, dateTo]);
 
   const handleRefund = (receipt: PosReceipt) => {
     const res = refundPosReceipt(receipt.id);
     if (res.ok) {
-      showToast({
-        title: t('messages.documentReversed'),
-        description: `${t('pos.originalFiscalNumber')}: ${receipt.fiscalNumber}`,
-        variant: 'success',
-      });
-      setSelectedReceipt(null);
+      showToast({ title: t('messages.documentReversed'), description: `${t('pos.originalFiscalNumber')}: ${receipt.fiscalNumber}`, variant: 'success' });
     } else if (res.error) {
       showToast({ title: res.error, variant: 'error' });
     }
+  };
+
+  const handleFiscalize = (receipt: PosReceipt) => {
+    showToast({
+      title: t('pos.fiscalizeSuccess'),
+      description: `${receipt.receiptNumber} (${receipt.fiscalNumber})`,
+      variant: 'success',
+    });
   };
 
   const columns = useMemo<ColumnDef<PosReceipt>[]>(
@@ -54,17 +69,15 @@ export function PosReceiptsPage() {
       {
         accessorKey: 'receiptNumber',
         header: t('warehouse.docNumber'),
-        cell: ({ row }) => <span className="font-mono font-semibold text-foreground">{row.original.receiptNumber}</span>,
+        cell: ({ row }) => <span className="font-mono font-semibold">{row.original.receiptNumber}</span>,
       },
       {
         accessorKey: 'fiscalNumber',
         header: t('pos.originalFiscalNumber'),
         cell: ({ row }) => (
           <div className="flex flex-col font-mono text-xs">
-            <span>{row.original.fiscalNumber}</span>
-            {row.original.referenceFiscalNumber && (
-              <span className="text-[11px] text-destructive">← {row.original.referenceFiscalNumber}</span>
-            )}
+            <span className="font-medium text-foreground">{row.original.fiscalNumber}</span>
+            {row.original.referenceFiscalNumber && <span className="text-[10px] text-destructive">← {row.original.referenceFiscalNumber}</span>}
           </div>
         ),
       },
@@ -74,8 +87,21 @@ export function PosReceiptsPage() {
         cell: ({ row }) => formatDateTimeBs(row.original.issuedAt),
       },
       {
+        accessorKey: 'cashierName',
+        header: t('app.operator'),
+        cell: ({ row }) => <span className="text-xs">{row.original.cashierName}</span>,
+      },
+      {
+        accessorKey: 'partnerId',
+        header: t('pos.b2bBuyer'),
+        cell: ({ row }) => {
+          const pt = partners.find((p) => p.id === row.original.partnerId);
+          return <span className="text-xs font-medium">{pt?.name ?? '-'}</span>;
+        },
+      },
+      {
         accessorKey: 'receiptType',
-        header: t('common.description'),
+        header: t('common.status'),
         cell: ({ row }) => (
           <Badge variant={row.original.receiptType === 'REFUND' ? 'destructive' : 'default'}>
             {row.original.receiptType === 'REFUND' ? t('status.REFUND') : t('status.SALE')}
@@ -83,24 +109,9 @@ export function PosReceiptsPage() {
         ),
       },
       {
-        accessorKey: 'paymentMethod',
-        header: t('pos.paymentMethod'),
-        cell: ({ row }) => formatPaymentMethod(row.original.paymentMethod),
-      },
-      {
-        accessorKey: 'totalNetExclVat',
-        header: t('pos.baseExclVat'),
-        cell: ({ row }) => <span className="font-mono">{formatMoney2(row.original.totalNetExclVat, true)}</span>,
-      },
-      {
-        accessorKey: 'totalVatAmount',
-        header: t('pos.vatAmount'),
-        cell: ({ row }) => <span className="font-mono">{formatMoney2(row.original.totalVatAmount, true)}</span>,
-      },
-      {
         accessorKey: 'totalGrossAmount',
         header: t('common.total'),
-        cell: ({ row }) => <span className="font-mono font-semibold">{formatMoney2(row.original.totalGrossAmount, true)}</span>,
+        cell: ({ row }) => <div className="text-right font-mono font-bold text-primary">{formatMoney2(row.original.totalGrossAmount, true)}</div>,
       },
       {
         accessorKey: 'status',
@@ -112,17 +123,20 @@ export function PosReceiptsPage() {
         header: t('common.actions'),
         cell: ({ row }) => {
           const r = row.original;
-          const canRefund = r.receiptType === 'SALE' && r.status === 'POSTED';
           return (
-            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedReceipt(r)}>
-                <Eye className="h-3.5 w-3.5" />
-                <span>{t('common.view')}</span>
+            <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="sm" onClick={() => setReprintReceipt(r)} title={t('pos.reprintReceipt')}>
+                <Printer className="h-3.5 w-3.5" />
               </Button>
-              {canRefund && (
-                <Button variant="destructive" size="sm" onClick={() => handleRefund(r)}>
+              <Button variant="ghost" size="sm" onClick={() => handleFiscalize(r)} title={t('pos.fiscalize')}>
+                <Send className="h-3.5 w-3.5 text-primary" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setInvoiceReceipt(r)} title={t('pos.taxInvoiceA4')}>
+                <FileText className="h-3.5 w-3.5 text-success" />
+              </Button>
+              {r.receiptType === 'SALE' && r.status === 'POSTED' && (
+                <Button variant="destructive" size="sm" onClick={() => handleRefund(r)} title={t('status.REFUND')}>
                   <RotateCcw className="h-3.5 w-3.5" />
-                  <span>{t('status.REFUND')}</span>
                 </Button>
               )}
             </div>
@@ -130,11 +144,11 @@ export function PosReceiptsPage() {
         },
       },
     ],
-    []
+    [partners]
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-full">
       <PageHeader
         title={t('nav.posReceipts')}
         breadcrumbs={[{ label: t('nav.groupPos') }, { label: t('nav.posReceipts') }]}
@@ -146,84 +160,82 @@ export function PosReceiptsPage() {
         }
       />
 
-      <div className="p-6">
-        <DataTable data={storeReceipts} columns={columns} exportFileName="pos-receipts" onRowClick={setSelectedReceipt} />
+      <div className="p-6 space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 p-3.5 rounded-lg border border-border bg-card text-xs">
+          <input
+            type="text"
+            placeholder={t('pos.searchByReceipt')}
+            value={receiptFilter}
+            onChange={(e) => setReceiptFilter(e.target.value)}
+            className="h-8 rounded border border-input bg-card px-2.5 font-mono text-foreground"
+          />
+          <input
+            type="text"
+            placeholder={t('pos.searchByFiscal')}
+            value={fiscalFilter}
+            onChange={(e) => setFiscalFilter(e.target.value)}
+            className="h-8 rounded border border-input bg-card px-2.5 font-mono text-foreground"
+          />
+          <input
+            type="text"
+            placeholder={t('app.operator')}
+            value={cashierFilter}
+            onChange={(e) => setCashierFilter(e.target.value)}
+            className="h-8 rounded border border-input bg-card px-2.5 text-foreground"
+          />
+          <select
+            value={partnerFilter}
+            onChange={(e) => setPartnerFilter(e.target.value)}
+            className="h-8 rounded border border-input bg-card px-2 text-foreground font-medium"
+          >
+            <option value="ALL">{t('pos.b2bBuyer')} ({t('common.all')})</option>
+            {partners.map((p) => (
+              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-8 rounded border border-input bg-card px-2 font-mono text-foreground"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-8 rounded border border-input bg-card px-2 font-mono text-foreground"
+          />
+        </div>
+
+        <DataTable
+          data={filteredReceipts}
+          columns={columns}
+          exportFileName="pos-fiskalni-racuni"
+          onRowClick={(r) => setReprintReceipt(r)}
+        />
       </div>
 
-      <Dialog
-        open={Boolean(selectedReceipt)}
-        onOpenChange={(open) => !open && setSelectedReceipt(null)}
-        title={selectedReceipt ? `${selectedReceipt.receiptNumber} (${selectedReceipt.fiscalNumber})` : ''}
-        description={selectedReceipt ? formatDateTimeBs(selectedReceipt.issuedAt) : undefined}
-        size="lg"
-        footer={
-          selectedReceipt && (
-            <>
-              {selectedReceipt.receiptType === 'SALE' && selectedReceipt.status === 'POSTED' && (
-                <Button variant="destructive" onClick={() => handleRefund(selectedReceipt)}>
-                  <RotateCcw className="h-4 w-4" />
-                  <span>{t('pos.refundReceipt')}</span>
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setSelectedReceipt(null)}>{t('common.close')}</Button>
-            </>
-          )
-        }
-      >
-        {selectedReceipt && (
-          <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-2 gap-3 rounded-md border border-border bg-muted/30 p-3 sm:grid-cols-4">
-              <div>
-                <div className="text-muted-foreground">{t('app.operator')}</div>
-                <div className="font-semibold">{selectedReceipt.cashierName}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">{t('pos.paymentMethod')}</div>
-                <div className="font-semibold">{formatPaymentMethod(selectedReceipt.paymentMethod)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">{t('pos.b2bBuyer')}</div>
-                <div className="font-semibold">{partners.find((p) => p.id === selectedReceipt.partnerId)?.name ?? '-'}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">{t('pos.originalFiscalNumber')}</div>
-                <div className="font-mono font-semibold">{selectedReceipt.referenceFiscalNumber ?? selectedReceipt.fiscalNumber}</div>
-              </div>
-            </div>
+      {invoiceReceipt && (
+        <PosTaxInvoiceModal
+          open={Boolean(invoiceReceipt)}
+          onClose={() => setInvoiceReceipt(null)}
+          receipt={invoiceReceipt}
+          company={activeCompany}
+          partner={partners.find((p) => p.id === invoiceReceipt.partnerId)}
+          items={items}
+        />
+      )}
 
-            <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-border bg-muted/60 text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">{t('common.name')}</th>
-                    <th className="px-3 py-2 font-semibold text-right">{t('common.quantity')}</th>
-                    <th className="px-3 py-2 font-semibold text-right">{t('warehouse.retailPriceWithVat')}</th>
-                    <th className="px-3 py-2 font-semibold text-right">{t('pos.discountPercent')}</th>
-                    <th className="px-3 py-2 font-semibold text-right">{t('common.total')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {selectedReceipt.lines.map((line) => {
-                    const item = items.find((i) => i.id === line.itemId);
-                    return (
-                      <tr key={line.id}>
-                        <td className="px-3 py-2">
-                          <div className="font-medium">{item?.name ?? line.itemId}</div>
-                          <div className="font-mono text-[11px] text-muted-foreground">{line.scannedBarcode}</div>
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono">{formatQty(line.quantity, 3)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{formatMoney2(line.retailUnitPriceWithVat, true)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{line.discountPercent}%</td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold">{formatMoney2(line.lineTotalWithVat, true)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </Dialog>
+      {reprintReceipt && (
+        <PosReprintReceiptModal
+          open={Boolean(reprintReceipt)}
+          onClose={() => setReprintReceipt(null)}
+          receipt={reprintReceipt}
+          company={activeCompany}
+          store={currentStore}
+          items={items}
+        />
+      )}
     </div>
   );
 }

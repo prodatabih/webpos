@@ -117,7 +117,7 @@ export const initialItemBarcodes: ItemBarcode[] = [
 ];
 
 export const initialItemBomLines: ItemBomLine[] = [
-  { id: 'bom-1', parentItemId: 'item-5', componentItemId: 'item-2', quantity: '0.1000', wastePercent: '2.00' },
+  { id: 'bom-1', parentItemId: 'item-5', componentItemId: 'item-2', quantity: '0.1000', wastePercent: '2.00', sourceStoreId: 'store-4' },
 ];
 
 export const initialStoreItemPrices: StoreItemPrice[] = [

@@ -30,6 +30,7 @@ export function executePostCalculation(
   for (const line of doc.lines) {
     const existing = nextPrices.find((p) => p.storeId === doc.storeId && p.itemId === line.itemId);
     if (
+      !state.systemConfig?.allowPriceChangeWithoutLeveling &&
       existing &&
       d(existing.currentStockQty).gt(0) &&
       !d(existing.retailUnitPriceWithVat).eq(d(line.retailUnitPriceWithVat))

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, List, Barcode, ReceiptText } from 'lucide-react';
+import { LayoutGrid, List, ReceiptText } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { d, round4 } from '../../lib/money';
@@ -8,8 +8,6 @@ import { generateUuidV7 } from '../../lib/utils';
 import type { Item, PaymentMethod } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Badge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
 import {
   buildPosReceiptFromCart,
@@ -21,6 +19,8 @@ import { PosTouchCatalog } from './PosTouchCatalog';
 import { PosReceiptLinesTable } from './PosReceiptLinesTable';
 import { PosPaymentPanel } from './PosPaymentPanel';
 import { PosHeldReceiptsDialog } from './PosHeldReceiptsDialog';
+import { PosScannerForm } from './PosScannerForm';
+import { PosShortcutsBanner } from './PosShortcutsBanner';
 
 export function PosTerminalPage() {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ export function PosTerminalPage() {
   const activeStore = store.storeLocations.find((st) => st.id === store.activeStoreId);
 
   const [scanText, setScanText] = useState('');
-  const [multiplier, setMultiplier] = useState('1');
+  const [quantity, setQuantity] = useState('1');
   const [lines, setLines] = useState<PosCartLine[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
@@ -49,16 +49,31 @@ export function PosTerminalPage() {
     });
   };
 
+  const searchSuggestions = useMemo(() => {
+    const q = scanText.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+    return store.items
+      .filter(
+        (it) =>
+          it.isActive &&
+          (it.name.toLowerCase().includes(q) ||
+            it.sku.toLowerCase().includes(q) ||
+            it.primaryBarcode.toLowerCase().includes(q) ||
+            it.shortName.toLowerCase().includes(q))
+      )
+      .slice(0, 8);
+  }, [scanText, store.items]);
+
   const handleScanSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const resolved = resolveScanInput(scanText, multiplier, store.items, store.itemBarcodes);
+    const resolved = resolveScanInput(scanText, quantity, store.items, store.itemBarcodes);
     if (!resolved) {
       showToast({ title: t('common.noResults'), variant: 'error' });
       return;
     }
     appendOrIncrementItem(resolved.item, resolved.scannedBarcode, resolved.quantityToAdd);
     setScanText('');
-    setMultiplier('1');
+    setQuantity('1');
     scanInputRef.current?.focus();
   };
 
@@ -148,34 +163,34 @@ export function PosTerminalPage() {
       />
 
       <div className="p-6 space-y-4">
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-          <Badge variant="outline">{t('pos.shortcutScan')}</Badge>
-          <Badge variant="outline">{t('pos.shortcutQty')}</Badge>
-          <Badge variant="outline">{t('pos.shortcutHold')}</Badge>
-          <Badge variant="outline">{t('pos.shortcutCash')}</Badge>
-          <Badge variant="outline">{t('pos.shortcutCard')}</Badge>
-          <Badge variant="outline">{t('pos.shortcutRefund')}</Badge>
-          <Badge variant="outline">{t('pos.shortcutPay')}</Badge>
-        </div>
+        <PosShortcutsBanner />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="lg:col-span-8 flex flex-col gap-4">
-            <form onSubmit={handleScanSubmit} className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3">
-              <div className="w-28">
-                <Input label={t('pos.quantityMultiplier')} type="number" step="0.001" min="0.001" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} className="font-mono text-right" />
-              </div>
-              <div className="flex-1 min-w-[220px]">
-                <Input ref={scanInputRef} label={t('master.barcode')} value={scanText} onChange={(e) => setScanText(e.target.value)} placeholder={t('pos.scanInputPlaceholder')} rightElement={<Barcode className="h-4 w-4" />} />
-              </div>
-              <Button type="submit" variant="primary">{t('common.add')}</Button>
-            </form>
+            <PosScannerForm
+              quantity={quantity}
+              setQuantity={setQuantity}
+              scanText={scanText}
+              setScanText={setScanText}
+              searchSuggestions={searchSuggestions}
+              storePrices={store.storeItemPrices}
+              activeStoreId={store.activeStoreId}
+              scanInputRef={scanInputRef}
+              onSubmit={handleScanSubmit}
+              onSelectSuggestion={(item) => {
+                appendOrIncrementItem(item, item.primaryBarcode, round4(d(quantity).gt(0) ? d(quantity) : 1));
+                setScanText('');
+                setQuantity('1');
+                scanInputRef.current?.focus();
+              }}
+            />
 
             {store.posWorkMode === 'TOUCH' && (
               <PosTouchCatalog
                 items={store.items}
                 storePrices={store.storeItemPrices}
                 activeStoreId={store.activeStoreId}
-                onSelectItem={(item) => appendOrIncrementItem(item, item.primaryBarcode, round4(d(multiplier).gt(0) ? d(multiplier) : 1))}
+                onSelectItem={(item) => appendOrIncrementItem(item, item.primaryBarcode, round4(d(quantity).gt(0) ? d(quantity) : 1))}
               />
             )}
 

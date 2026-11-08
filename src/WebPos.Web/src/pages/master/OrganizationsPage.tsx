@@ -35,6 +35,7 @@ export function OrganizationsPage() {
   const storeTypeLabel = (st: StoreType): string => {
     if (st === 'RETAIL') return t('master.storeTypeRetail');
     if (st === 'WHOLESALE') return t('master.storeTypeWholesale');
+    if (st === 'RAW_MATERIAL') return t('master.storeTypeRawMaterial');
     return t('master.storeTypeProduction');
   };
 

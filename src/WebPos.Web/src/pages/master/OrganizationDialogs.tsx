@@ -145,6 +145,7 @@ export function StoreFormDialog({
           <select value={storeType} onChange={(e) => setStoreType(e.target.value as StoreType)} className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground">
             <option value="RETAIL">{t('master.storeTypeRetail')}</option>
             <option value="WHOLESALE">{t('master.storeTypeWholesale')}</option>
+            <option value="RAW_MATERIAL">{t('master.storeTypeRawMaterial')}</option>
             <option value="PRODUCTION">{t('master.storeTypeProduction')}</option>
           </select>
         </div>

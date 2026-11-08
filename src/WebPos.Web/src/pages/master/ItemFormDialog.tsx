@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { showToast } from '../../components/ui/Toast';
 import { ItemBarcodesTab, ItemBomTab, ItemStorePricesTab } from './ItemFormTabs';
+import { COMMON_CATEGORIES, suggestNextSku } from './itemSkuHelper';
 
 type ActiveTab = 'basic' | 'barcodes' | 'bom' | 'declaration' | 'prices';
 
@@ -33,6 +34,7 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
     vatRates,
     storeLocations,
     storeItemPrices,
+    systemConfig,
     upsertItem,
     upsertStoreItemPrice,
   } = useAppStore();
@@ -100,6 +102,13 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
       setLocalBomLines([]);
     }
   }, [open, editingItem]);
+
+  const handleCategoryChange = (val: string) => {
+    setCategoryName(val);
+    if (!editingItem && val.trim()) {
+      setSku(suggestNextSku(val, items));
+    }
+  };
 
   const handleSave = () => {
     if (!sku.trim() || !name.trim() || !primaryBarcode.trim()) {
@@ -205,7 +214,20 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
                 ))}
               </select>
             </div>
-            <Input label={t('master.category')} value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground">{t('master.category')}</label>
+              <input
+                list="item-categories-list"
+                value={categoryName}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+              />
+              <datalist id="item-categories-list">
+                {COMMON_CATEGORIES.map((cat) => (
+                  <option key={cat.prefix} value={cat.name} />
+                ))}
+              </datalist>
+            </div>
           </div>
         )}
 
@@ -214,7 +236,13 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
         )}
 
         {activeTab === 'bom' && (
-          <ItemBomTab parentItemId={itemId} allItems={items} bomLines={localBomLines} onChange={setLocalBomLines} />
+          <ItemBomTab
+            parentItemId={itemId}
+            allItems={items}
+            bomLines={localBomLines}
+            stores={storeLocations.filter((s) => s.companyId === activeCompanyId)}
+            onChange={setLocalBomLines}
+          />
         )}
 
         {activeTab === 'declaration' && (
@@ -234,6 +262,7 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
             itemId={itemId}
             stores={storeLocations.filter((s) => s.companyId === activeCompanyId)}
             storePrices={storeItemPrices}
+            allowPriceChangeWithoutLeveling={systemConfig.allowPriceChangeWithoutLeveling}
             onUpsertPrice={upsertStoreItemPrice}
           />
         )}
