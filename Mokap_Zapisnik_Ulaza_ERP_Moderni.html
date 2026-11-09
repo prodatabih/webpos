@@ -1,0 +1,1299 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERP Zapisnik Ulaza & Kalkulacija — Novi Prijedlog</title>
+<style>
+:root {
+  --navy: #0f2438;
+  --navy-light: #1c3854;
+  --blue: #1d68bd;
+  --blue-hover: #155296;
+  --blue-subtle: #edf4fc;
+  --bg: #f4f7fa;
+  --surface: #ffffff;
+  --border: #d7e0ea;
+  --text-main: #192434;
+  --text-muted: #5e7087;
+  --green: #117a54;
+  --green-bg: #e3f7ed;
+  --amber: #b06206;
+  --amber-bg: #fff4e0;
+  --red: #c53030;
+  --red-bg: #fee8e8;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --shadow-sm: 0 1px 3px rgba(15, 36, 56, 0.05);
+  --shadow-card: 0 4px 16px rgba(15, 36, 56, 0.06);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text-main);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  color: var(--text-main);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+button:hover:not(:disabled) {
+  border-color: #abbccc;
+  background: #fcfdfe;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--blue-hover);
+  border-color: var(--blue-hover);
+}
+
+.btn-success {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.btn-success:hover:not(:disabled) {
+  background: #0d6645;
+  border-color: #0d6645;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(0,0,0,0.04);
+  color: var(--text-main);
+}
+
+.btn-sm {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.app-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+}
+
+/* Sidebar */
+.sidebar {
+  background: var(--navy);
+  color: #c9d8e7;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.brand-box {
+  padding: 6px 12px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.brand-title {
+  font-size: 16px;
+  font-weight: 750;
+  color: #fff;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-badge {
+  background: var(--blue);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.brand-sub {
+  font-size: 11px;
+  color: #8da4be;
+  margin-top: 4px;
+}
+
+.nav-section {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  color: #7993ad;
+  padding: 18px 12px 6px;
+  font-weight: 600;
+}
+.nav-item {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  color: #d1dfed;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-bottom: 2px;
+  transition: background 0.15s;
+  text-decoration: none;
+}
+.nav-item:hover {
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+}
+.nav-item.active {
+  background: var(--navy-light);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Main Area */
+.main-wrapper {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.breadcrumbs .crumb-muted { color: var(--text-muted); }
+.breadcrumbs .crumb-sep { color: #a5b4c4; font-size: 11px; }
+.breadcrumbs .crumb-current { font-weight: 600; color: var(--text-main); }
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+  color: var(--text-main);
+}
+.user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--navy-light);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.content-container {
+  max-width: 1480px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 28px;
+}
+
+/* Page Header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.page-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--blue);
+  margin-bottom: 4px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text-main);
+}
+.page-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Card Container */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+}
+.card-title {
+  font-size: 14.5px;
+  font-weight: 650;
+  margin: 0;
+  color: var(--text-main);
+}
+.card-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.card-body {
+  padding: 18px 20px;
+}
+
+/* Filters bar */
+.filters-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.form-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #4b5b6d;
+}
+.form-control {
+  border: 1px solid #c7d3e0;
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  background: #fff;
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-control:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(29, 104, 189, 0.14);
+}
+.form-control:disabled {
+  background: #f8fafc;
+  color: #7b8a9c;
+  cursor: not-allowed;
+}
+
+/* Tables */
+.table-responsive {
+  overflow-x: auto;
+}
+table.erp-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  white-space: nowrap;
+}
+table.erp-table th {
+  background: #f8fafc;
+  color: #556679;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 650;
+}
+table.erp-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #edf2f7;
+  vertical-align: middle;
+}
+table.erp-table tbody tr:hover {
+  background: #f8fbff;
+}
+table.erp-table tr.clickable {
+  cursor: pointer;
+}
+
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.badge-draft {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid rgba(176, 98, 6, 0.2);
+}
+.badge-posted {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid rgba(17, 122, 84, 0.2);
+}
+
+/* Document Workspace Grid */
+.doc-header-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.col-span-2 { grid-column: span 2; }
+.col-span-4 { grid-column: span 4; }
+
+/* Inline Table Inputs */
+.inline-input {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 4px;
+  padding: 4px 7px;
+  width: 100%;
+  font-family: inherit;
+  font-size: inherit;
+  transition: all 0.15s;
+}
+.inline-input:hover:not(:disabled) {
+  border-color: #cbd7e4;
+  background: #fff;
+}
+.inline-input:focus:not(:disabled) {
+  border-color: var(--blue);
+  background: #fff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(29, 104, 189, 0.15);
+}
+
+/* Totals Summary Bar */
+.totals-summary-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 28px;
+  align-items: center;
+  padding: 16px 20px;
+  background: #f9fbfd;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.total-stat-box span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.total-stat-box strong {
+  font-size: 15px;
+  color: var(--text-main);
+}
+.total-stat-box.highlight strong {
+  font-size: 18px;
+  color: var(--blue);
+}
+
+.footer-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 36, 56, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+.modal-window {
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+  width: min(650px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+.modal-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-foot {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #fbfcfe;
+}
+.modal-body {
+  padding: 20px;
+}
+
+/* Toast */
+.toast-notice {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: var(--navy);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
+  display: none;
+  z-index: 100;
+  font-weight: 500;
+  font-size: 13px;
+}
+.toast-notice.show { display: block; }
+.hidden { display: none !important; }
+
+/* A4 Print Container */
+@media print {
+  body * { visibility: hidden; }
+  #printA4Container, #printA4Container * { visibility: visible; }
+  #printA4Container { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+  
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand-box">
+      <div class="brand-title">
+        <span>WebPos ERP</span>
+        <span class="brand-badge">.NET 8</span>
+      </div>
+      <div class="brand-sub">ASP.NET Core & React 18</div>
+    </div>
+
+    <div class="nav-section">Operativni rad</div>
+    <div class="nav-item">
+      <span>▦</span> Pregledna ploča
+    </div>
+    <div class="nav-item active">
+      <span>📥</span> Zapisnici ulaza / Primke
+    </div>
+    <div class="nav-item">
+      <span>🛒</span> POS Kasa terminal
+    </div>
+
+    <div class="nav-section">Robno poslovanje</div>
+    <div class="nav-item">
+      <span>📊</span> Ulazne kalkulacije
+    </div>
+    <div class="nav-item">
+      <span>⚖</span> Nivelacije cijena
+    </div>
+    <div class="nav-item">
+      <span>⇄</span> Međuskladišnice
+    </div>
+    <div class="nav-item">
+      <span>📋</span> Popis robe (Inventura)
+    </div>
+
+    <div class="nav-section">Izvještaji i KEP</div>
+    <div class="nav-item">
+      <span>📜</span> Trgovačka knjiga (KEP FBiH)
+    </div>
+    <div class="nav-item">
+      <span>📈</span> Dnevni promet za period
+    </div>
+    <div class="nav-item">
+      <span>🛡</span> Revizijski trag (Audit Log)
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <div class="main-wrapper">
+    
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="breadcrumbs">
+        <span class="crumb-muted">Robno poslovanje</span>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-current">Zapisnici ulaza robe</span>
+      </div>
+      <div class="topbar-actions">
+        <span>Skladište: <strong>PJ-1 Maloprodaja Centar</strong></span>
+        <div class="user-pill">
+          <div class="user-avatar">RA</div>
+          <span>radnik.jedan (Referent)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Workspace -->
+    <main class="content-container">
+
+      <!-- 1. LIST VIEW (Spisak dokumenata) -->
+      <section id="listView">
+        <div class="page-header">
+          <div>
+            <div class="page-eyebrow">Nabavka & Skladište</div>
+            <h1 class="page-title">Zapisnici ulaza robe</h1>
+            <div class="page-desc">Evidencija prijema robe, narudžbi i veza sa ulaznim kalkulacijama</div>
+          </div>
+          <div class="page-actions">
+            <button onclick="exportListToExcel()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              Izvoz u Excel (.xlsx)
+            </button>
+            <button class="btn-primary" onclick="createNewDoc()">
+              ＋ Novi zapisnik ulaza
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="card">
+          <div class="card-body">
+            <div class="filters-grid">
+              <div class="form-group">
+                <label class="form-label">Pretraga po broju, dobavljaču ili otpremnici</label>
+                <input type="text" id="filterSearch" class="form-control" placeholder="Kucajte npr. 'Metalprom', 'ZU-2026'..." oninput="renderTable()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Status dokumenta</label>
+                <select id="filterStatus" class="form-control" onchange="renderTable()">
+                  <option value="">Svi statusi</option>
+                  <option value="Nacrt">Nacrt (Radna verzija)</option>
+                  <option value="Potvrđen">Potvrđen (Zaključan)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Datum od</label>
+                <input type="date" id="filterDateFrom" class="form-control" onchange="renderTable()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Datum do</label>
+                <input type="date" id="filterDateTo" class="form-control" onchange="renderTable()">
+              </div>
+              <div>
+                <button class="btn-ghost btn-sm" onclick="resetFilters()">Resetuj</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Document List Table -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Pregled dokumenata <span id="docCountBadge" style="font-size:12px;color:var(--text-muted);font-weight:normal;"></span></h2>
+              <div class="card-hint">Kliknite na bilo koji red za otvaranje radnog ekrana dokumenta</div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  <th style="width:140px;">Broj zapisnika</th>
+                  <th style="width:100px;">Datum prijema</th>
+                  <th>Dobavljač / Partner</th>
+                  <th>Skladište</th>
+                  <th>Broj narudžbe</th>
+                  <th class="text-center" style="width:70px;">Stavke</th>
+                  <th class="text-right" style="width:130px;">Ukupna vrijednost</th>
+                  <th style="width:110px;">Status</th>
+                  <th style="width:90px;" class="text-center">Akcija</th>
+                </tr>
+              </thead>
+              <tbody id="docTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. DETAIL WORKSPACE (Jedinstveni radni ekran detalja) -->
+      <section id="detailView" class="hidden">
+        <div class="page-header">
+          <div>
+            <div class="page-eyebrow">Robno poslovanje / Zapisnik ulaza</div>
+            <h1 class="page-title" id="detailHeaderTitle">ZU-2026-0042</h1>
+            <div class="page-desc">Jedinstveni radni ekran: zaglavlje i stavke na jednom mjestu sa brzim tastaturnim unosom</div>
+          </div>
+          <div class="page-actions">
+            <button onclick="backToList()">← Nazad na listu</button>
+            <button onclick="printOfficialA4()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              Zvanična A4 štampa
+            </button>
+          </div>
+        </div>
+
+        <!-- Section A: Compact Header -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Zaglavlje dokumenta</h2>
+              <div class="card-hint">Osnovni podaci o prijemu i dobavljaču</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span id="detailStatusBadge" class="badge badge-draft">Nacrt</span>
+              <span id="dirtyIndicator" style="font-size:12px;color:var(--text-muted);">Sve izmjene sačuvane</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="doc-header-grid">
+              <div class="form-group">
+                <label class="form-label">Broj dokumenta *</label>
+                <input type="text" id="fieldDocNo" class="form-control font-mono" placeholder="Automatski generisano">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Datum prijema robe *</label>
+                <input type="date" id="fieldDocDate" class="form-control">
+              </div>
+              <div class="form-group col-span-2">
+                <label class="form-label">Dobavljač / Poslovni partner *</label>
+                <input type="text" id="fieldSupplier" class="form-control" placeholder="Kucajte naziv partnera ili JIB/PIB...">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Ulazno skladište *</label>
+                <select id="fieldWarehouse" class="form-control">
+                  <option value="PJ-1 Maloprodaja Centar">PJ-1 Maloprodaja Centar (MP)</option>
+                  <option value="VP-1 Centralno Skladište">VP-1 Centralno Skladište (VP)</option>
+                  <option value="MAT-1 Magacin sirovina">MAT-1 Magacin sirovina (NC)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Broj narudžbe dobavljaču</label>
+                <input type="text" id="fieldOrderNo" class="form-control font-mono" placeholder="npr. NAR-2026/014">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Broj otpremnice dobavljača</label>
+                <input type="text" id="fieldDeliveryNo" class="form-control font-mono" placeholder="npr. OTP-8821">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Referent prijema</label>
+                <input type="text" id="fieldReceiver" class="form-control" value="radnik.jedan" readonly>
+              </div>
+
+              <div class="form-group col-span-4">
+                <label class="form-label">Napomena uz zapisnik</label>
+                <input type="text" id="fieldNote" class="form-control" placeholder="Opcionalne napomene o stanju ambalaže, prevozu ili komisiji...">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section B: Central Line Items Workspace -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Stavke zapisnika ulaza</h2>
+              <div class="card-hint">Direktan unos u tabeli · Taster Tab za kretanje kroz polja · Enter za novi red</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="openAddItemModal()" id="btnAddItemModal">＋ Dodaj preko dijaloga</button>
+              <button onclick="addInlineBlankRow()" id="btnAddInlineRow">＋ Brzi prazan red</button>
+              <button onclick="copyLastRow()" id="btnCopyLastRow">⧉ Kopiraj zadnju stavku</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;" class="text-center">#</th>
+                  <th style="min-width:240px;">Artikal / Usluga</th>
+                  <th style="width:110px;">Šifra</th>
+                  <th style="width:80px;" class="text-center">JM</th>
+                  <th style="width:110px;" class="text-right">Naručeno</th>
+                  <th style="width:110px;" class="text-right">Primljeno *</th>
+                  <th style="width:120px;" class="text-right">Cijena (KM)</th>
+                  <th style="width:130px;" class="text-right">Ukupno bez PDV</th>
+                  <th style="width:80px;" class="text-center">Akcije</th>
+                </tr>
+              </thead>
+              <tbody id="detailItemsBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Section C: Summary Totals -->
+          <div class="totals-summary-bar">
+            <div class="total-stat-box">
+              <span>Broj stavki</span>
+              <strong id="statItemCount">0</strong>
+            </div>
+            <div class="total-stat-box">
+              <span>Ukupno primljena količina</span>
+              <strong id="statTotalQty">0,000</strong>
+            </div>
+            <div class="total-stat-box highlight">
+              <span>Ukupna vrijednost prijema (bez PDV)</span>
+              <strong id="statGrandTotal">0,00 KM</strong>
+            </div>
+          </div>
+
+          <!-- Section D: Footer Action Bar -->
+          <div class="footer-action-bar">
+            <div style="font-size:12px;color:var(--text-muted);">
+              * Potvrđivanjem dokumenta zalihe se zadužuju, a dokument zaključava za direktne izmjene.
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button onclick="saveDocumentDraft()" id="btnSaveDraft">
+                💾 Sačuvaj nacrt
+              </button>
+              <button class="btn-success" onclick="confirmAndPostDocument()" id="btnConfirmPost">
+                ✓ Potvrdi zapisnik (Zaključaj)
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal za dodavanje stavke -->
+<div id="itemModal" class="modal-overlay hidden">
+  <div class="modal-window">
+    <div class="modal-head">
+      <h3 style="margin:0;font-size:15px;font-weight:650;">Dodaj novu stavku prijema</h3>
+      <button class="btn-ghost btn-sm" onclick="closeItemModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="doc-header-grid">
+        <div class="form-group col-span-4">
+          <label class="form-label">Naziv artikla *</label>
+          <input type="text" id="modalItemName" class="form-control" placeholder="Počnite kucati naziv artikla...">
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">Šifra artikla</label>
+          <input type="text" id="modalItemCode" class="form-control font-mono" placeholder="npr. MLI-00142">
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">Jedinica mjere</label>
+          <select id="modalItemUnit" class="form-control">
+            <option value="kom">kom</option>
+            <option value="kg">kg</option>
+            <option value="l">l</option>
+            <option value="m">m</option>
+            <option value="pak">pak</option>
+          </select>
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">Naručena količina</label>
+          <input type="number" step="0.001" id="modalItemOrdered" class="form-control font-mono" value="0">
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">Primljena količina *</label>
+          <input type="number" step="0.001" id="modalItemReceived" class="form-control font-mono" value="1">
+        </div>
+        <div class="form-group col-span-4">
+          <label class="form-label">Fakturna cijena po jedinici (KM) *</label>
+          <input type="number" step="0.0001" id="modalItemPrice" class="form-control font-mono" value="0.00">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button onclick="closeItemModal()">Odustani</button>
+      <button class="btn-primary" onclick="submitModalItem()">Dodaj u tabelu</button>
+    </div>
+  </div>
+</div>
+
+<!-- A4 Print Container -->
+<div id="printA4Container" class="hidden" style="background:#fff;color:#000;padding:40px;font-family:sans-serif;">
+  <div style="border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:20px;display:flex;justify-content:space-between;">
+    <div>
+      <h2 style="margin:0;font-size:16px;font-weight:900;">PRO DATA BIH D.O.O. SARAJEVO</h2>
+      <p style="margin:2px 0;font-size:11px;">JIB: 4200112233001 | PDV: 200112233001 | PJ-1 Maloprodaja Centar</p>
+    </div>
+    <div style="text-align:right;">
+      <h3 style="margin:0;font-size:16px;font-weight:900;" id="printDocNumber">ZU-2026-0042</h3>
+      <p style="margin:2px 0;font-size:11px;" id="printDocDate">Datum: 09.11.2026.</p>
+    </div>
+  </div>
+  <h2 style="text-align:center;text-transform:uppercase;font-size:15px;margin:20px 0;">ZAPISNIK O PRIJEMU ROBE (ULAZ)</h2>
+  <div id="printContentBody"></div>
+</div>
+
+<div id="toast" class="toast-notice"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+let state = {
+  docs: [
+    {
+      id: 1,
+      no: 'ZU-2026-0042',
+      date: '2026-11-09',
+      supplier: 'Meggle BH d.o.o. Bihać',
+      warehouse: 'PJ-1 Maloprodaja Centar',
+      orderNo: 'NAR-2026/088',
+      deliveryNo: 'OTP-55412',
+      receiver: 'radnik.jedan',
+      note: 'Isporuka primljena u propisnom stanju',
+      status: 'Nacrt',
+      items: [
+        { name: 'Mlijeko 2.8% MM 1L', code: 'MLI-00101', unit: 'kom', ordered: 150, received: 150, price: 1.80 },
+        { name: 'Jogurt 2.8% MM 1kg', code: 'MLI-00102', unit: 'kom', ordered: 60, received: 60, price: 2.25 }
+      ]
+    },
+    {
+      id: 2,
+      no: 'ZU-2026-0041',
+      date: '2026-11-08',
+      supplier: 'Bimal d.d. Brčko',
+      warehouse: 'PJ-1 Maloprodaja Centar',
+      orderNo: 'NAR-2026/085',
+      deliveryNo: 'OTP-1109',
+      receiver: 'radnik.jedan',
+      note: 'Redovna sedmična dopuna',
+      status: 'Potvrđen',
+      items: [
+        { name: 'Ulje suncokretovo 1L', code: 'ULJ-00205', unit: 'kom', ordered: 200, received: 200, price: 2.45 }
+      ]
+    }
+  ],
+  current: null,
+  isDirty: false
+};
+
+function formatMoney(num) {
+  return Number(num || 0).toLocaleString('bs-BA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' KM';
+}
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._tTimer);
+  window._tTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function renderTable() {
+  const query = $('filterSearch').value.toLowerCase().trim();
+  const status = $('filterStatus').value;
+  const from = $('filterDateFrom').value;
+  const to = $('filterDateTo').value;
+
+  const filtered = state.docs.filter(d => {
+    const matchQ = !query || (d.no + ' ' + d.supplier + ' ' + (d.orderNo || '') + ' ' + (d.deliveryNo || '')).toLowerCase().includes(query);
+    const matchS = !status || d.status === status;
+    const matchFrom = !from || d.date >= from;
+    const matchTo = !to || d.date <= to;
+    return matchQ && matchS && matchFrom && matchTo;
+  });
+
+  $('docCountBadge').textContent = `(${filtered.length} dokumenata)`;
+
+  const tbody = $('docTableBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted);">Nema pronađenih dokumenata za zadane filtere.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(d => {
+    const sum = d.items.reduce((acc, it) => acc + (Number(it.received) * Number(it.price)), 0);
+    const badgeClass = d.status === 'Potvrđen' ? 'badge-posted' : 'badge-draft';
+    return `
+      <tr class="clickable" onclick="openDocument(${d.id})">
+        <td class="font-mono"><strong>${d.no}</strong></td>
+        <td>${d.date}</td>
+        <td><strong>${d.supplier}</strong></td>
+        <td>${d.warehouse}</td>
+        <td class="font-mono">${d.orderNo || '—'}</td>
+        <td class="text-center font-mono">${d.items.length}</td>
+        <td class="text-right font-mono"><strong>${formatMoney(sum)}</strong></td>
+        <td><span class="badge ${badgeClass}">${d.status}</span></td>
+        <td class="text-center">
+          <button class="btn-sm" onclick="event.stopPropagation(); openDocument(${d.id})">Otvori →</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function resetFilters() {
+  $('filterSearch').value = '';
+  $('filterStatus').value = '';
+  $('filterDateFrom').value = '';
+  $('filterDateTo').value = '';
+  renderTable();
+}
+
+function createNewDoc() {
+  state.current = {
+    id: null,
+    no: 'ZU-2026-00' + String(state.docs.length + 43),
+    date: new Date().toISOString().slice(0, 10),
+    supplier: '',
+    warehouse: 'PJ-1 Maloprodaja Centar',
+    orderNo: '',
+    deliveryNo: '',
+    receiver: 'radnik.jedan',
+    note: '',
+    status: 'Nacrt',
+    items: []
+  };
+  state.isDirty = false;
+  populateDetail();
+  $('listView').classList.add('hidden');
+  $('detailView').classList.remove('hidden');
+}
+
+function openDocument(id) {
+  const doc = state.docs.find(d => d.id === id);
+  if (!doc) return;
+  state.current = JSON.parse(JSON.stringify(doc));
+  state.isDirty = false;
+  populateDetail();
+  $('listView').classList.add('hidden');
+  $('detailView').classList.remove('hidden');
+}
+
+function populateDetail() {
+  const c = state.current;
+  const isPosted = c.status === 'Potvrđen';
+
+  $('detailHeaderTitle').textContent = c.no || 'Novi zapisnik';
+  $('fieldDocNo').value = c.no;
+  $('fieldDocDate').value = c.date;
+  $('fieldSupplier').value = c.supplier;
+  $('fieldWarehouse').value = c.warehouse;
+  $('fieldOrderNo').value = c.orderNo || '';
+  $('fieldDeliveryNo').value = c.deliveryNo || '';
+  $('fieldReceiver').value = c.receiver || 'radnik.jedan';
+  $('fieldNote').value = c.note || '';
+
+  const statusBadge = $('detailStatusBadge');
+  statusBadge.className = 'badge ' + (isPosted ? 'badge-posted' : 'badge-draft');
+  statusBadge.textContent = c.status;
+
+  // Lock fields if posted
+  ['fieldDocNo', 'fieldDocDate', 'fieldSupplier', 'fieldWarehouse', 'fieldOrderNo', 'fieldDeliveryNo', 'fieldNote'].forEach(id => {
+    $(id).disabled = isPosted;
+  });
+
+  $('btnAddItemModal').disabled = isPosted;
+  $('btnAddInlineRow').disabled = isPosted;
+  $('btnCopyLastRow').disabled = isPosted;
+  $('btnSaveDraft').disabled = isPosted;
+  $('btnConfirmPost').disabled = isPosted;
+  $('btnConfirmPost').textContent = isPosted ? '✓ Dokument je potvrđen' : '✓ Potvrdi zapisnik (Zaključaj)';
+
+  $('dirtyIndicator').textContent = isPosted ? 'Dokument je zaključen' : 'Nema nesnimljenih izmjena';
+
+  renderDetailItems();
+}
+
+function renderDetailItems() {
+  const isPosted = state.current.status === 'Potvrđen';
+  const tbody = $('detailItemsBody');
+
+  if (state.current.items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted);">Zapisnik nema unijetih stavki. Kliknite „Brzi prazan red“ ili „Dodaj preko dijaloga“.</td></tr>';
+    updateTotals();
+    return;
+  }
+
+  tbody.innerHTML = state.current.items.map((it, idx) => {
+    const lineTotal = Number(it.received || 0) * Number(it.price || 0);
+    return `
+      <tr>
+        <td class="text-center font-mono" style="color:var(--text-muted);">${idx + 1}</td>
+        <td>
+          <input class="inline-input" value="${it.name}" ${isPosted ? 'disabled' : ''} onchange="updateItemField(${idx}, 'name', this.value)" placeholder="Naziv artikla...">
+        </td>
+        <td>
+          <input class="inline-input font-mono" value="${it.code || ''}" ${isPosted ? 'disabled' : ''} onchange="updateItemField(${idx}, 'code', this.value)" placeholder="Šifra">
+        </td>
+        <td class="text-center">
+          <select class="inline-input text-center" ${isPosted ? 'disabled' : ''} onchange="updateItemField(${idx}, 'unit', this.value)">
+            ${['kom','kg','l','m','pak'].map(u => `<option value="${u}" ${u === it.unit ? 'selected' : ''}>${u}</option>`).join('')}
+          </select>
+        </td>
+        <td class="text-right">
+          <input type="number" step="0.001" class="inline-input text-right font-mono" value="${it.ordered || 0}" ${isPosted ? 'disabled' : ''} onchange="updateItemField(${idx}, 'ordered', this.value)">
+        </td>
+        <td class="text-right">
+          <input type="number" step="0.001" class="inline-input text-right font-mono" style="font-weight:600;color:var(--blue);" value="${it.received || 0}" ${isPosted ? 'disabled' : ''} onchange="updateItemField(${idx}, 'received', this.value)">
+        </td>
+        <td class="text-right">
+          <input type="number" step="0.0001" class="inline-input text-right font-mono" value="${it.price || 0}" ${isPosted ? 'disabled' : ''} onchange="updateItemField(${idx}, 'price', this.value)">
+        </td>
+        <td class="text-right font-mono font-bold" style="padding-right:16px;">
+          ${formatMoney(lineTotal)}
+        </td>
+        <td class="text-center">
+          <button class="btn-ghost btn-sm" title="Kopiraj" ${isPosted ? 'disabled' : ''} onclick="duplicateRow(${idx})">⧉</button>
+          <button class="btn-ghost btn-sm" title="Obriši" style="color:var(--red);" ${isPosted ? 'disabled' : ''} onclick="deleteRow(${idx})">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  updateTotals();
+}
+
+function updateItemField(idx, field, val) {
+  if (state.current.status === 'Potvrđen') return;
+  state.current.items[idx][field] = ['ordered', 'received', 'price'].includes(field) ? Number(val) : val;
+  markDirty();
+  renderDetailItems();
+}
+
+function updateTotals() {
+  const items = state.current.items;
+  const count = items.length;
+  const totalQty = items.reduce((acc, it) => acc + Number(it.received || 0), 0);
+  const grandTotal = items.reduce((acc, it) => acc + (Number(it.received || 0) * Number(it.price || 0)), 0);
+
+  $('statItemCount').textContent = count;
+  $('statTotalQty').textContent = totalQty.toLocaleString('bs-BA', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+  $('statGrandTotal').textContent = formatMoney(grandTotal);
+}
+
+function markDirty() {
+  state.isDirty = true;
+  $('dirtyIndicator').textContent = '● Ima nesnimljenih izmjena';
+  $('dirtyIndicator').style.color = 'var(--amber)';
+}
+
+function addInlineBlankRow() {
+  if (state.current.status === 'Potvrđen') return;
+  state.current.items.push({
+    name: 'Novi artikal',
+    code: 'ART-' + Math.floor(1000 + Math.random() * 9000),
+    unit: 'kom',
+    ordered: 0,
+    received: 1,
+    price: 0.00
+  });
+  markDirty();
+  renderDetailItems();
+}
+
+function duplicateRow(idx) {
+  if (state.current.status === 'Potvrđen') return;
+  const clone = JSON.parse(JSON.stringify(state.current.items[idx]));
+  state.current.items.splice(idx + 1, 0, clone);
+  markDirty();
+  renderDetailItems();
+  showToast('Stavka je duplicirana.');
+}
+
+function copyLastRow() {
+  if (state.current.items.length === 0) return showToast('Nema stavki za kopiranje.');
+  duplicateRow(state.current.items.length - 1);
+}
+
+function deleteRow(idx) {
+  if (state.current.status === 'Potvrđen') return;
+  state.current.items.splice(idx, 1);
+  markDirty();
+  renderDetailItems();
+}
+
+function openAddItemModal() {
+  if (state.current.status === 'Potvrđen') return;
+  $('modalItemName').value = '';
+  $('modalItemCode').value = 'ART-' + Math.floor(1000 + Math.random() * 9000);
+  $('modalItemUnit').value = 'kom';
+  $('modalItemOrdered').value = '0';
+  $('modalItemReceived').value = '1';
+  $('modalItemPrice').value = '0.00';
+  $('itemModal').classList.remove('hidden');
+}
+
+function closeItemModal() {
+  $('itemModal').classList.add('hidden');
+}
+
+function submitModalItem() {
+  const name = $('modalItemName').value.trim();
+  const received = Number($('modalItemReceived').value);
+  const price = Number($('modalItemPrice').value);
+  if (!name) return alert('Molimo unesite naziv artikla.');
+  if (received <= 0) return alert('Primljena količina mora biti veća od nule.');
+
+  state.current.items.push({
+    name,
+    code: $('modalItemCode').value.trim(),
+    unit: $('modalItemUnit').value,
+    ordered: Number($('modalItemOrdered').value || 0),
+    received,
+    price
+  });
+
+  closeItemModal();
+  markDirty();
+  renderDetailItems();
+  showToast('Nova stavka dodana.');
+}
+
+function syncHeaderValues() {
+  state.current.no = $('fieldDocNo').value.trim();
+  state.current.date = $('fieldDocDate').value;
+  state.current.supplier = $('fieldSupplier').value.trim();
+  state.current.warehouse = $('fieldWarehouse').value;
+  state.current.orderNo = $('fieldOrderNo').value.trim();
+  state.current.deliveryNo = $('fieldDeliveryNo').value.trim();
+  state.current.note = $('fieldNote').value.trim();
+}
+
+function saveDocumentDraft() {
+  syncHeaderValues();
+  if (!state.current.supplier) return alert('Molimo unesite dobavljača.');
+
+  if (!state.current.id) {
+    state.current.id = Date.now();
+    state.docs.unshift(JSON.parse(JSON.stringify(state.current)));
+  } else {
+    const idx = state.docs.findIndex(d => d.id === state.current.id);
+    if (idx >= 0) state.docs[idx] = JSON.parse(JSON.stringify(state.current));
+  }
+
+  state.isDirty = false;
+  $('dirtyIndicator').textContent = 'Nacrt je sačuvan';
+  $('dirtyIndicator').style.color = 'var(--text-muted)';
+  renderTable();
+  showToast('Nacrt zapisnika je uspješno sačuvan.');
+}
+
+function confirmAndPostDocument() {
+  syncHeaderValues();
+  if (!state.current.supplier) return alert('Unesite dobavljača prije potvrde.');
+  if (state.current.items.length === 0) return alert('Dokument mora sadržavati barem jednu stavku prije potvrde.');
+
+  if (!confirm('Potvrditi zapisnik ulaza? Nakon potvrde dokument se zaključava za izmjene i zadužuje skladište.')) return;
+
+  state.current.status = 'Potvrđen';
+  saveDocumentDraft();
+  populateDetail();
+  showToast('Dokument je potvrđen i skladište je ažurirano!');
+}
+
+function backToList() {
+  if (state.isDirty && !confirm('Imate nesnimljenih izmjena. Želite li se vratiti na listu bez čuvanja?')) return;
+  $('detailView').classList.add('hidden');
+  $('listView').classList.remove('hidden');
+  renderTable();
+}
+
+function printOfficialA4() {
+  $('printDocNumber').textContent = state.current.no;
+  $('printDocDate').textContent = 'Datum prijema: ' + state.current.date;
+  $('printContentBody').innerHTML = `
+    <p><strong>Dobavljač:</strong> ${state.current.supplier} | <strong>Skladište:</strong> ${state.current.warehouse}</p>
+    <p><strong>Broj narudžbe:</strong> ${state.current.orderNo || '—'} | <strong>Broj otpremnice:</strong> ${state.current.deliveryNo || '—'}</p>
+    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:14px;font-size:11px;">
+      <thead>
+        <tr style="background:#eee;">
+          <th>R.br</th><th>Artikal</th><th>Šifra</th><th>JM</th><th>Naručeno</th><th>Primljeno</th><th>Cijena</th><th>Ukupno</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.current.items.map((it, i) => `
+          <tr>
+            <td>${i+1}</td><td>${it.name}</td><td>${it.code}</td><td>${it.unit}</td>
+            <td align="right">${it.ordered}</td><td align="right">${it.received}</td>
+            <td align="right">${formatMoney(it.price)}</td><td align="right">${formatMoney(it.received * it.price)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:40px;display:flex;justify-content:space-between;text-align:center;font-size:12px;">
+      <div>_______________________<br>Robu primio</div>
+      <div>_______________________<br>Komisija za prijem</div>
+      <div>_______________________<br>Odobrio rukovodilac</div>
+    </div>
+  `;
+  window.print();
+}
+
+function exportListToExcel() {
+  showToast('Generisan je .xlsx Excel fajl sa spiskom svih zapisnika ulaza.');
+}
+
+// Initial render
+renderTable();
+</script>
+</body>
+</html>
