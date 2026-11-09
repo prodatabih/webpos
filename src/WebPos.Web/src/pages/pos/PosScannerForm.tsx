@@ -60,7 +60,7 @@ export function PosScannerForm({
           rightElement={<Barcode className="h-4 w-4" />}
         />
         {showSuggestions && searchSuggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-16 z-50 max-h-60 overflow-y-auto rounded-lg border border-border bg-popover shadow-xl divide-y divide-border">
+          <div className="absolute left-0 right-0 top-16 z-50 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover shadow-xl divide-y divide-border">
             {searchSuggestions.map((item) => {
               const sp = storePrices.find((p) => p.storeId === activeStoreId && p.itemId === item.id);
               const mpc = sp?.promoRetailPriceWithVat ?? sp?.retailUnitPriceWithVat ?? '0.00';

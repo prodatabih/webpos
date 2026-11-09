@@ -10,10 +10,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { showToast } from '../../components/ui/Toast';
 import {
-  buildPosReceiptFromCart,
-  computeCartTotalsAndVat,
-  resolveScanInput,
-  type PosCartLine,
+  buildPosReceiptFromCart, computeCartTotalsAndVat, resolveScanInput, type PosCartLine,
 } from './posScannerUtils';
 import { PosTouchCatalog } from './PosTouchCatalog';
 import { PosReceiptLinesTable } from './PosReceiptLinesTable';
@@ -51,7 +48,9 @@ export function PosTerminalPage() {
 
   const searchSuggestions = useMemo(() => {
     const q = scanText.trim().toLowerCase();
-    if (!q || q.length < 2) return [];
+    if (!q) {
+      return store.items.filter((it) => it.isActive).slice(0, 20);
+    }
     return store.items
       .filter(
         (it) =>
@@ -59,9 +58,10 @@ export function PosTerminalPage() {
           (it.name.toLowerCase().includes(q) ||
             it.sku.toLowerCase().includes(q) ||
             it.primaryBarcode.toLowerCase().includes(q) ||
-            it.shortName.toLowerCase().includes(q))
+            it.shortName.toLowerCase().includes(q) ||
+            it.categoryName.toLowerCase().includes(q))
       )
-      .slice(0, 8);
+      .slice(0, 30);
   }, [scanText, store.items]);
 
   const handleScanSubmit = (e: React.FormEvent) => {

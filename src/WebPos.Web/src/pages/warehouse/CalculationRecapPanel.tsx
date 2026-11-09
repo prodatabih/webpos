@@ -1,7 +1,9 @@
 import { t } from '../../i18n';
-import { formatMoney2 } from '../../lib/money';
+import { formatMoney2, formatQty } from '../../lib/money';
 
 interface CalculationRecapPanelProps {
+  itemCount: number;
+  totalQuantity: string;
   grossInvoiceValue: string;
   totalDiscount: string;
   totalZtr: string;
@@ -12,6 +14,8 @@ interface CalculationRecapPanelProps {
 }
 
 export function CalculationRecapPanel({
+  itemCount,
+  totalQuantity,
   grossInvoiceValue,
   totalDiscount,
   totalZtr,
@@ -21,7 +25,19 @@ export function CalculationRecapPanel({
   totalRetailValueWithVat,
 }: CalculationRecapPanelProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3 text-xs sm:grid-cols-4 lg:grid-cols-7">
+    <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3 text-xs sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9">
+      <div className="rounded-lg border border-border/80 bg-muted/40 p-2.5">
+        <div className="text-[11px] text-muted-foreground">{t('warehouse.itemCount')}</div>
+        <div className="mt-1 font-mono text-sm font-bold text-foreground">
+          {itemCount}
+        </div>
+      </div>
+      <div className="rounded-lg border border-border/80 bg-muted/40 p-2.5">
+        <div className="text-[11px] text-muted-foreground">{t('warehouse.totalQuantity')}</div>
+        <div className="mt-1 font-mono text-sm font-bold text-foreground">
+          {formatQty(totalQuantity, 2)}
+        </div>
+      </div>
       <div className="rounded-lg border border-border/80 bg-muted/40 p-2.5">
         <div className="text-[11px] text-muted-foreground">{t('warehouse.invoiceValue')}</div>
         <div className="mt-1 font-mono text-sm font-bold text-foreground">
@@ -58,7 +74,7 @@ export function CalculationRecapPanel({
           {formatMoney2(totalVatAmount, true)}
         </div>
       </div>
-      <div className="rounded-lg border border-success/40 bg-success/10 p-2.5">
+      <div className="rounded-lg border border-success/40 bg-success/10 p-2.5 col-span-2 sm:col-span-1">
         <div className="text-[11px] font-bold uppercase text-success">{t('warehouse.totalDebitMpc')}</div>
         <div className="mt-1 font-mono text-base font-extrabold text-foreground">
           {formatMoney2(totalRetailValueWithVat, true)}

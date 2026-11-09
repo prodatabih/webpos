@@ -43,6 +43,9 @@ export interface CalculationDocument {
   reversalOfDocId?: string;
   dueDate?: string;
   receiptDate?: string;
+  orderNumber?: string;
+  deliveryNoteNumber?: string;
+  receiverName?: string;
   ztrFreight?: string;
   ztrCustoms?: string;
   ztrHandling?: string;

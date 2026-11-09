@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { generateId, hashPassword } = require('../src/utils/crypto');
+const { seedCatalogPartners, seedCatalogItems } = require('./seedCatalog');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DB_PATH = process.env.WEBPOS_DB_PATH || path.join(DATA_DIR, 'webpos.db');
@@ -26,48 +27,21 @@ function getDb() {
  */
 function provisionTenantDefaults(db, { tenantId, initialFiscalYear = 2026, city = 'Sarajevo' }) {
   const fyId = generateId();
-  db.prepare(`
-    INSERT OR IGNORE INTO fiscal_years (id, tenant_id, year, label, start_date, end_date, is_active, is_closed)
-    VALUES (?, ?, ?, ?, ?, ?, 1, 0)
-  `).run(fyId, tenantId, initialFiscalYear, `Poslovna ${initialFiscalYear}. godina`, `${initialFiscalYear}-01-01`, `${initialFiscalYear}-12-31`);
+  db.prepare(`INSERT OR IGNORE INTO fiscal_years (id, tenant_id, year, label, start_date, end_date, is_active, is_closed) VALUES (?, ?, ?, ?, ?, ?, 1, 0)`).run(fyId, tenantId, initialFiscalYear, `Poslovna ${initialFiscalYear}. godina`, `${initialFiscalYear}-01-01`, `${initialFiscalYear}-12-31`);
 
-  // Dodaj i prethodnu poslovnu godinu radi demonstracije više poslovnih godina u jednoj bazi
   const prevYear = initialFiscalYear - 1;
-  db.prepare(`
-    INSERT OR IGNORE INTO fiscal_years (id, tenant_id, year, label, start_date, end_date, is_active, is_closed)
-    VALUES (?, ?, ?, ?, ?, ?, 0, 1)
-  `).run(generateId(), tenantId, prevYear, `Poslovna ${prevYear}. godina (Arhiva)`, `${prevYear}-01-01`, `${prevYear}-12-31`);
+  db.prepare(`INSERT OR IGNORE INTO fiscal_years (id, tenant_id, year, label, start_date, end_date, is_active, is_closed) VALUES (?, ?, ?, ?, ?, ?, 0, 1)`).run(generateId(), tenantId, prevYear, `Poslovna ${prevYear}. godina (Arhiva)`, `${prevYear}-01-01`, `${prevYear}-12-31`);
 
-  // Standardne poreske stope
   const taxId = generateId();
-  db.prepare(`
-    INSERT OR IGNORE INTO tax_rates (id, tenant_id, code, name, rate_pct, is_default)
-    VALUES (?, ?, 'E', 'Opšta stopa PDV 17%', 17.0, 1)
-  `).run(taxId, tenantId);
+  db.prepare(`INSERT OR IGNORE INTO tax_rates (id, tenant_id, code, name, rate_pct, is_default) VALUES (?, ?, 'E', 'Opšta stopa PDV 17%', 17.0, 1)`).run(taxId, tenantId);
 
-  // Početni prodajni objekti
   const store1Id = generateId();
   const store2Id = generateId();
-  db.prepare(`
-    INSERT OR IGNORE INTO stores (id, tenant_id, code, name, store_type, city, manager_name)
-    VALUES (?, ?, 'PJ-01', ?, 'RETAIL', ?, 'Glavni poslovođa')
-  `).run(store1Id, tenantId, `Market 1 (${city})`, city);
+  db.prepare(`INSERT OR IGNORE INTO stores (id, tenant_id, code, name, store_type, city, manager_name) VALUES (?, ?, 'PJ-01', ?, 'RETAIL', ?, 'Glavni poslovođa')`).run(store1Id, tenantId, `Market 1 (${city})`, city);
+  db.prepare(`INSERT OR IGNORE INTO stores (id, tenant_id, code, name, store_type, city, manager_name) VALUES (?, ?, 'VP-01', ?, 'WHOLESALE', ?, 'Voditelj magacina')`).run(store2Id, tenantId, `Centralni Magacin (${city})`, city);
 
-  db.prepare(`
-    INSERT OR IGNORE INTO stores (id, tenant_id, code, name, store_type, city, manager_name)
-    VALUES (?, ?, 'VP-01', ?, 'WHOLESALE', ?, 'Voditelj magacina')
-  `).run(store2Id, tenantId, `Centralni Magacin (${city})`, city);
-
-  // Početne kase u PJ-01
-  db.prepare(`
-    INSERT OR IGNORE INTO pos_terminals (id, tenant_id, store_id, code, name)
-    VALUES (?, ?, ?, 'K1', 'Kasa #1 (Glavna)')
-  `).run(generateId(), tenantId, store1Id);
-
-  db.prepare(`
-    INSERT OR IGNORE INTO pos_terminals (id, tenant_id, store_id, code, name)
-    VALUES (?, ?, ?, 'K2', 'Kasa #2 (Brza traka)')
-  `).run(generateId(), tenantId, store1Id);
+  db.prepare(`INSERT OR IGNORE INTO pos_terminals (id, tenant_id, store_id, code, name) VALUES (?, ?, ?, 'K1', 'Kasa #1 (Glavna)')`).run(generateId(), tenantId, store1Id);
+  db.prepare(`INSERT OR IGNORE INTO pos_terminals (id, tenant_id, store_id, code, name) VALUES (?, ?, ?, 'K2', 'Kasa #2 (Brza traka)')`).run(generateId(), tenantId, store1Id);
 
   return { store1Id, store2Id, taxId };
 }
@@ -143,37 +117,59 @@ function seedInitialData(db) {
   db.prepare(`INSERT INTO tax_rates (id, tenant_id, code, name, rate_pct, is_default) VALUES (?, ?, 'E', 'PDV 17%', 17.0, 1)`).run(tax17Id, tenant1Id);
 
   // Partneri za Tenant 1
-  const p1Id = generateId();
-  const p2Id = generateId();
-  const p3Id = generateId();
-  db.prepare(`INSERT INTO partners (id, tenant_id, code, name, partner_type, tax_number, vat_number, city, payment_due_days) VALUES (?, ?, 'DOB-001', 'AS Holding / Vispak d.d. Visoko', 'SUPPLIER', '4218001230001', '218001230001', 'Visoko', 45)`).run(p1Id, tenant1Id);
-  db.prepare(`INSERT INTO partners (id, tenant_id, code, name, partner_type, tax_number, vat_number, city, payment_due_days) VALUES (?, ?, 'DOB-002', 'Bimal d.d. Brčko', 'SUPPLIER', '4600112230009', '600112230009', 'Brčko', 30)`).run(p2Id, tenant1Id);
-  db.prepare(`INSERT INTO partners (id, tenant_id, code, name, partner_type, tax_number, vat_number, city, payment_due_days) VALUES (?, ?, 'KUP-101', 'Hotel Evropa d.o.o. Sarajevo', 'CUSTOMER', '4200889120001', '200889120001', 'Sarajevo', 15)`).run(p3Id, tenant1Id);
+  let p1Id = null;
+  let p2Id = null;
+  const insertPartnerStmt = db.prepare(`
+    INSERT INTO partners (id, tenant_id, code, name, partner_type, tax_number, vat_number, city, payment_due_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const p of seedCatalogPartners) {
+    const pid = generateId();
+    if (p.code === 'DOB-002') p1Id = pid;
+    if (p.code === 'DOB-004') p2Id = pid;
+    insertPartnerStmt.run(pid, tenant1Id, p.code, p.name, p.partnerType, p.taxNumber, p.vatNumber, p.city, p.paymentDays);
+  }
 
-  // Artikli za Tenant 1
-  const seedItems = [
-    { sku: '10045', barcode: '3870001001012', name: 'Kafa Zlatna Džezva 500g', cat: 'Kafa i čaj', uom: 'kom', netQty: 0.5, netUom: 'kg', nc: 6.96, p1: 9.90, p2: 9.40, p3: 7.80, s1: 42, s2: 118, s3: 450, origin: 'Bosna i Hercegovina', imp: 'Vispak d.d. Visoko', norm: 'NONE', pack: 1 },
-    { sku: '10088', barcode: '3870003003018', name: 'Ulje Suncokretovo Bimal 1L', cat: 'Prehrana', uom: 'kom', netQty: 1.0, netUom: 'l', nc: 2.43, p1: 3.40, p2: 3.15, p3: 2.65, s1: 85, s2: 210, s3: 800, origin: 'Bosna i Hercegovina', imp: 'Bimal d.d. Brčko', norm: 'NONE', pack: 1 },
-    { sku: '20012', barcode: '3870002002247', name: 'Prirodna Voda 0.5L (Transportni paket 24x)', cat: 'Pića', uom: 'kom', netQty: 0.5, netUom: 'l', nc: 0.45, p1: 0.80, p2: 0.70, p3: 0.55, s1: 192, s2: 480, s3: 1200, origin: 'Bosna i Hercegovina', imp: 'Sarajevski Kiseljak', norm: 'NONE', pack: 24 },
-    { sku: '10005', barcode: '2710005004258', name: 'Sir Edamer 45% m.m. (Vaga)', cat: 'Delikates / Vaga', uom: 'kg', netQty: 1.0, netUom: 'kg', nc: 9.80, p1: 14.50, p2: 13.80, p3: 11.20, s1: 18.5, s2: 44.0, s3: 120.0, origin: 'Njemačka', imp: 'MCI d.o.o.', norm: 'NONE', pack: 0.425 },
-    { sku: '90010', barcode: '3870009001005', name: 'Sendvič Classic + Espresso (Normativ)', cat: 'Gastro / Pekara', uom: 'kom', netQty: 0.3, netUom: 'kg', nc: 2.48, p1: 4.50, p2: 4.20, p3: 3.50, s1: 30, s2: 50, s3: 0, origin: 'Vlastita proizvodnja', imp: 'Interna kuhinja', norm: 'ON_SALE_BACKFLUSH', pack: 1 }
-  ];
+  // Artikli za Tenant 1 (115 artikala)
+  const insertItemStmt = db.prepare(`
+    INSERT INTO items (id, tenant_id, sku, barcode, name, item_type, normative_mode, uom, net_content_qty, net_content_uom, tax_rate_id, category_name, origin_country, importer_name, is_weighable, pack_multiplier)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertStateStmt = db.prepare(`
+    INSERT INTO store_item_state (id, tenant_id, fiscal_year, store_id, item_id, purchase_price, wholesale_price, retail_price, lowest_price_30d, stock_qty)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
-  for (const it of seedItems) {
+  for (const it of seedCatalogItems) {
     const itemId = generateId();
-    db.prepare(`
-      INSERT INTO items (id, tenant_id, sku, barcode, name, item_type, normative_mode, uom, net_content_qty, net_content_uom, tax_rate_id, category_name, origin_country, importer_name, is_weighable, pack_multiplier)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(itemId, tenant1Id, it.sku, it.barcode, it.name, it.norm !== 'NONE' ? 'COMPOSITE' : 'GOODS', it.norm, it.uom, it.netQty, it.netUom, tax17Id, it.cat, it.origin, it.imp, it.uom === 'kg' ? 1 : 0, it.pack);
+    insertItemStmt.run(
+      itemId,
+      tenant1Id,
+      it.sku,
+      it.barcode,
+      it.name,
+      it.norm !== 'NONE' ? 'COMPOSITE' : (it.uom === 'kg' && it.isWeighable ? 'GOODS' : 'GOODS'),
+      it.norm,
+      it.uom,
+      it.netQty,
+      it.netUom,
+      tax17Id,
+      it.cat,
+      it.origin,
+      it.imp,
+      it.uom === 'kg' ? 1 : 0,
+      it.pack
+    );
 
     // Stanje i cijene za Poslovnu 2026. godinu po objektima (PJ-01, PJ-02, PJ-03)
-    db.prepare(`INSERT INTO store_item_state (id, tenant_id, fiscal_year, store_id, item_id, purchase_price, wholesale_price, retail_price, lowest_price_30d, stock_qty) VALUES (?, ?, 2026, ?, ?, ?, ?, ?, ?, ?)`).run(generateId(), tenant1Id, st1Id, itemId, it.nc, it.p3, it.p1, it.p1 - 0.30, it.s1);
-    db.prepare(`INSERT INTO store_item_state (id, tenant_id, fiscal_year, store_id, item_id, purchase_price, wholesale_price, retail_price, lowest_price_30d, stock_qty) VALUES (?, ?, 2026, ?, ?, ?, ?, ?, ?, ?)`).run(generateId(), tenant1Id, st2Id, itemId, it.nc, it.p3, it.p2, it.p2 - 0.20, it.s2);
-    db.prepare(`INSERT INTO store_item_state (id, tenant_id, fiscal_year, store_id, item_id, purchase_price, wholesale_price, retail_price, lowest_price_30d, stock_qty) VALUES (?, ?, 2026, ?, ?, ?, ?, ?, ?, ?)`).run(generateId(), tenant1Id, st3Id, itemId, it.nc, it.p3, it.p3, it.p3, it.s3);
+    insertStateStmt.run(generateId(), tenant1Id, 2026, st1Id, itemId, it.nc, it.p3, it.p1, it.p1 - 0.30, it.s1);
+    insertStateStmt.run(generateId(), tenant1Id, 2026, st2Id, itemId, it.nc, it.p3, it.p2, it.p2 - 0.20, it.s2);
+    insertStateStmt.run(generateId(), tenant1Id, 2026, st3Id, itemId, it.nc, it.p3, it.p3, it.p3, it.s3);
 
     // Stanje i cijene za arhivsku Poslovnu 2025. godinu u istoj bazi
-    db.prepare(`INSERT INTO store_item_state (id, tenant_id, fiscal_year, store_id, item_id, purchase_price, wholesale_price, retail_price, lowest_price_30d, stock_qty) VALUES (?, ?, 2025, ?, ?, ?, ?, ?, ?, ?)`).run(generateId(), tenant1Id, st1Id, itemId, it.nc * 0.92, it.p3 * 0.92, Number((it.p1 * 0.92).toFixed(2)), it.p1 * 0.90, Math.round(it.s1 * 0.8));
+    insertStateStmt.run(generateId(), tenant1Id, 2025, st1Id, itemId, it.nc * 0.92, it.p3 * 0.92, Number((it.p1 * 0.92).toFixed(2)), it.p1 * 0.90, Math.round(it.s1 * 0.8));
   }
+
 
   // Dokumenti u 2026. i 2025. godini za Tenant 1
   db.prepare(`

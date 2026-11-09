@@ -5,13 +5,7 @@ import { t } from '../../i18n';
 import { calculateCalculationLine, d, round2 } from '../../lib/money';
 import { generateUuidV7 } from '../../lib/utils';
 import type {
-  CalculationDocument,
-  Company,
-  Item,
-  Partner,
-  StoreItemPrice,
-  StoreLocation,
-  VatRate,
+  CalculationDocument, Company, Item, Partner, StoreItemPrice, StoreLocation, VatRate,
 } from '../../types/domain';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
@@ -105,7 +99,7 @@ export function CalculationEditorDialog({
     const existingPrice = storePrices.find((p) => p.storeId === doc.storeId && p.itemId === item.id);
     const vatRate = vatRates.find((v) => v.id === item.vatRateId)?.ratePercent ?? '17.00';
     const initCalc = calculateCalculationLine({
-      quantity: '10.0000',
+      quantity: '1.0000',
       supplierUnitPrice: existingPrice?.purchaseUnitPrice ?? '10.0000',
       discountPercent: '0.00',
       dependentCostPerUnit: '0.0000',
@@ -115,8 +109,22 @@ export function CalculationEditorDialog({
     setDoc(recomputeCalculationWithZtr(doc, [...doc.lines, { id: generateUuidV7(), itemId: item.id, ...initCalc }], totalZtr, allocMethod, freight, customs, handling, other));
   };
 
+  const handleCopyLine = (idx: number) => {
+    const lineToCopy = doc.lines[idx];
+    if (!lineToCopy) return;
+    const copied = { ...lineToCopy, id: generateUuidV7() };
+    const nextLines = [...doc.lines.slice(0, idx + 1), copied, ...doc.lines.slice(idx + 1)];
+    setDoc(recomputeCalculationWithZtr(doc, nextLines, totalZtr, allocMethod, freight, customs, handling, other));
+  };
+
+  const handleAddBlankLine = () => {
+    const defaultItem = items.find((i) => i.isActive) ?? items[0];
+    if (defaultItem) handleAddItem(defaultItem);
+  };
+
   const grossInv = round2(doc.lines.reduce((a, l) => a.plus(d(l.supplierUnitPrice).mul(d(l.quantity))), new Decimal(0)));
   const totalDisc = round2(doc.lines.reduce((a, l) => a.plus(d(l.supplierUnitPrice).minus(d(l.netSupplierUnitPrice)).mul(d(l.quantity))), new Decimal(0)));
+  const totalQty = doc.lines.reduce((a, l) => a.plus(d(l.quantity)), new Decimal(0)).toString();
 
   return (
     <Dialog
@@ -145,7 +153,7 @@ export function CalculationEditorDialog({
                   <Save className="h-4 w-4" /><span>{t('common.saveDraft')}</span>
                 </Button>
                 <Button variant="success" disabled={!doc.partnerId || doc.lines.length === 0} onClick={() => onPostDocument(doc)}>
-                  <CheckCircle2 className="h-4 w-4" /><span>{t('common.postDocument')}</span>
+                  <CheckCircle2 className="h-4 w-4" /><span>{t('warehouse.confirmCalculation')}</span>
                 </Button>
               </>
             )}
@@ -168,7 +176,7 @@ export function CalculationEditorDialog({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <DocumentStatusBadge status={doc.status} />
-              <span className="font-mono text-muted-foreground">{doc.docNumber}</span>
+              <span className="font-mono font-bold text-foreground">{doc.docNumber}</span>
             </div>
             {isReadOnly && <span className="text-muted-foreground">{t('messages.postedImmutableError')}</span>}
           </div>
@@ -213,10 +221,14 @@ export function CalculationEditorDialog({
             isReadOnly={isReadOnly}
             onUpdateLineField={(id, f, val) => setDoc(recomputeCalculationWithZtr(doc, doc.lines, totalZtr, allocMethod, freight, customs, handling, other, id, f, val))}
             onRemoveLine={(id) => setDoc(recomputeCalculationWithZtr(doc, doc.lines.filter((l) => l.id !== id), totalZtr, allocMethod, freight, customs, handling, other))}
+            onCopyLine={handleCopyLine}
             onAddItem={handleAddItem}
+            onAddBlankLine={handleAddBlankLine}
           />
 
           <CalculationRecapPanel
+            itemCount={doc.lines.length}
+            totalQuantity={totalQty}
             grossInvoiceValue={grossInv}
             totalDiscount={totalDisc}
             totalZtr={totalZtr}
