@@ -50,13 +50,13 @@ export function InventoryCountPrintView({
         </Button>
         <div className="flex items-center gap-1.5">
           <Button variant={mode === 'ALL' ? 'primary' : 'outline'} size="sm" onClick={() => setMode('ALL')}>
-            <FileText className="h-3.5 w-3.5" /><span>{t('warehouse.printA4InventoryList')}</span>
+            <FileText className="h-3.5 w-3.5" /><span>{t('warehouse.printInventoryList')}</span>
           </Button>
           <Button variant={mode === 'SURPLUS' ? 'primary' : 'outline'} size="sm" onClick={() => setMode('SURPLUS')}>
-            <CheckCircle className="h-3.5 w-3.5 text-success" /><span>{t('warehouse.printA4SurplusList')}</span>
+            <CheckCircle className="h-3.5 w-3.5 text-success" /><span>{t('warehouse.printSurplusList')}</span>
           </Button>
           <Button variant={mode === 'SHORTAGE' ? 'primary' : 'outline'} size="sm" onClick={() => setMode('SHORTAGE')}>
-            <AlertTriangle className="h-3.5 w-3.5 text-destructive" /><span>{t('warehouse.printA4ShortageList')}</span>
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive" /><span>{t('warehouse.printShortageList')}</span>
           </Button>
           <Button variant="primary" size="sm" onClick={() => window.print()}>
             <Printer className="h-4 w-4" /><span>{t('common.print')}</span>

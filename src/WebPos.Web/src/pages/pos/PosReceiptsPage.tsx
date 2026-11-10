@@ -131,7 +131,7 @@ export function PosReceiptsPage() {
               <Button variant="ghost" size="sm" onClick={() => handleFiscalize(r)} title={t('pos.fiscalize')}>
                 <Send className="h-3.5 w-3.5 text-primary" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setInvoiceReceipt(r)} title={t('pos.taxInvoiceA4')}>
+              <Button variant="ghost" size="sm" onClick={() => setInvoiceReceipt(r)} title={t('pos.taxInvoice')}>
                 <FileText className="h-3.5 w-3.5 text-success" />
               </Button>
               {r.receiptType === 'SALE' && r.status === 'POSTED' && (

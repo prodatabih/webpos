@@ -146,7 +146,7 @@ export function PriceLevelingDialog({
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsPrintPreview(!isPrintPreview)}>
               <Printer className="h-3.5 w-3.5" />
-              <span>{isPrintPreview ? t('warehouse.backToEdit') : t('warehouse.printA4Leveling')}</span>
+              <span>{isPrintPreview ? t('warehouse.backToEdit') : t('warehouse.printLeveling')}</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => exportPriceLevelingToExcel(doc, items)}>
               <FileSpreadsheet className="h-3.5 w-3.5 text-success" />

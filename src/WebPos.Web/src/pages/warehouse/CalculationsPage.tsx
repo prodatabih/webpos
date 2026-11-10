@@ -1,21 +1,22 @@
 import { useMemo, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Eye, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
-import { formatMoney2 } from '../../lib/money';
-import { formatDateBs, generateUuidV7 } from '../../lib/utils';
+import { generateUuidV7 } from '../../lib/utils';
 import type { CalculationDocument } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
-import { DocumentStatusBadge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
 import { CalculationEditorDialog } from './CalculationEditorDialog';
+import { getCalculationColumns } from './calculationsColumns';
 
 export function CalculationsPage() {
   const store = useAppStore();
   const [editingDoc, setEditingDoc] = useState<CalculationDocument | null>(null);
+
+  const currentStore = store.storeLocations.find((s) => s.id === store.activeStoreId);
+  const storeType = currentStore?.storeType ?? 'RETAIL';
 
   const storeCalcs = useMemo(
     () => store.calculations.filter((c) => c.storeId === store.activeStoreId),
@@ -76,97 +77,16 @@ export function CalculationsPage() {
     }
   };
 
-  const columns = useMemo<ColumnDef<CalculationDocument>[]>(
-    () => [
-      {
-        accessorKey: 'docNumber',
-        header: t('warehouse.docNumber'),
-        cell: ({ row }) => (
-          <span className="font-mono font-semibold text-foreground">{row.original.docNumber}</span>
-        ),
-      },
-      {
-        accessorKey: 'docDate',
-        header: t('warehouse.docDate'),
-        cell: ({ row }) => formatDateBs(row.original.docDate),
-      },
-      {
-        accessorKey: 'partnerId',
-        header: t('warehouse.supplier'),
-        cell: ({ row }) =>
-          store.partners.find((p) => p.id === row.original.partnerId)?.name ?? '-',
-      },
-      {
-        accessorKey: 'supplierInvoiceNumber',
-        header: t('warehouse.supplierInvoiceNumber'),
-        cell: ({ row }) => <span className="font-mono">{row.original.supplierInvoiceNumber}</span>,
-      },
-      {
-        accessorKey: 'totalPurchaseValue',
-        header: t('warehouse.purchaseValue'),
-        cell: ({ row }) => (
-          <span className="font-mono">{formatMoney2(row.original.totalPurchaseValue, true)}</span>
-        ),
-      },
-      {
-        accessorKey: 'totalMarginAmount',
-        header: t('warehouse.marginAmount'),
-        cell: ({ row }) => (
-          <span className="font-mono">{formatMoney2(row.original.totalMarginAmount, true)}</span>
-        ),
-      },
-      {
-        accessorKey: 'totalEmbeddedVatAmount',
-        header: t('warehouse.embeddedVat'),
-        cell: ({ row }) => (
-          <span className="font-mono">
-            {formatMoney2(row.original.totalEmbeddedVatAmount, true)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'totalRetailValueWithVat',
-        header: t('warehouse.retailValueWithVat'),
-        cell: ({ row }) => (
-          <span className="font-mono font-semibold">
-            {formatMoney2(row.original.totalRetailValueWithVat, true)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: t('common.status'),
-        cell: ({ row }) => <DocumentStatusBadge status={row.original.status} />,
-      },
-      {
-        id: 'actions',
-        header: t('common.actions'),
-        cell: ({ row }) => {
-          const c = row.original;
-          return (
-            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="sm" onClick={() => setEditingDoc(c)}>
-                <Eye className="h-3.5 w-3.5" />
-                <span>{c.status === 'DRAFT' ? t('common.edit') : t('common.view')}</span>
-              </Button>
-              {c.status === 'DRAFT' && (
-                <Button variant="success" size="sm" onClick={() => handlePost(c.id)}>
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>{t('common.postDocument')}</span>
-                </Button>
-              )}
-              {c.status === 'POSTED' && (
-                <Button variant="destructive" size="sm" onClick={() => handleReverse(c.id)}>
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span>{t('common.reverseDocument')}</span>
-                </Button>
-              )}
-            </div>
-          );
-        },
-      },
-    ],
-    [store.partners]
+  const columns = useMemo(
+    () =>
+      getCalculationColumns({
+        partners: store.partners,
+        storeType,
+        onEdit: setEditingDoc,
+        onPost: handlePost,
+        onReverse: handleReverse,
+      }),
+    [store.partners, storeType]
   );
 
   return (

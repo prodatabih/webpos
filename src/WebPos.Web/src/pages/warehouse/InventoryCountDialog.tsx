@@ -126,13 +126,13 @@ export function InventoryCountDialog({
         <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setPrintMode(printMode === 'ALL' ? 'NONE' : 'ALL')}>
-              <Printer className="h-3.5 w-3.5" /><span>{t('warehouse.printA4InventoryList')}</span>
+              <Printer className="h-3.5 w-3.5" /><span>{t('warehouse.printInventoryList')}</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setPrintMode(printMode === 'SURPLUS' ? 'NONE' : 'SURPLUS')}>
-              <Printer className="h-3.5 w-3.5 text-success" /><span>{t('warehouse.printA4SurplusList')}</span>
+              <Printer className="h-3.5 w-3.5 text-success" /><span>{t('warehouse.printSurplusList')}</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setPrintMode(printMode === 'SHORTAGE' ? 'NONE' : 'SHORTAGE')}>
-              <Printer className="h-3.5 w-3.5 text-destructive" /><span>{t('warehouse.printA4ShortageList')}</span>
+              <Printer className="h-3.5 w-3.5 text-destructive" /><span>{t('warehouse.printShortageList')}</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => exportInventoryCountToExcel(doc, items)}>
               <FileSpreadsheet className="h-3.5 w-3.5 text-success" /><span>{t('common.exportExcel')}</span>

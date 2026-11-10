@@ -1,21 +1,26 @@
-import { useState } from 'react';
-import { Copy, Plus, Search, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Search } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatPrice4, formatQty } from '../../lib/money';
-import type { CalculationLine, Item, StoreItemPrice } from '../../types/domain';
+import type { CalculationLine, Item, StoreItemPrice, StoreType } from '../../types/domain';
 import { Button } from '../../components/ui/Button';
+import type { ComboboxOption } from '../../components/ui/Combobox';
+import type { CalculationLineField } from './calculationUtils';
+import { CalculationLineRow } from './CalculationLineRow';
 
 interface CalculationLinesTableProps {
   lines: CalculationLine[];
   items: Item[];
   storePrices: StoreItemPrice[];
   activeStoreId: string;
+  storeType?: StoreType;
   isReadOnly: boolean;
   onUpdateLineField: (
     lineId: string,
-    field: 'quantity' | 'supplierUnitPrice' | 'discountPercent' | 'marginPercent' | 'retailUnitPriceWithVat',
+    field: CalculationLineField,
     value: string
   ) => void;
+  onSelectItemForLine: (lineId: string, itemId: string) => void;
   onRemoveLine: (lineId: string) => void;
   onCopyLine: (idx: number) => void;
   onAddItem: (item: Item) => void;
@@ -27,8 +32,10 @@ export function CalculationLinesTable({
   items,
   storePrices,
   activeStoreId,
+  storeType = 'RETAIL',
   isReadOnly,
   onUpdateLineField,
+  onSelectItemForLine,
   onRemoveLine,
   onCopyLine,
   onAddItem,
@@ -36,6 +43,33 @@ export function CalculationLinesTable({
 }: CalculationLinesTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+
+  const isRaw = storeType === 'RAW_MATERIAL' || storeType === 'PRODUCTION';
+  const isWholesale = storeType === 'WHOLESALE';
+
+  const comboboxOptions = useMemo<ComboboxOption[]>(
+    () =>
+      items
+        .filter((it) => it.isActive)
+        .map((it) => {
+          const sp = storePrices.find((p) => p.storeId === activeStoreId && p.itemId === it.id);
+          const pr = isRaw
+            ? sp?.purchaseUnitPrice
+            : isWholesale
+            ? sp?.wholesaleUnitPriceExclVat
+            : sp?.retailUnitPriceWithVat;
+          return {
+            value: it.id,
+            label: it.name,
+            code: it.sku,
+            barcode: it.primaryBarcode,
+            price: pr,
+            stockQty: sp?.currentStockQty,
+            uom: it.uom,
+          };
+        }),
+    [items, storePrices, activeStoreId, isRaw, isWholesale]
+  );
 
   const filteredItems = searchTerm.trim()
     ? items
@@ -99,7 +133,11 @@ export function CalculationLinesTable({
                           NC: {formatPrice4(sp?.purchaseUnitPrice ?? '0.0000')}
                         </div>
                         <div className="font-semibold text-success">
-                          MPC: {formatMoney2(sp?.retailUnitPriceWithVat ?? '0.00', true)} ({formatQty(sp?.currentStockQty ?? '0', 2)})
+                          {isWholesale ? 'VPC: ' : 'MPC: '}
+                          {formatMoney2(
+                            (isWholesale ? sp?.wholesaleUnitPriceExclVat : sp?.retailUnitPriceWithVat) ?? '0.00',
+                            true
+                          )} ({formatQty(sp?.currentStockQty ?? '0', 2)})
                         </div>
                       </div>
                     </div>
@@ -120,7 +158,7 @@ export function CalculationLinesTable({
           <thead className="border-b border-border bg-muted/60 text-muted-foreground uppercase text-[10px] tracking-wider">
             <tr>
               <th className="px-2 py-2 text-center w-8">#</th>
-              <th className="px-2 py-2 min-w-[170px]">{t('common.name')}</th>
+              <th className="px-2 py-2 min-w-[200px]">{t('common.name')}</th>
               <th className="px-2 py-2 text-center w-12">{t('common.uom')}</th>
               <th className="px-2 py-2 text-right w-16">{t('common.quantity')}</th>
               <th className="px-2 py-2 text-right w-20">{t('warehouse.supplierUnitPrice')}</th>
@@ -129,111 +167,45 @@ export function CalculationLinesTable({
               <th className="px-2 py-2 text-right w-16">{t('warehouse.dependentCost')}</th>
               <th className="px-2 py-2 text-right w-20 bg-primary/5 font-bold text-primary">{t('warehouse.purchaseUnitPrice')}</th>
               <th className="px-2 py-2 text-right w-24 bg-primary/5 text-primary">{t('warehouse.purchaseValue')}</th>
-              <th className="px-2 py-2 text-right w-16">{t('warehouse.marginPercent')}</th>
-              <th className="px-2 py-2 text-right w-20">{t('warehouse.marginAmount')}</th>
-              <th className="px-2 py-2 text-right w-20">{t('warehouse.sellingPriceExclVat')}</th>
-              <th className="px-2 py-2 text-center w-12">{t('common.vat')}</th>
-              <th className="px-2 py-2 text-right w-20 bg-success/5 font-bold text-success">{t('warehouse.retailPriceWithVat')}</th>
-              <th className="px-2 py-2 text-right w-24 bg-success/5 text-success font-semibold">{t('warehouse.retailValueWithVat')}</th>
+              {!isRaw && (
+                <>
+                  <th className="px-2 py-2 text-right w-16">{t('warehouse.marginPercent')}</th>
+                  <th className="px-2 py-2 text-right w-20">{t('warehouse.marginAmount')}</th>
+                  {isWholesale ? (
+                    <>
+                      <th className="px-2 py-2 text-right w-20 bg-info/5 font-bold text-info">{t('warehouse.wholesaleUnitPrice')}</th>
+                      <th className="px-2 py-2 text-right w-24 bg-info/5 text-info font-semibold">{t('warehouse.wholesaleTotalValue')}</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-2 py-2 text-right w-20">{t('warehouse.sellingPriceExclVat')}</th>
+                      <th className="px-2 py-2 text-center w-12">{t('common.vat')}</th>
+                      <th className="px-2 py-2 text-right w-20 bg-success/5 font-bold text-success">{t('warehouse.retailPriceWithVat')}</th>
+                      <th className="px-2 py-2 text-right w-24 bg-success/5 text-success font-semibold">{t('warehouse.retailValueWithVat')}</th>
+                    </>
+                  )}
+                </>
+              )}
               {!isReadOnly && <th className="px-2 py-2 text-center w-16">{t('common.actions')}</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-border font-mono text-[11px]">
-            {lines.map((line, idx) => {
-              const item = items.find((i) => i.id === line.itemId);
-              return (
-                <tr key={line.id} className="hover:bg-muted/30">
-                  <td className="px-2 py-1.5 text-center text-muted-foreground">{idx + 1}</td>
-                  <td className="px-2 py-1.5 font-sans">
-                    <div className="font-medium text-foreground">{item?.name ?? (line.itemId || t('warehouse.emptyLine'))}</div>
-                    <div className="font-mono text-[10px] text-muted-foreground">{item?.sku ?? '-'}</div>
-                  </td>
-                  <td className="px-2 py-1.5 text-center font-sans text-muted-foreground">{item?.uom ?? 'KOM'}</td>
-                  <td className="px-1 py-1.5 text-right">
-                    <input
-                      type="number"
-                      step="0.01"
-                      disabled={isReadOnly}
-                      value={line.quantity}
-                      onChange={(e) => onUpdateLineField(line.id, 'quantity', e.target.value)}
-                      className="h-6 w-16 rounded border border-input bg-background px-1 text-right font-mono"
-                    />
-                  </td>
-                  <td className="px-1 py-1.5 text-right">
-                    <input
-                      type="number"
-                      step="0.0001"
-                      disabled={isReadOnly}
-                      value={line.supplierUnitPrice}
-                      onChange={(e) => onUpdateLineField(line.id, 'supplierUnitPrice', e.target.value)}
-                      className="h-6 w-20 rounded border border-input bg-background px-1 text-right font-mono"
-                    />
-                  </td>
-                  <td className="px-1 py-1.5 text-right">
-                    <input
-                      type="number"
-                      step="0.1"
-                      disabled={isReadOnly}
-                      value={line.discountPercent}
-                      onChange={(e) => onUpdateLineField(line.id, 'discountPercent', e.target.value)}
-                      className="h-6 w-14 rounded border border-input bg-background px-1 text-right font-mono"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 text-right text-muted-foreground">{formatPrice4(line.netSupplierUnitPrice)}</td>
-                  <td className="px-2 py-1.5 text-right text-warning">{formatPrice4(line.dependentCostPerUnit)}</td>
-                  <td className="px-2 py-1.5 text-right font-bold text-primary bg-primary/5">{formatPrice4(line.purchaseUnitPrice)}</td>
-                  <td className="px-2 py-1.5 text-right text-primary bg-primary/5">{formatMoney2(line.purchaseTotalValue, true)}</td>
-                  <td className="px-1 py-1.5 text-right">
-                    <input
-                      type="number"
-                      step="0.01"
-                      disabled={isReadOnly}
-                      value={line.marginPercent}
-                      onChange={(e) => onUpdateLineField(line.id, 'marginPercent', e.target.value)}
-                      className="h-6 w-16 rounded border border-info/50 bg-background px-1 text-right font-mono font-semibold text-info"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 text-right">{formatMoney2(line.marginTotalAmount, true)}</td>
-                  <td className="px-2 py-1.5 text-right">{formatMoney2(line.sellingTotalValueExclVat, true)}</td>
-                  <td className="px-2 py-1.5 text-center text-muted-foreground">{line.vatRatePercent}%</td>
-                  <td className="px-1 py-1.5 text-right bg-success/5">
-                    <input
-                      type="number"
-                      step="0.01"
-                      disabled={isReadOnly}
-                      value={line.retailUnitPriceWithVat}
-                      onChange={(e) => onUpdateLineField(line.id, 'retailUnitPriceWithVat', e.target.value)}
-                      className="h-6 w-20 rounded border border-success/60 bg-background px-1 text-right font-mono font-bold text-success"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-bold text-success bg-success/5">
-                    {formatMoney2(line.retailTotalValueWithVat, true)}
-                  </td>
-                  {!isReadOnly && (
-                    <td className="px-1 py-1.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title={t('warehouse.copyLine')}
-                          onClick={() => onCopyLine(idx)}
-                        >
-                          <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title={t('warehouse.deleteLine')}
-                          onClick={() => onRemoveLine(line.id)}
-                        >
-                          <X className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
+            {lines.map((line, idx) => (
+              <CalculationLineRow
+                key={line.id}
+                line={line}
+                idx={idx}
+                item={items.find((i) => i.id === line.itemId)}
+                isReadOnly={isReadOnly}
+                isRaw={isRaw}
+                isWholesale={isWholesale}
+                comboboxOptions={comboboxOptions}
+                onSelectItem={(val) => onSelectItemForLine(line.id, val)}
+                onUpdateField={(field, val) => onUpdateLineField(line.id, field, val)}
+                onCopy={() => onCopyLine(idx)}
+                onRemove={() => onRemoveLine(line.id)}
+              />
+            ))}
           </tbody>
         </table>
       </div>

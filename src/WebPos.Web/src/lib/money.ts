@@ -65,6 +65,7 @@ export interface CalculationLineInput {
   dependentCostPerUnit: DecimalInput;
   marginPercent?: DecimalInput;
   targetRetailPriceWithVat?: DecimalInput;
+  targetSellingPriceExclVat?: DecimalInput;
   vatRatePercent: DecimalInput;
 }
 
@@ -105,6 +106,17 @@ export function calculateCalculationLine(input: CalculationLineInput): Calculati
   let marginPct: Decimal;
 
   if (
+    input.targetSellingPriceExclVat !== undefined &&
+    d(input.targetSellingPriceExclVat).gt(0)
+  ) {
+    const sellingExclUnit = d(input.targetSellingPriceExclVat).toDecimalPlaces(4, Decimal.ROUND_HALF_UP);
+    if (purchaseUnit.gt(0)) {
+      marginPct = sellingExclUnit.minus(purchaseUnit).div(purchaseUnit).mul(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    } else {
+      marginPct = new Decimal(0);
+    }
+    retailUnitWithVat = sellingExclUnit.mul(vatMultiplier).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  } else if (
     input.targetRetailPriceWithVat !== undefined &&
     d(input.targetRetailPriceWithVat).gt(0)
   ) {

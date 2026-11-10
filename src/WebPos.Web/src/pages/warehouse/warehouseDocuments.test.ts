@@ -59,4 +59,40 @@ describe('Warehouse Documents Calculations', () => {
     expect(round2(unrecognizedShortageVal)).toBe('14.00');
     expect(d(unrecVat).gt(0)).toBe(true);
   });
+
+  it('calculates wholesale calculation line without VAT up to VPC', () => {
+    const res = calculateCalculationLine({
+      quantity: '50.0000',
+      supplierUnitPrice: '10.0000',
+      discountPercent: '10.00',
+      dependentCostPerUnit: '1.0000',
+      targetSellingPriceExclVat: '12.0000',
+      vatRatePercent: '17.00',
+    });
+
+    expect(res.netSupplierUnitPrice).toBe('9.0000');
+    expect(res.purchaseUnitPrice).toBe('10.0000');
+    expect(res.purchaseTotalValue).toBe('500.00');
+    expect(res.sellingUnitPriceExclVat).toBe('12.0000');
+    expect(res.marginPercent).toBe('20.00');
+    expect(res.marginTotalAmount).toBe('100.00');
+  });
+
+  it('calculates raw material calculation up to purchase price NC without margin or VAT', () => {
+    const res = calculateCalculationLine({
+      quantity: '200.0000',
+      supplierUnitPrice: '5.5000',
+      discountPercent: '0.00',
+      dependentCostPerUnit: '0.5000',
+      marginPercent: '0.00',
+      vatRatePercent: '0.00',
+    });
+
+    expect(res.purchaseUnitPrice).toBe('6.0000');
+    expect(res.purchaseTotalValue).toBe('1200.00');
+    expect(res.marginPercent).toBe('0.00');
+    expect(res.marginTotalAmount).toBe('0.00');
+    expect(res.embeddedVatTotalAmount).toBe('0.00');
+  });
 });
+

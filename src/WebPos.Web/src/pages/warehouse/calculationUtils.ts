@@ -1,6 +1,14 @@
 import Decimal from 'decimal.js';
 import { calculateCalculationLine, d, round2, round4 } from '../../lib/money';
-import type { CalculationDocument, CalculationLine } from '../../types/domain';
+import type { CalculationDocument, CalculationLine, StoreType } from '../../types/domain';
+
+export type CalculationLineField =
+  | 'quantity'
+  | 'supplierUnitPrice'
+  | 'discountPercent'
+  | 'marginPercent'
+  | 'retailUnitPriceWithVat'
+  | 'sellingUnitPriceExclVat';
 
 export function recomputeCalculationWithZtr(
   doc: CalculationDocument,
@@ -11,11 +19,15 @@ export function recomputeCalculationWithZtr(
   customs: string,
   handling: string,
   other: string,
+  storeType: StoreType = 'RETAIL',
   overrideLineId?: string,
-  overrideField?: 'quantity' | 'supplierUnitPrice' | 'discountPercent' | 'marginPercent' | 'retailUnitPriceWithVat',
+  overrideField?: CalculationLineField,
   overrideVal?: string
 ): CalculationDocument {
+  const isRaw = storeType === 'RAW_MATERIAL' || storeType === 'PRODUCTION';
+  const isWholesale = storeType === 'WHOLESALE';
   const totalZtrDec = d(ztrVal);
+
   const prepared = baseLines.map((l) => {
     if (l.id !== overrideLineId) return l;
     return {
@@ -25,6 +37,7 @@ export function recomputeCalculationWithZtr(
       discountPercent: overrideField === 'discountPercent' && overrideVal !== undefined ? overrideVal : l.discountPercent,
       marginPercent: overrideField === 'marginPercent' && overrideVal !== undefined ? overrideVal : l.marginPercent,
       retailUnitPriceWithVat: overrideField === 'retailUnitPriceWithVat' && overrideVal !== undefined ? overrideVal : l.retailUnitPriceWithVat,
+      sellingUnitPriceExclVat: overrideField === 'sellingUnitPriceExclVat' && overrideVal !== undefined ? overrideVal : l.sellingUnitPriceExclVat,
     };
   });
 
@@ -44,22 +57,66 @@ export function recomputeCalculationWithZtr(
         unitZtr = totalZtrDec.div(totalQty);
       }
     }
+
+    if (isRaw) {
+      const calc = calculateCalculationLine({
+        quantity: l.quantity,
+        supplierUnitPrice: l.supplierUnitPrice,
+        discountPercent: l.discountPercent,
+        dependentCostPerUnit: round4(unitZtr),
+        marginPercent: '0.00',
+        vatRatePercent: '0.00',
+      });
+      return {
+        ...l,
+        ...calc,
+        marginPercent: '0.00',
+        marginUnitAmount: '0.0000',
+        marginTotalAmount: '0.00',
+        vatRatePercent: '0.00',
+        embeddedVatUnitAmount: '0.0000',
+        embeddedVatTotalAmount: '0.00',
+        sellingUnitPriceExclVat: calc.purchaseUnitPrice,
+        sellingTotalValueExclVat: calc.purchaseTotalValue,
+        retailUnitPriceWithVat: calc.purchaseUnitPrice,
+        retailTotalValueWithVat: calc.purchaseTotalValue,
+      };
+    }
+
+    const isTargetSelling = overrideLineId === l.id && overrideField === 'sellingUnitPriceExclVat';
+    const isTargetRetail = overrideLineId === l.id && overrideField === 'retailUnitPriceWithVat';
+    const isTargetMargin = overrideLineId === l.id && overrideField === 'marginPercent';
+
     const calc = calculateCalculationLine({
       quantity: l.quantity,
       supplierUnitPrice: l.supplierUnitPrice,
       discountPercent: l.discountPercent,
       dependentCostPerUnit: round4(unitZtr),
-      marginPercent: overrideLineId === l.id && overrideField === 'retailUnitPriceWithVat' ? undefined : l.marginPercent,
-      targetRetailPriceWithVat:
-        overrideLineId === l.id && overrideField === 'retailUnitPriceWithVat'
-          ? overrideVal
-          : overrideLineId === l.id && overrideField === 'marginPercent'
-          ? undefined
-          : l.retailUnitPriceWithVat,
+      marginPercent: isTargetSelling || isTargetRetail ? undefined : l.marginPercent,
+      targetSellingPriceExclVat: isTargetSelling ? overrideVal : isWholesale && !isTargetMargin ? l.sellingUnitPriceExclVat : undefined,
+      targetRetailPriceWithVat: isTargetRetail ? overrideVal : !isWholesale && !isTargetMargin ? l.retailUnitPriceWithVat : undefined,
       vatRatePercent: l.vatRatePercent,
     });
+
+    if (isWholesale) {
+      return {
+        ...l,
+        ...calc,
+        embeddedVatUnitAmount: '0.0000',
+        embeddedVatTotalAmount: '0.00',
+        retailUnitPriceWithVat: calc.sellingUnitPriceExclVat,
+        retailTotalValueWithVat: calc.sellingTotalValueExclVat,
+      };
+    }
+
     return { ...l, ...calc };
   });
+
+  const totPurch = round2(nextLines.reduce((a, l) => a.plus(d(l.purchaseTotalValue)), new Decimal(0)));
+  const totMarg = isRaw ? '0.00' : round2(nextLines.reduce((a, l) => a.plus(d(l.marginTotalAmount)), new Decimal(0)));
+  const totSellExcl = isRaw ? totPurch : round2(nextLines.reduce((a, l) => a.plus(d(l.sellingTotalValueExclVat)), new Decimal(0)));
+  const totVat = isRaw || isWholesale ? '0.00' : round2(nextLines.reduce((a, l) => a.plus(d(l.embeddedVatTotalAmount)), new Decimal(0)));
+  const totRetail = isRaw ? totPurch : isWholesale ? totSellExcl : round2(nextLines.reduce((a, l) => a.plus(d(l.retailTotalValueWithVat)), new Decimal(0)));
 
   return {
     ...doc,
@@ -69,10 +126,10 @@ export function recomputeCalculationWithZtr(
     ztrOther: other,
     ztrAllocationMethod: method,
     lines: nextLines,
-    totalPurchaseValue: round2(nextLines.reduce((a, l) => a.plus(d(l.purchaseTotalValue)), new Decimal(0))),
-    totalMarginAmount: round2(nextLines.reduce((a, l) => a.plus(d(l.marginTotalAmount)), new Decimal(0))),
-    totalSellingValueExclVat: round2(nextLines.reduce((a, l) => a.plus(d(l.sellingTotalValueExclVat)), new Decimal(0))),
-    totalEmbeddedVatAmount: round2(nextLines.reduce((a, l) => a.plus(d(l.embeddedVatTotalAmount)), new Decimal(0))),
-    totalRetailValueWithVat: round2(nextLines.reduce((a, l) => a.plus(d(l.retailTotalValueWithVat)), new Decimal(0))),
+    totalPurchaseValue: totPurch,
+    totalMarginAmount: totMarg,
+    totalSellingValueExclVat: totSellExcl,
+    totalEmbeddedVatAmount: totVat,
+    totalRetailValueWithVat: totRetail,
   };
 }
