@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { CheckCircle2, Save, Printer, FileSpreadsheet } from 'lucide-react';
 import { t } from '../../i18n';
 import type {
@@ -26,6 +27,7 @@ interface CalculationEditorDialogProps {
   storePrices: StoreItemPrice[];
   onSaveDraft: (doc: CalculationDocument) => void;
   onPostDocument: (doc: CalculationDocument) => void;
+  onAutoSave?: (doc: CalculationDocument) => void;
 }
 
 export function CalculationEditorDialog({
@@ -40,6 +42,7 @@ export function CalculationEditorDialog({
   storePrices,
   onSaveDraft,
   onPostDocument,
+  onAutoSave,
 }: CalculationEditorDialogProps) {
   const {
     doc,
@@ -79,10 +82,35 @@ export function CalculationEditorDialog({
     storePrices,
   });
 
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (doc.status !== 'DRAFT') return;
+    const timer = setTimeout(() => {
+      onAutoSave?.(doc);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [doc, onAutoSave]);
+
+  const handleClose = () => {
+    if (doc.status === 'DRAFT') {
+      onAutoSave?.(doc);
+    }
+    onOpenChange(false);
+  };
+
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (!next && doc.status === 'DRAFT') {
+          onAutoSave?.(doc);
+        }
+        onOpenChange(next);
+      }}
       title={`${t('warehouse.calculationWorkspace')} — ${doc.docNumber}`}
       size="full"
       footer={
@@ -97,7 +125,7 @@ export function CalculationEditorDialog({
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
+            <Button variant="outline" onClick={handleClose}>{t('common.close')}</Button>
             {!isReadOnly && (
               <>
                 <Button variant="secondary" onClick={() => onSaveDraft(doc)}>
@@ -131,6 +159,12 @@ export function CalculationEditorDialog({
             <div className="flex items-center gap-2">
               <DocumentStatusBadge status={doc.status} />
               <span className="font-mono font-bold text-foreground">{doc.docNumber}</span>
+              {!isReadOnly && (
+                <span className="inline-flex items-center gap-1 rounded bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+                  <Save className="h-3 w-3" />
+                  {t('common.autoSaved')}
+                </span>
+              )}
             </div>
             {isReadOnly && <span className="text-muted-foreground">{t('messages.postedImmutableError')}</span>}
           </div>

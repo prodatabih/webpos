@@ -1,6 +1,6 @@
 import { Printer, ArrowLeft } from 'lucide-react';
 import { t } from '../../i18n';
-import { formatMoney2, formatQty } from '../../lib/money';
+import { d, formatMoney2, formatQty, round2 } from '../../lib/money';
 import { formatDateBs } from '../../lib/utils';
 import type { Company, Item, PriceLevelingDocument, StoreLocation } from '../../types/domain';
 import { Button } from '../../components/ui/Button';
@@ -48,17 +48,24 @@ export function PriceLevelingPrintView({
                 {t('app.storeLocation')}: {storeLocation.name} ({storeLocation.code})
               </p>
             </div>
-            <div className="text-right">
-              <div className="inline-block rounded border border-foreground px-3 py-1.5 text-center">
-                <span className="block text-[10px] uppercase font-bold text-muted-foreground">{t('common.status')}</span>
-                <span className="font-mono text-sm font-black">{doc.docNumber}</span>
-              </div>
-              <p className="mt-1 text-muted-foreground">{t('warehouse.docDate')}: <strong className="text-foreground">{formatDateBs(doc.docDate)}</strong></p>
+            <div className="text-right text-xs">
+              <p className="text-muted-foreground">
+                {t('warehouse.docDate')}: <strong className="text-foreground font-mono">{formatDateBs(doc.docDate)}</strong>
+              </p>
+              {doc.postingDate && (
+                <p className="mt-0.5 text-muted-foreground">
+                  {t('warehouse.postingDate')}: <strong className="text-foreground font-mono">{formatDateBs(doc.postingDate)}</strong>
+                </p>
+              )}
             </div>
           </div>
-          <div className="mt-3 text-center">
-            <h2 className="text-sm font-black uppercase tracking-wider underline">{t('warehouse.levelingReportTitle')}</h2>
-            <p className="text-xs text-muted-foreground mt-1">{t('common.description')}: {doc.reason || '-'}</p>
+          <div className="mt-4 text-center">
+            <h2 className="text-sm font-black uppercase tracking-wider underline">
+              {t('warehouse.levelingReportTitle')} — {doc.docNumber}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('common.description')}: {doc.reason || '-'}
+            </p>
           </div>
         </div>
 
@@ -73,24 +80,25 @@ export function PriceLevelingPrintView({
               <th className="border border-foreground p-1.5 w-20 text-right">{t('warehouse.newRetailPrice')}</th>
               <th className="border border-foreground p-1.5 w-20 text-right">{t('warehouse.priceDifference')}</th>
               <th className="border border-foreground p-1.5 w-24 text-right font-bold">{t('warehouse.financialEffectStock')}</th>
-              <th className="border border-foreground p-1.5 w-20 text-right">{t('warehouse.vatDifference')}</th>
-              <th className="border border-foreground p-1.5 w-20 text-right">{t('warehouse.marginDifference')}</th>
+              <th className="border border-foreground p-1.5 w-20 text-right">{t('warehouse.financialEffectVat')}</th>
+              <th className="border border-foreground p-1.5 w-20 text-right">{t('warehouse.financialEffectMargin')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-foreground font-mono">
             {doc.lines.map((l, idx) => {
               const item = items.find((i) => i.id === l.itemId);
+              const unitDiff = round2(d(l.newRetailPriceWithVat || '0').minus(d(l.oldRetailPriceWithVat || '0')));
               return (
                 <tr key={l.id}>
                   <td className="border border-foreground p-1.5 text-center font-sans">{idx + 1}</td>
                   <td className="border border-foreground p-1.5 font-sans">
-                    <span className="font-semibold">{item?.name}</span> ({item?.sku})
+                    <span className="font-semibold">{item?.name ?? l.itemId}</span> ({item?.sku ?? '-'})
                   </td>
                   <td className="border border-foreground p-1.5 text-center font-sans">{item?.uom ?? 'KOM'}</td>
                   <td className="border border-foreground p-1.5 text-right">{formatQty(l.stockQuantity, 2)}</td>
                   <td className="border border-foreground p-1.5 text-right">{formatMoney2(l.oldRetailPriceWithVat, true)}</td>
                   <td className="border border-foreground p-1.5 text-right font-semibold">{formatMoney2(l.newRetailPriceWithVat, true)}</td>
-                  <td className="border border-foreground p-1.5 text-right">{formatMoney2(Number(l.newRetailPriceWithVat) - Number(l.oldRetailPriceWithVat), true)}</td>
+                  <td className="border border-foreground p-1.5 text-right">{formatMoney2(unitDiff, true)}</td>
                   <td className="border border-foreground p-1.5 text-right font-bold">{formatMoney2(l.totalRetailDifference, true)}</td>
                   <td className="border border-foreground p-1.5 text-right">{formatMoney2(l.embeddedVatDifference, true)}</td>
                   <td className="border border-foreground p-1.5 text-right">{formatMoney2(l.marginDifference, true)}</td>
@@ -111,7 +119,7 @@ export function PriceLevelingPrintView({
         <div className="my-6 grid grid-cols-3 gap-4 text-xs">
           <div className="rounded border border-border p-3">
             <span className="text-muted-foreground block text-[11px]">{t('warehouse.financialEffectStock')}:</span>
-            <strong className="text-sm font-mono">{formatMoney2(doc.totalRetailDifference, true)}</strong>
+            <strong className="text-sm font-mono text-primary">{formatMoney2(doc.totalRetailDifference, true)}</strong>
           </div>
           <div className="rounded border border-border p-3">
             <span className="text-muted-foreground block text-[11px]">{t('warehouse.financialEffectVat')}:</span>

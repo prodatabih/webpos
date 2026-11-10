@@ -25,7 +25,7 @@ export function PriceLevelingPage() {
   const handleCreateNew = () => {
     const seq = String(storeLevelings.length + 1).padStart(4, '0');
     const today = new Date().toISOString().slice(0, 10);
-    setEditingDoc({
+    const newDoc: PriceLevelingDocument = {
       id: generateUuidV7(),
       companyId: store.activeCompanyId,
       fiscalYearId: store.activeFiscalYearId,
@@ -40,7 +40,9 @@ export function PriceLevelingPage() {
       totalMarginDifference: '0.00',
       createdBy: store.currentUserName,
       createdAt: new Date().toISOString(),
-    });
+    };
+    store.savePriceLevelingDraft(newDoc);
+    setEditingDoc(newDoc);
   };
 
   const handlePost = (docId: string) => {
@@ -188,6 +190,9 @@ export function PriceLevelingPage() {
             }
             handlePost(draft.id);
             setEditingDoc(null);
+          }}
+          onAutoSave={(draft) => {
+            store.savePriceLevelingDraft(draft);
           }}
         />
       )}

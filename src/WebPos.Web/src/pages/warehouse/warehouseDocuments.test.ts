@@ -94,5 +94,80 @@ describe('Warehouse Documents Calculations', () => {
     expect(res.marginTotalAmount).toBe('0.00');
     expect(res.embeddedVatTotalAmount).toBe('0.00');
   });
+
+  it('calculates price leveling line financial effect, VAT and margin differences accurately', async () => {
+    const { buildLevelingLine } = await import('./priceLevelingUtils');
+    const line = buildLevelingLine({
+      itemId: 'item-test',
+      stockQuantity: '50.0000',
+      oldRetailPriceWithVat: '10.00',
+      newRetailPriceWithVat: '12.00',
+      vatRatePercent: '17.00',
+    });
+
+    expect(line.oldTotalRetailValue).toBe('500.00');
+    expect(line.newTotalRetailValue).toBe('600.00');
+    expect(line.totalRetailDifference).toBe('100.00');
+    expect(line.embeddedVatDifference).toBe('14.53');
+    expect(line.marginDifference).toBe('85.47');
+  });
+
+  it('calculates transfer line purchase and retail values accurately', async () => {
+    const { buildTransferLine } = await import('./transferUtils');
+    const line = buildTransferLine({
+      itemId: 'item-1',
+      quantity: '25.0000',
+      sourceStoreId: 'store-1',
+      targetStoreId: 'store-2',
+      items: [{
+        id: 'item-1',
+        companyId: 'comp-1',
+        sku: 'SKU1',
+        primaryBarcode: '123',
+        name: 'Item 1',
+        shortName: 'Item 1',
+        itemType: 'GOODS',
+        normativeMode: 'NONE',
+        uom: 'KOM',
+        netContentQty: '1',
+        netContentUom: 'KOM',
+        vatRateId: 'vat-17',
+        categoryName: 'General',
+        countryOfOrigin: 'BA',
+        isWeighable: false,
+        isActive: true,
+      }],
+      storePrices: [{
+        id: 'sp-1',
+        storeId: 'store-1',
+        itemId: 'item-1',
+        purchaseUnitPrice: '4.0000',
+        wholesaleUnitPriceExclVat: '5.0000',
+        retailUnitPriceWithVat: '6.00',
+        currentStockQty: '100.0000',
+        minStockQty: '10.0000',
+        shelfLocation: 'A-1',
+        needsLabelPrint: false,
+        updatedAt: '2026-01-01',
+      }],
+      vatRates: [{
+        id: 'vat-17',
+        companyId: 'comp-1',
+        code: 'E',
+        name: '17%',
+        ratePercent: '17.00',
+        validFrom: '2026-01-01',
+        isActive: true,
+      }],
+      customTargetRetailPrice: '6.50',
+    });
+
+    expect(line.purchaseUnitPrice).toBe('4.0000');
+    expect(line.purchaseTotalValue).toBe('100.00');
+    expect(line.sourceRetailUnitPrice).toBe('6.00');
+    expect(line.sourceRetailTotalValue).toBe('150.00');
+    expect(line.targetRetailUnitPrice).toBe('6.50');
+    expect(line.targetRetailTotalValue).toBe('162.50');
+  });
 });
 

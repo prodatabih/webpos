@@ -30,7 +30,7 @@ export function TransfersPage() {
     const seq = String(store.transfers.length + 1).padStart(4, '0');
     const today = new Date().toISOString().slice(0, 10);
     const otherStore = store.storeLocations.find((s) => s.id !== store.activeStoreId);
-    setEditingDoc({
+    const newDoc: TransferDocument = {
       id: generateUuidV7(),
       companyId: store.activeCompanyId,
       fiscalYearId: store.activeFiscalYearId,
@@ -46,7 +46,9 @@ export function TransfersPage() {
       totalTargetRetailValue: '0.00',
       createdBy: store.currentUserName,
       createdAt: new Date().toISOString(),
-    });
+    };
+    store.saveTransferDraft(newDoc);
+    setEditingDoc(newDoc);
   };
 
   const handlePost = (docId: string) => {
@@ -185,6 +187,7 @@ export function TransfersPage() {
           open={Boolean(editingDoc)}
           onOpenChange={(open) => !open && setEditingDoc(null)}
           initialDoc={editingDoc}
+          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0]!}
           storeLocations={store.storeLocations}
           items={store.items}
           vatRates={store.vatRates}
@@ -206,6 +209,9 @@ export function TransfersPage() {
             }
             handlePost(draft.id);
             setEditingDoc(null);
+          }}
+          onAutoSave={(draft) => {
+            store.saveTransferDraft(draft);
           }}
         />
       )}

@@ -93,7 +93,9 @@
     "uom": "JM",
     "vat": "PDV",
     "rate": "Stopa",
-    "amount": "Iznos"
+    "amount": "Iznos",
+    "autoSaved": "Nacrt sačuvan",
+    "autoSaving": "Snimanje..."
   },
   "status": {
     "DRAFT": "Nacrt",
@@ -289,7 +291,19 @@
     "itemCount": "Broj stavki",
     "totalQuantity": "Ukupna količina",
     "lastPurchasePrice": "Zadnja nabavna cijena",
-    "stockQty": "Stanje zalihe"
+    "stockQty": "Stanje zalihe",
+    "printTransfer": "Štampa međuskladišnice",
+    "transferReportTitle": "MEĐUSKLADIŠNICA - PRENOSNICA ROBE",
+    "transferOutStore": "Izlazno skladište (Izlaz)",
+    "transferInStore": "Ulazno skladište (Ulaz)",
+    "stockAvailable": "Zatečena zaliha",
+    "availableStock": "Raspoloživa zaliha",
+    "transferTotalValue": "Vrijednost prenosa",
+    "insufficientStockWarning": "Prenesena količina premašuje zatečenu zalihu!",
+    "senderSignature": "Izdao (predao)",
+    "receiverSignature": "Primio (preuzeo)",
+    "carrierSignature": "Prevozio (transportovao)",
+    "sourceStoreStock": "Zaliha na izlazu"
   },
   "kep": {
     "title": "Trgovačka knjiga na malo",

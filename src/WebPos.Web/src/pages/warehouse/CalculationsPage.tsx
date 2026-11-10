@@ -26,7 +26,7 @@ export function CalculationsPage() {
   const handleCreateNew = () => {
     const seq = String(storeCalcs.length + 1).padStart(4, '0');
     const today = new Date().toISOString().slice(0, 10);
-    setEditingDoc({
+    const newDoc: CalculationDocument = {
       id: generateUuidV7(),
       companyId: store.activeCompanyId,
       fiscalYearId: store.activeFiscalYearId,
@@ -50,7 +50,9 @@ export function CalculationsPage() {
       totalRetailValueWithVat: '0.00',
       createdBy: store.currentUserName,
       createdAt: new Date().toISOString(),
-    });
+    };
+    store.saveCalculationDraft(newDoc);
+    setEditingDoc(newDoc);
   };
 
   const handlePost = (docId: string) => {
@@ -140,6 +142,9 @@ export function CalculationsPage() {
             }
             handlePost(draft.id);
             setEditingDoc(null);
+          }}
+          onAutoSave={(draft) => {
+            store.saveCalculationDraft(draft);
           }}
         />
       )}
