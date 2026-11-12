@@ -3,33 +3,7 @@ import { generateUuidV7 } from '../lib/utils';
 import { t } from '../i18n';
 import type { PosReceipt } from '../types/domain';
 import type { ActionResult, AppStoreState } from './storeTypes';
-import {
-  initialCompanies,
-  initialFiscalPeriods,
-  initialFiscalYears,
-  initialPartners,
-  initialPosTerminals,
-  initialStoreLocations,
-  initialVatRates,
-} from './initialOrgData';
-import {
-  initialItemBarcodes,
-  initialItemBomLines,
-  initialItems,
-  initialStoreItemPrices,
-} from './initialMasterData';
-import {
-  initialCalculations,
-  initialInventoryCounts,
-  initialOtherWarehouseDocs,
-  initialPriceLevelings,
-  initialTransfers,
-} from './initialDocumentsData';
-import {
-  initialAuditLogs,
-  initialKepEntries,
-  initialPosReceipts,
-} from './initialPosAndLedgerData';
+import { initialStoreData } from './storeInitialState';
 import { checkDateLocked, createAuditEntry } from './storeHelpers';
 import {
   executeIssuePosReceipt,
@@ -48,6 +22,14 @@ import {
   executeReverseInventoryCount,
   executeReverseOtherWarehouseDoc,
 } from './inventoryAndInternalMutations';
+import { apiClient } from '../api/apiClient';
+import {
+  applyBootstrapData,
+  initializeBackendSession,
+  loginWithBackend,
+  logoutFromBackend,
+  syncIfApiMode,
+} from './storeBackendSync';
 
 export type { ActionResult, AppStoreState } from './storeTypes';
 
@@ -80,36 +62,14 @@ function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
 }
 
 state = {
-  companies: initialCompanies,
-  activeCompanyId: 'comp-1',
-  fiscalYears: initialFiscalYears,
-  activeFiscalYearId: 'fy-2026',
-  fiscalPeriods: initialFiscalPeriods,
-  storeLocations: initialStoreLocations,
-  activeStoreId: 'store-1',
-  posTerminals: initialPosTerminals,
-  activeTerminalId: 'term-1',
-  posWorkMode: 'TABLE',
-  theme: 'light',
-  isOnline: true,
-  currentUserName: 'tenant.admin',
-  vatRates: initialVatRates,
-  partners: initialPartners,
-  items: initialItems,
-  itemBarcodes: initialItemBarcodes,
-  itemBomLines: initialItemBomLines,
-  storeItemPrices: initialStoreItemPrices,
-  calculations: initialCalculations,
-  priceLevelings: initialPriceLevelings,
-  transfers: initialTransfers,
-  inventoryCounts: initialInventoryCounts,
-  otherWarehouseDocs: initialOtherWarehouseDocs,
-  posReceipts: initialPosReceipts,
-  heldReceipts: [],
-  kepLedgerEntries: initialKepEntries,
-  auditLog: initialAuditLogs,
-  systemConfig: {
-    allowPriceChangeWithoutLeveling: false,
+  ...initialStoreData,
+  initializeSession: () => initializeBackendSession(setState),
+  loginWithApi: (email, password) => loginWithBackend(setState, email, password),
+  logout: () => logoutFromBackend(() => state, setState),
+  refreshBootstrapData: async () => {
+    if (state.backendMode !== 'API') return;
+    const data = await apiClient.getBootstrapData();
+    applyBootstrapData(setState, data);
   },
   setActiveCompanyId: (id) => setState({ activeCompanyId: id }),
   setActiveFiscalYearId: (id) => setState({ activeFiscalYearId: id }),
@@ -159,13 +119,21 @@ state = {
       ],
     });
   },
-  upsertCompany: (company) => setState({ companies: upsertById(state.companies, company) }),
-  upsertStoreLocation: (loc) =>
-    setState({ storeLocations: upsertById(state.storeLocations, loc) }),
+  upsertCompany: (company) => {
+    setState({ companies: upsertById(state.companies, company) });
+    syncIfApiMode(() => state, () => apiClient.saveCompany(company));
+  },
+  upsertStoreLocation: (loc) => {
+    setState({ storeLocations: upsertById(state.storeLocations, loc) });
+    syncIfApiMode(() => state, () => apiClient.saveStore(loc));
+  },
   upsertPosTerminal: (term) => setState({ posTerminals: upsertById(state.posTerminals, term) }),
   upsertVatRate: (rate) => setState({ vatRates: upsertById(state.vatRates, rate) }),
-  upsertPartner: (partner) => setState({ partners: upsertById(state.partners, partner) }),
-  upsertItem: (item, barcodes, bomLines) =>
+  upsertPartner: (partner) => {
+    setState({ partners: upsertById(state.partners, partner) });
+    syncIfApiMode(() => state, () => apiClient.savePartner(partner));
+  },
+  upsertItem: (item, barcodes, bomLines) => {
     setState({
       items: upsertById(state.items, item),
       itemBarcodes: barcodes
@@ -174,7 +142,9 @@ state = {
       itemBomLines: bomLines
         ? [...state.itemBomLines.filter((b) => b.parentItemId !== item.id), ...bomLines]
         : state.itemBomLines,
-    }),
+    });
+    syncIfApiMode(() => state, () => apiClient.saveItem({ item, barcodes, bomLines }));
+  },
   upsertStoreItemPrice: (price) =>
     setState({ storeItemPrices: upsertById(state.storeItemPrices, price) }),
   clearLabelPrintFlags: (storeId, itemIds) =>
@@ -185,25 +155,46 @@ state = {
     }),
   saveCalculationDraft: (doc) => {
     const { next, res } = saveDraftGeneric(state.calculations, doc);
-    if (res.ok) setState({ calculations: next });
+    if (res.ok) {
+      setState({ calculations: next });
+      syncIfApiMode(() => state, () => apiClient.saveCalculation(doc));
+    }
     return res;
   },
-  postCalculation: (docId) => executePostCalculation(state, setState, docId),
+  postCalculation: (docId) => {
+    const res = executePostCalculation(state, setState, docId);
+    if (res.ok) syncIfApiMode(() => state, () => apiClient.postCalculation(docId));
+    return res;
+  },
   reverseCalculation: (docId, reason) => executeReverseCalculation(state, setState, docId, reason),
   savePriceLevelingDraft: (doc) => {
     const { next, res } = saveDraftGeneric(state.priceLevelings, doc);
-    if (res.ok) setState({ priceLevelings: next });
+    if (res.ok) {
+      setState({ priceLevelings: next });
+      syncIfApiMode(() => state, () => apiClient.saveLeveling(doc));
+    }
     return res;
   },
-  postPriceLeveling: (docId) => executePostPriceLeveling(state, setState, docId),
+  postPriceLeveling: (docId) => {
+    const res = executePostPriceLeveling(state, setState, docId);
+    if (res.ok) syncIfApiMode(() => state, () => apiClient.postLeveling(docId));
+    return res;
+  },
   reversePriceLeveling: (docId, reason) =>
     executeReversePriceLeveling(state, setState, docId, reason),
   saveTransferDraft: (doc) => {
     const { next, res } = saveDraftGeneric(state.transfers, doc);
-    if (res.ok) setState({ transfers: next });
+    if (res.ok) {
+      setState({ transfers: next });
+      syncIfApiMode(() => state, () => apiClient.saveTransfer(doc));
+    }
     return res;
   },
-  postTransfer: (docId) => executePostTransfer(state, setState, docId),
+  postTransfer: (docId) => {
+    const res = executePostTransfer(state, setState, docId);
+    if (res.ok) syncIfApiMode(() => state, () => apiClient.postTransfer(docId));
+    return res;
+  },
   reverseTransfer: (docId, reason) => executeReverseTransfer(state, setState, docId, reason),
   saveInventoryCountDraft: (doc) => {
     const { next, res } = saveDraftGeneric(state.inventoryCounts, doc);
@@ -221,7 +212,11 @@ state = {
   postOtherWarehouseDoc: (docId) => executePostOtherWarehouseDoc(state, setState, docId),
   reverseOtherWarehouseDoc: (docId, reason) =>
     executeReverseOtherWarehouseDoc(state, setState, docId, reason),
-  issuePosReceipt: (receipt) => executeIssuePosReceipt(state, setState, receipt),
+  issuePosReceipt: (receipt) => {
+    const res = executeIssuePosReceipt(state, setState, receipt);
+    if (res.ok) syncIfApiMode(() => state, () => apiClient.createPosReceipt(receipt));
+    return res;
+  },
   refundPosReceipt: (originalReceiptId) => {
     const orig = state.posReceipts.find((r) => r.id === originalReceiptId);
     if (!orig || orig.receiptType === 'REFUND' || orig.status === 'REVERSED') {

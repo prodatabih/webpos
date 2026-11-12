@@ -12,6 +12,7 @@ export type OtherWarehouseDocSubtype =
   | 'INTERNAL_RECEIPT'
   | 'SUPPLIER_RETURN'
   | 'INTERNAL_PRODUCTION';
+export type UserRole = 'SuperAdmin' | 'TenantAdmin' | 'Manager' | 'Cashier' | 'Accountant';
 
 export interface Company {
   id: string;

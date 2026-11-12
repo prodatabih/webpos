@@ -24,13 +24,18 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
     companies, activeCompanyId, setActiveCompanyId,
     storeLocations, activeStoreId, setActiveStoreId,
     fiscalYears, activeFiscalYearId, setActiveFiscalYearId,
-    storeItemPrices, theme, toggleTheme, isOnline, setIsOnline, currentUserName,
+    storeItemPrices, theme, toggleTheme, isOnline, setIsOnline,
+    currentUserName, currentUserRole,
   } = useAppStore();
 
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => !item.roles || item.roles.includes(currentUserRole)
+  );
+
   const activeItem =
-    NAV_ITEMS.find((item) =>
+    visibleNavItems.find((item) =>
       item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
-    ) ?? NAV_ITEMS[0];
+    ) ?? visibleNavItems[0];
 
   const labelQueueCount = storeItemPrices.filter(
     (p) => p.storeId === activeStoreId && p.needsLabelPrint
@@ -67,45 +72,49 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
-          {NAV_GROUPS.map((groupKey) => (
-            <div key={groupKey} className="space-y-0.5">
-              {!sidebarCollapsed && (
-                <div className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t(groupKey)}
-                </div>
-              )}
-              {NAV_ITEMS.filter((i) => i.groupKey === groupKey).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.id}
-                    to={item.path}
-                    end={item.path === '/'}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center justify-between gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground shadow-2xs'
-                          : 'text-sidebar-foreground hover:bg-accent hover:text-accent-foreground',
-                        sidebarCollapsed && 'justify-center px-0'
-                      )
-                    }
-                    title={t(item.labelKey)}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {!sidebarCollapsed && <span className="truncate">{t(item.labelKey)}</span>}
-                    </div>
-                    {!sidebarCollapsed && item.id === 'labels' && labelQueueCount > 0 && (
-                      <Badge variant="warning" className="px-1.5 py-0 text-[10px]">
-                        {labelQueueCount}
-                      </Badge>
-                    )}
-                  </NavLink>
-                );
-              })}
-            </div>
-          ))}
+          {NAV_GROUPS.map((groupKey) => {
+            const groupItems = visibleNavItems.filter((i) => i.groupKey === groupKey);
+            if (groupItems.length === 0) return null;
+            return (
+              <div key={groupKey} className="space-y-0.5">
+                {!sidebarCollapsed && (
+                  <div className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t(groupKey)}
+                  </div>
+                )}
+                {groupItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.id}
+                      to={item.path}
+                      end={item.path === '/'}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center justify-between gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground shadow-2xs'
+                            : 'text-sidebar-foreground hover:bg-accent hover:text-accent-foreground',
+                          sidebarCollapsed && 'justify-center px-0'
+                        )
+                      }
+                      title={t(item.labelKey)}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {!sidebarCollapsed && <span className="truncate">{t(item.labelKey)}</span>}
+                      </div>
+                      {!sidebarCollapsed && item.id === 'labels' && labelQueueCount > 0 && (
+                        <Badge variant="warning" className="px-1.5 py-0 text-[10px]">
+                          {labelQueueCount}
+                        </Badge>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="border-t border-sidebar-border p-3 text-xs flex items-center justify-between gap-2">
@@ -206,7 +215,7 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
 
         {mobileMenuOpen && (
           <div className="md:hidden border-b border-border bg-card p-3 space-y-1 max-h-72 overflow-y-auto">
-            {NAV_ITEMS.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.id}
                 to={item.path}

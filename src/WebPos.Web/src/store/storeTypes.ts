@@ -20,8 +20,12 @@ import type {
   StoreLocation,
   SystemConfig,
   TransferDocument,
+  UserRole,
   VatRate,
 } from '../types/domain';
+
+export type AuthStatus = 'CHECKING' | 'AUTHENTICATED' | 'UNAUTHENTICATED';
+export type BackendMode = 'API' | 'LOCAL_FALLBACK';
 
 export interface ActionResult {
   ok: boolean;
@@ -30,6 +34,11 @@ export interface ActionResult {
 }
 
 export interface AppStoreState {
+  authStatus: AuthStatus;
+  backendMode: BackendMode;
+  currentUserRole: UserRole;
+  currentUserEmail: string;
+  activeTenantId: string | null;
   companies: Company[];
   activeCompanyId: string;
   fiscalYears: FiscalYear[];
@@ -59,6 +68,10 @@ export interface AppStoreState {
   kepLedgerEntries: KepLedgerEntry[];
   auditLog: AuditLogEntry[];
   systemConfig: SystemConfig;
+  initializeSession: () => Promise<void>;
+  loginWithApi: (email: string, password: string) => Promise<ActionResult>;
+  logout: () => void;
+  refreshBootstrapData: () => Promise<void>;
   setActiveCompanyId: (id: string) => void;
   setActiveFiscalYearId: (id: string) => void;
   setActiveStoreId: (id: string) => void;

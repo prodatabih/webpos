@@ -18,8 +18,11 @@ import {
   ShieldCheck,
   BarChart3,
   Boxes,
+  UserCog,
+  ServerCog,
 } from 'lucide-react';
 import type { TranslationKey } from '../i18n';
+import type { UserRole } from '../types/domain';
 
 export interface NavItemConfig {
   id: string;
@@ -28,6 +31,7 @@ export interface NavItemConfig {
   groupKey: TranslationKey;
   icon: LucideIcon;
   shortcut?: string;
+  roles?: UserRole[];
 }
 
 export const NAV_ITEMS: NavItemConfig[] = [
@@ -138,6 +142,14 @@ export const NAV_ITEMS: NavItemConfig[] = [
     icon: Tags,
   },
   {
+    id: 'users',
+    path: '/master/users',
+    labelKey: 'nav.users',
+    groupKey: 'nav.groupMasterData',
+    icon: UserCog,
+    roles: ['TenantAdmin'],
+  },
+  {
     id: 'daily-turnover',
     path: '/reports/daily-turnover',
     labelKey: 'nav.dailyTurnover',
@@ -158,6 +170,14 @@ export const NAV_ITEMS: NavItemConfig[] = [
     groupKey: 'nav.groupReports',
     icon: ShieldCheck,
   },
+  {
+    id: 'admin-tenants',
+    path: '/admin/tenants',
+    labelKey: 'nav.tenants',
+    groupKey: 'nav.groupAdmin',
+    icon: ServerCog,
+    roles: ['SuperAdmin'],
+  },
 ];
 
 export const NAV_GROUPS: TranslationKey[] = [
@@ -165,4 +185,5 @@ export const NAV_GROUPS: TranslationKey[] = [
   'nav.groupWarehouse',
   'nav.groupMasterData',
   'nav.groupReports',
+  'nav.groupAdmin',
 ];

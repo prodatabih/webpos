@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { KeyRound, ShieldCheck, UserCheck } from 'lucide-react';
+import { LogOut, UserCheck } from 'lucide-react';
 import { t } from '../../i18n';
 import { useAppStore } from '../../store/useAppStore';
 import { Dialog } from '../../components/ui/Dialog';
@@ -12,18 +12,12 @@ import { showToast } from '../../components/ui/Toast';
 
 const loginSchema = z.object({
   email: z.string().email(t('common.requiredField')),
-  accessCode: z.string().min(4, t('common.requiredField')),
-  companyId: z.string().min(1, t('common.requiredField')),
-  storeId: z.string().min(1, t('common.requiredField')),
-});
-
-const resetSchema = z.object({
-  email: z.string().email(t('common.requiredField')),
-  taxIdNumber: z.string().regex(/^\d{13}$/, t('common.requiredField')),
+  password: z.string().min(1, t('common.requiredField')),
+  companyId: z.string().optional(),
+  storeId: z.string().optional(),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
-type ResetFormValues = z.infer<typeof resetSchema>;
 
 export interface LoginDialogProps {
   open?: boolean;
@@ -37,6 +31,9 @@ export function LoginDialog({
   onClose,
 }: LoginDialogProps) {
   const {
+    backendMode,
+    loginWithApi,
+    logout,
     companies,
     activeCompanyId,
     setActiveCompanyId,
@@ -44,25 +41,18 @@ export function LoginDialog({
     activeStoreId,
     setActiveStoreId,
     currentUserName,
+    currentUserEmail,
   } = useAppStore();
 
-  const [mode, setMode] = useState<'LOGIN' | 'RESET'>('LOGIN');
+  const [submitting, setSubmitting] = useState(false);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'tenant.admin@bosnatrgovina.ba',
-      accessCode: '2026',
+      email: currentUserEmail || '',
+      password: '',
       companyId: activeCompanyId,
       storeId: activeStoreId,
-    },
-  });
-
-  const resetForm = useForm<ResetFormValues>({
-    resolver: zodResolver(resetSchema),
-    defaultValues: {
-      email: '',
-      taxIdNumber: '',
     },
   });
 
@@ -71,23 +61,38 @@ export function LoginDialog({
     onClose?.();
   };
 
-  const onSubmitLogin = (values: LoginFormValues) => {
-    setActiveCompanyId(values.companyId);
-    setActiveStoreId(values.storeId);
+  const onSubmitLogin = async (values: LoginFormValues) => {
+    if (backendMode === 'API') {
+      setSubmitting(true);
+      const res = await loginWithApi(values.email.trim(), values.password);
+      setSubmitting(false);
+      if (!res.ok) {
+        showToast({
+          title: t('common.errorTitle'),
+          description: res.error ?? t('auth.invalidCredentials'),
+          variant: 'error',
+        });
+        return;
+      }
+    }
+
+    if (values.companyId) {
+      setActiveCompanyId(values.companyId);
+    }
+    if (values.storeId) {
+      setActiveStoreId(values.storeId);
+    }
     showToast({
       title: t('messages.recordSaved'),
-      description: currentUserName,
+      description: currentUserName || values.email,
       variant: 'success',
     });
     handleClose();
   };
 
-  const onSubmitReset = () => {
-    showToast({
-      title: t('messages.recordSaved'),
-      variant: 'info',
-    });
-    setMode('LOGIN');
+  const handleLogout = () => {
+    logout();
+    handleClose();
   };
 
   return (
@@ -97,72 +102,53 @@ export function LoginDialog({
       onClose={onClose}
       size="sm"
       title={`${t('app.name')} — ${t('app.operator')}`}
-      description={t('app.subtitle')}
+      description={t('auth.switchContext')}
       footer={
-        mode === 'LOGIN' ? (
-          <div className="flex w-full items-center justify-between gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setMode('RESET')}
-            >
-              <KeyRound className="h-3.5 w-3.5" />
-              <span>{t('common.retry')}</span>
+        <div className="flex w-full items-center justify-between gap-2">
+          {backendMode === 'API' ? (
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-3.5 w-3.5" />
+              <span>{t('auth.logoutButton')}</span>
             </Button>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleClose}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={loginForm.handleSubmit(onSubmitLogin)}
-              >
-                <UserCheck className="h-4 w-4" />
-                <span>{t('common.confirm')}</span>
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex w-full items-center justify-between gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setMode('LOGIN')}
-            >
-              <span>{t('common.previous')}</span>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleClose}>
+              {t('common.cancel')}
             </Button>
             <Button
               variant="primary"
-              onClick={resetForm.handleSubmit(onSubmitReset)}
+              disabled={submitting}
+              onClick={loginForm.handleSubmit(onSubmitLogin)}
             >
-              <ShieldCheck className="h-4 w-4" />
-              <span>{t('common.confirm')}</span>
+              <UserCheck className="h-4 w-4" />
+              <span>{t('auth.loginButton')}</span>
             </Button>
           </div>
-        )
+        </div>
       }
     >
-      {mode === 'LOGIN' ? (
-        <form
-          onSubmit={loginForm.handleSubmit(onSubmitLogin)}
-          className="space-y-3.5"
-        >
-          <Input
-            label={t('master.email')}
-            type="email"
-            required
-            error={loginForm.formState.errors.email?.message}
-            {...loginForm.register('email')}
-          />
-          <Input
-            label={t('common.code')}
-            type="password"
-            required
-            error={loginForm.formState.errors.accessCode?.message}
-            className="font-mono"
-            {...loginForm.register('accessCode')}
-          />
+      <form
+        onSubmit={loginForm.handleSubmit(onSubmitLogin)}
+        className="space-y-3.5"
+      >
+        <Input
+          label={t('auth.email')}
+          type="email"
+          required
+          error={loginForm.formState.errors.email?.message}
+          {...loginForm.register('email')}
+        />
+        <Input
+          label={t('auth.password')}
+          type="password"
+          required
+          error={loginForm.formState.errors.password?.message}
+          {...loginForm.register('password')}
+        />
 
+        {companies.length > 0 && (
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-foreground">
               {t('app.company')}
@@ -178,7 +164,9 @@ export function LoginDialog({
               ))}
             </select>
           </div>
+        )}
 
+        {storeLocations.length > 0 && (
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-foreground">
               {t('app.storeLocation')}
@@ -194,29 +182,8 @@ export function LoginDialog({
               ))}
             </select>
           </div>
-        </form>
-      ) : (
-        <form
-          onSubmit={resetForm.handleSubmit(onSubmitReset)}
-          className="space-y-3.5"
-        >
-          <Input
-            label={t('master.email')}
-            type="email"
-            required
-            error={resetForm.formState.errors.email?.message}
-            {...resetForm.register('email')}
-          />
-          <Input
-            label={t('master.taxIdNumber')}
-            required
-            maxLength={13}
-            error={resetForm.formState.errors.taxIdNumber?.message}
-            className="font-mono"
-            {...resetForm.register('taxIdNumber')}
-          />
-        </form>
-      )}
+        )}
+      </form>
     </Dialog>
   );
 }

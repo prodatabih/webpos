@@ -21,6 +21,7 @@
     "groupWarehouse": "Robno knjigovodstvo",
     "groupMasterData": "Matični podaci",
     "groupReports": "Izvještaji i kontrola",
+    "groupAdmin": "Sistemska administracija",
     "dashboard": "Nadzorna ploča",
     "posRegister": "POS blagajna",
     "posReceipts": "Pregled fiskalnih računa",
@@ -38,6 +39,8 @@
     "fiscalPeriods": "Poslovne godine i periodi",
     "vatRates": "Poreske tarifne stope",
     "labelCenter": "Cijene za police i deklaracije",
+    "users": "Korisnici i uloge",
+    "tenants": "Tenanti i klijenti",
     "auditLog": "Revizijski trag"
   },
   "common": {
@@ -471,5 +474,48 @@
     "totalStockValue": "Ukupna vrijednost zalihe",
     "unitPrice": "Jedinična cijena",
     "exportStockCard": "Izvoz robne kartice"
+  },
+  "auth": {
+    "title": "Prijava u sistem",
+    "subtitle": "Unesite pristupne podatke za nastavak rada",
+    "email": "Elektronska pošta",
+    "password": "Lozinka",
+    "loginButton": "Prijavi se",
+    "logoutButton": "Odjavi se",
+    "invalidCredentials": "Neispravna elektronska pošta ili lozinka.",
+    "checkingSession": "Provjera aktivne sesije...",
+    "switchContext": "Promjena operatera i objekta"
+  },
+  "tenants": {
+    "title": "Upravljanje tenantima",
+    "subtitle": "Pregled registrovanih klijenata i kreiranje novih okruženja",
+    "newTenant": "Novi tenant",
+    "code": "Šifra tenanta",
+    "name": "Naziv firme / klijenta",
+    "createdAt": "Datum kreiranja",
+    "adminEmail": "Email administratora",
+    "adminPassword": "Lozinka administratora",
+    "activate": "Aktiviraj",
+    "deactivate": "Deaktiviraj",
+    "tenantCreated": "Novi tenant je uspješno kreiran.",
+    "tenantToggled": "Status tenanta je ažuriran."
+  },
+  "users": {
+    "title": "Korisnici i ovlaštenja",
+    "subtitle": "Upravljanje korisničkim računima aktivnog tenanta",
+    "newUser": "Novi korisnik",
+    "userName": "Korisničko ime",
+    "email": "Elektronska pošta",
+    "password": "Lozinka",
+    "role": "Uloga",
+    "createdAt": "Datum kreiranja",
+    "userCreated": "Korisnički račun je uspješno kreiran.",
+    "roles": {
+      "SuperAdmin": "Super administrator",
+      "TenantAdmin": "Administrator tenanta",
+      "Manager": "Menadžer",
+      "Cashier": "Kasir / Operater",
+      "Accountant": "Računovođa"
+    }
   }
 }
