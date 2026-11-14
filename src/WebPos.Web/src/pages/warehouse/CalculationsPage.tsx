@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { generateUuidV7 } from '../../lib/utils';
+import { EMPTY_COMPANY_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import type { CalculationDocument } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
@@ -119,7 +120,7 @@ export function CalculationsPage() {
           open={Boolean(editingDoc)}
           onOpenChange={(open) => !open && setEditingDoc(null)}
           initialDoc={editingDoc}
-          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0]!}
+          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0] ?? EMPTY_COMPANY_FALLBACK}
           storeLocations={store.storeLocations}
           partners={store.partners}
           items={store.items}

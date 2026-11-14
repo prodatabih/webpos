@@ -6,6 +6,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
 import { formatDateTimeBs } from '../../lib/utils';
+import { EMPTY_COMPANY_FALLBACK, EMPTY_STORE_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import type { PosReceipt } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
@@ -29,8 +30,8 @@ export function PosReceiptsPage() {
   const [invoiceReceipt, setInvoiceReceipt] = useState<PosReceipt | null>(null);
   const [reprintReceipt, setReprintReceipt] = useState<PosReceipt | null>(null);
 
-  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0]!;
-  const currentStore = storeLocations.find((s) => s.id === activeStoreId) ?? storeLocations[0]!;
+  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0] ?? EMPTY_COMPANY_FALLBACK;
+  const currentStore = storeLocations.find((s) => s.id === activeStoreId) ?? storeLocations[0] ?? EMPTY_STORE_FALLBACK;
 
   const filteredReceipts = useMemo(() => {
     return posReceipts

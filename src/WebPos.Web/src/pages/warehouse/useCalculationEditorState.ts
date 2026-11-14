@@ -37,8 +37,8 @@ export function useCalculationEditorState({
     code: 'SKL',
     name: 'Skladište',
     storeType: 'RETAIL' as const,
-    address: company.address,
-    city: company.city,
+    address: company?.address ?? '',
+    city: company?.city ?? '',
     isActive: true,
   };
   const currentPartner = partners.find((p) => p.id === doc.partnerId);

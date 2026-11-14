@@ -5,6 +5,7 @@ import Decimal from 'decimal.js';
 import { t } from '../../i18n';
 import { d, formatMoney2, round2 } from '../../lib/money';
 import { formatDateBs } from '../../lib/utils';
+import { EMPTY_COMPANY_FALLBACK, EMPTY_STORE_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import { exportToExcel } from '../../lib/exportExcel';
 import { useAppStore } from '../../store/useAppStore';
 import type { KepLedgerEntry } from '../../types/domain';
@@ -38,8 +39,8 @@ export function KepLedgerPage() {
     [storeLocations, activeCompanyId]
   );
 
-  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0]!;
-  const currentStore = companyStores.find((s) => s.id === selectedStoreId) ?? companyStores[0]!;
+  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0] ?? EMPTY_COMPANY_FALLBACK;
+  const currentStore = companyStores.find((s) => s.id === selectedStoreId) ?? companyStores[0] ?? EMPTY_STORE_FALLBACK;
   const fiscalYearObj = fiscalYears.find((y) => y.id === activeFiscalYearId);
 
   const entries = useMemo(() => {

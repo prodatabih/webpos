@@ -3,6 +3,7 @@ import { Calendar, Download, Printer } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
 import { exportToExcel } from '../../lib/exportExcel';
+import { EMPTY_COMPANY_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import { useAppStore } from '../../store/useAppStore';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
@@ -39,7 +40,7 @@ export function DailyTurnoverPage() {
   const [activeDimension, setActiveDimension] = useState<Dimension>('items');
   const [printModalOpen, setPrintModalOpen] = useState(false);
 
-  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0]!;
+  const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0] ?? EMPTY_COMPANY_FALLBACK;
 
   const filteredReceipts = useMemo(
     () => filterReceiptsByPeriod(posReceipts, activeCompanyId, dateFrom, dateTo),

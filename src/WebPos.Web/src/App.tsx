@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './layout/AppLayout';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { useAppStore } from './store/useAppStore';
 import { LoginScreen } from './pages/auth/LoginScreen';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
@@ -39,31 +40,33 @@ export function App() {
 
   return (
     <HashRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/pos" element={<PosTerminalPage />} />
-          <Route path="/pos/receipts" element={<PosReceiptsPage />} />
-          <Route path="/warehouse/calculations" element={<CalculationsPage />} />
-          <Route path="/warehouse/price-leveling" element={<PriceLevelingPage />} />
-          <Route path="/warehouse/transfers" element={<TransfersPage />} />
-          <Route path="/warehouse/inventory-count" element={<InventoryCountPage />} />
-          <Route path="/warehouse/other-documents" element={<OtherWarehouseDocsPage />} />
-          <Route path="/warehouse/stock-cards" element={<StockCardsPage />} />
-          <Route path="/master/items" element={<ItemsPage />} />
-          <Route path="/master/partners" element={<PartnersPage />} />
-          <Route path="/master/organizations" element={<OrganizationsPage />} />
-          <Route path="/master/fiscal-periods" element={<FiscalPeriodsPage />} />
-          <Route path="/master/vat-rates" element={<VatRatesPage />} />
-          <Route path="/master/labels" element={<LabelCenterPage />} />
-          <Route path="/master/users" element={<UsersPage />} />
-          <Route path="/admin/tenants" element={<SuperAdminTenantsPage />} />
-          <Route path="/reports/daily-turnover" element={<DailyTurnoverPage />} />
-          <Route path="/reports/kep-ledger" element={<KepLedgerPage />} />
-          <Route path="/reports/audit-log" element={<AuditLogPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/pos" element={<PosTerminalPage />} />
+            <Route path="/pos/receipts" element={<PosReceiptsPage />} />
+            <Route path="/warehouse/calculations" element={<CalculationsPage />} />
+            <Route path="/warehouse/price-leveling" element={<PriceLevelingPage />} />
+            <Route path="/warehouse/transfers" element={<TransfersPage />} />
+            <Route path="/warehouse/inventory-count" element={<InventoryCountPage />} />
+            <Route path="/warehouse/other-documents" element={<OtherWarehouseDocsPage />} />
+            <Route path="/warehouse/stock-cards" element={<StockCardsPage />} />
+            <Route path="/master/items" element={<ItemsPage />} />
+            <Route path="/master/partners" element={<PartnersPage />} />
+            <Route path="/master/organizations" element={<OrganizationsPage />} />
+            <Route path="/master/fiscal-periods" element={<FiscalPeriodsPage />} />
+            <Route path="/master/vat-rates" element={<VatRatesPage />} />
+            <Route path="/master/labels" element={<LabelCenterPage />} />
+            <Route path="/master/users" element={<UsersPage />} />
+            <Route path="/admin/tenants" element={<SuperAdminTenantsPage />} />
+            <Route path="/reports/daily-turnover" element={<DailyTurnoverPage />} />
+            <Route path="/reports/kep-ledger" element={<KepLedgerPage />} />
+            <Route path="/reports/audit-log" element={<AuditLogPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </ErrorBoundary>
     </HashRouter>
   );
 }

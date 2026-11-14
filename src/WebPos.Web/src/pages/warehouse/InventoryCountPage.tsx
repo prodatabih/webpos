@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
 import { formatDateBs, generateUuidV7 } from '../../lib/utils';
+import { EMPTY_COMPANY_FALLBACK, EMPTY_STORE_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import type { InventoryCountDocument } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
@@ -161,8 +162,8 @@ export function InventoryCountPage() {
           open={Boolean(editingDoc)}
           onOpenChange={(open) => !open && setEditingDoc(null)}
           initialDoc={editingDoc}
-          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0]!}
-          storeLocation={store.storeLocations.find((s) => s.id === store.activeStoreId) ?? store.storeLocations[0]!}
+          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0] ?? EMPTY_COMPANY_FALLBACK}
+          storeLocation={store.storeLocations.find((s) => s.id === store.activeStoreId) ?? store.storeLocations[0] ?? EMPTY_STORE_FALLBACK}
           items={store.items}
           vatRates={store.vatRates}
           storePrices={store.storeItemPrices}
