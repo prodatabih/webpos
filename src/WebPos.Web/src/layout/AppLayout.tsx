@@ -25,12 +25,17 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
     storeLocations, activeStoreId, setActiveStoreId,
     fiscalYears, activeFiscalYearId, setActiveFiscalYearId,
     storeItemPrices, theme, toggleTheme, isOnline, setIsOnline,
-    currentUserName, currentUserRole,
+    currentUserName, currentUserRole, activeTenantId,
   } = useAppStore();
 
-  const visibleNavItems = NAV_ITEMS.filter(
-    (item) => !item.roles || item.roles.includes(currentUserRole)
-  );
+  const hasTenantContext = currentUserRole !== 'SuperAdmin' || Boolean(activeTenantId);
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (!hasTenantContext) {
+      return Boolean(item.roles?.includes('SuperAdmin'));
+    }
+    return !item.roles || item.roles.includes(currentUserRole);
+  });
 
   const activeItem =
     visibleNavItems.find((item) =>
@@ -159,43 +164,48 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
               </kbd>
             </button>
 
-            <div className="flex items-center gap-1.5">
-              <Store className="h-3.5 w-3.5 text-muted-foreground hidden sm:inline" />
-              <select
-                aria-label={t('app.company')}
-                value={activeCompanyId}
-                onChange={(e) => setActiveCompanyId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+            {hasTenantContext && (
+              <div className="flex items-center gap-1.5">
+                <Store className="h-3.5 w-3.5 text-muted-foreground hidden sm:inline" />
+                <select
+                  aria-label={t('app.company')}
+                  value={activeCompanyId}
+                  onChange={(e) => setActiveCompanyId(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">-- Odaberi preduzeće --</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
 
-              <select
-                aria-label={t('app.storeLocation')}
-                value={activeStoreId}
-                onChange={(e) => setActiveStoreId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {storeLocations.map((s) => (
-                  <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
-                ))}
-              </select>
+                <select
+                  aria-label={t('app.storeLocation')}
+                  value={activeStoreId}
+                  onChange={(e) => setActiveStoreId(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">-- Odaberi poslovnicu --</option>
+                  {storeLocations.map((s) => (
+                    <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
+                  ))}
+                </select>
 
-              <select
-                aria-label={t('app.fiscalYear')}
-                value={activeFiscalYearId}
-                onChange={(e) => setActiveFiscalYearId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {fiscalYears.map((fy) => (
-                  <option key={fy.id} value={fy.id}>
-                    {fy.year} {fy.isLocked ? `(${t('status.LOCKED')})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <select
+                  aria-label={t('app.fiscalYear')}
+                  value={activeFiscalYearId}
+                  onChange={(e) => setActiveFiscalYearId(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">-- Odaberi fiskalnu godinu --</option>
+                  {fiscalYears.map((fy) => (
+                    <option key={fy.id} value={fy.id}>
+                      {fy.year} {fy.isLocked ? `(${t('status.LOCKED')})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <Button variant="outline" size="sm" onClick={() => setLoginDialogOpen(true)}>
               <UserCheck className="h-3.5 w-3.5" />

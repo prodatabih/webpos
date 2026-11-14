@@ -120,14 +120,26 @@ state = {
     });
   },
   upsertCompany: (company) => {
-    setState({ companies: upsertById(state.companies, company) });
+    setState({
+      companies: upsertById(state.companies, company),
+      activeCompanyId: state.activeCompanyId || company.id,
+    });
     syncIfApiMode(() => state, () => apiClient.saveCompany(company));
   },
   upsertStoreLocation: (loc) => {
-    setState({ storeLocations: upsertById(state.storeLocations, loc) });
+    setState({
+      storeLocations: upsertById(state.storeLocations, loc),
+      activeStoreId: state.activeStoreId || loc.id,
+    });
     syncIfApiMode(() => state, () => apiClient.saveStore(loc));
   },
-  upsertPosTerminal: (term) => setState({ posTerminals: upsertById(state.posTerminals, term) }),
+  upsertPosTerminal: (term) => {
+    setState({
+      posTerminals: upsertById(state.posTerminals, term),
+      activeTerminalId: state.activeTerminalId || term.id,
+    });
+    syncIfApiMode(() => state, () => apiClient.saveRegister(term));
+  },
   upsertVatRate: (rate) => setState({ vatRates: upsertById(state.vatRates, rate) }),
   upsertPartner: (partner) => {
     setState({ partners: upsertById(state.partners, partner) });

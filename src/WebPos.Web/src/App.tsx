@@ -28,6 +28,8 @@ import { StockCardsPage } from './pages/warehouse/StockCardsPage';
 export function App() {
   const authStatus = useAppStore((s) => s.authStatus);
   const backendMode = useAppStore((s) => s.backendMode);
+  const currentUserRole = useAppStore((s) => s.currentUserRole);
+  const activeTenantId = useAppStore((s) => s.activeTenantId);
   const initializeSession = useAppStore((s) => s.initializeSession);
 
   useEffect(() => {
@@ -38,12 +40,23 @@ export function App() {
     return <LoginScreen />;
   }
 
+  const isSuperAdminWithoutTenant = currentUserRole === 'SuperAdmin' && !activeTenantId;
+
   return (
     <HashRouter>
       <ErrorBoundary>
         <Routes>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<DashboardPage />} />
+            <Route
+              path="/"
+              element={
+                isSuperAdminWithoutTenant ? (
+                  <Navigate to="/admin/tenants" replace />
+                ) : (
+                  <DashboardPage />
+                )
+              }
+            />
             <Route path="/pos" element={<PosTerminalPage />} />
             <Route path="/pos/receipts" element={<PosReceiptsPage />} />
             <Route path="/warehouse/calculations" element={<CalculationsPage />} />

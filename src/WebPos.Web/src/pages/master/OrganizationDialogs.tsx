@@ -186,18 +186,23 @@ export function TerminalFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setStoreId(editingTerminal?.storeId ?? defaultStoreId);
+    setStoreId(editingTerminal?.storeId || defaultStoreId || stores[0]?.id || '');
     setCode(editingTerminal?.code ?? '');
     setName(editingTerminal?.name ?? '');
     setFiscalPrefix(editingTerminal?.fiscalPrefix ?? '');
     setIsActive(editingTerminal?.isActive ?? true);
-  }, [open, editingTerminal, defaultStoreId]);
+  }, [open, editingTerminal, defaultStoreId, stores]);
 
   const handleSubmit = () => {
+    const resolvedStoreId = storeId || stores[0]?.id || '';
+    if (!resolvedStoreId) {
+      showToast({ title: 'Prvo kreirajte poslovnu jedinicu (objekat).', variant: 'error' });
+      return;
+    }
     if (!code.trim() || !name.trim() || !fiscalPrefix.trim()) return;
     onSave({
       id: editingTerminal?.id ?? generateUuidV7(),
-      storeId,
+      storeId: resolvedStoreId,
       code: code.trim(),
       name: name.trim(),
       fiscalPrefix: fiscalPrefix.trim(),
@@ -226,6 +231,7 @@ export function TerminalFormDialog({
         <div className="flex flex-col gap-1 sm:col-span-2">
           <label className="text-xs font-medium text-foreground">{t('app.storeLocation')}</label>
           <select value={storeId} onChange={(e) => setStoreId(e.target.value)} className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground">
+            {stores.length === 0 && <option value="">-- Odaberi poslovnicu --</option>}
             {stores.map((s) => (<option key={s.id} value={s.id}>{s.code} — {s.name}</option>))}
           </select>
         </div>

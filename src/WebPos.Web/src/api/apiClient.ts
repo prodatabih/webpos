@@ -155,13 +155,43 @@ export const apiClient = {
   saveCompany: (company: Company): Promise<Company> =>
     request<Company>('/api/organization/companies', {
       method: 'POST',
-      body: JSON.stringify(company),
+      body: JSON.stringify({
+        name: company.name,
+        jib: company.taxIdNumber || company.code,
+        pdvNumber: company.vatIdNumber || null,
+        address: company.address || '-',
+        city: company.city || '-',
+        bankAccount: company.bankAccount || null,
+      }),
     }),
 
-  saveStore: (store: StoreLocation): Promise<StoreLocation> =>
-    request<StoreLocation>('/api/organization/stores', {
+  saveStore: (store: StoreLocation): Promise<StoreLocation> => {
+    const storeTypeMap: Record<StoreLocation['storeType'], string> = {
+      RETAIL: 'Retail',
+      WHOLESALE: 'Wholesale',
+      RAW_MATERIAL: 'RawMaterial',
+      PRODUCTION: 'Production',
+    };
+    return request<StoreLocation>('/api/organization/stores', {
       method: 'POST',
-      body: JSON.stringify(store),
+      body: JSON.stringify({
+        companyId: store.companyId,
+        code: store.code,
+        name: store.name,
+        storeType: storeTypeMap[store.storeType] ?? 'Retail',
+      }),
+    });
+  },
+
+  saveRegister: (term: { storeId: string; code: string; name: string; fiscalPrefix: string }): Promise<unknown> =>
+    request<unknown>('/api/organization/registers', {
+      method: 'POST',
+      body: JSON.stringify({
+        storeId: term.storeId,
+        code: term.code,
+        name: term.name,
+        fiscalDeviceId: term.fiscalPrefix,
+      }),
     }),
 
   saveItem: (payload: SaveItemRequest): Promise<Item> =>

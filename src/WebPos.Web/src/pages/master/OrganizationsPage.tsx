@@ -28,7 +28,10 @@ export function OrganizationsPage() {
   const [terminalDialogOpen, setTerminalDialogOpen] = useState(false);
   const [editingTerminal, setEditingTerminal] = useState<PosTerminal | null>(null);
 
-  const companyStores = storeLocations.filter((s) => s.companyId === activeCompanyId);
+  const effectiveCompanyId = activeCompanyId || companies[0]?.id || '';
+  const companyStores = effectiveCompanyId
+    ? storeLocations.filter((s) => s.companyId === effectiveCompanyId)
+    : storeLocations;
   const companyStoreIds = new Set(companyStores.map((s) => s.id));
   const companyTerminals = posTerminals.filter((tr) => companyStoreIds.has(tr.storeId));
 
@@ -196,8 +199,8 @@ export function OrganizationsPage() {
       </div>
 
       <CompanyFormDialog open={companyDialogOpen} onClose={() => setCompanyDialogOpen(false)} editingCompany={editingCompany} onSave={upsertCompany} />
-      <StoreFormDialog open={storeDialogOpen} onClose={() => setStoreDialogOpen(false)} companyId={activeCompanyId} editingStore={editingStore} onSave={upsertStoreLocation} />
-      <TerminalFormDialog open={terminalDialogOpen} onClose={() => setTerminalDialogOpen(false)} stores={companyStores} defaultStoreId={activeStoreId} editingTerminal={editingTerminal} onSave={upsertPosTerminal} />
+      <StoreFormDialog open={storeDialogOpen} onClose={() => setStoreDialogOpen(false)} companyId={effectiveCompanyId} editingStore={editingStore} onSave={upsertStoreLocation} />
+      <TerminalFormDialog open={terminalDialogOpen} onClose={() => setTerminalDialogOpen(false)} stores={companyStores} defaultStoreId={activeStoreId || companyStores[0]?.id || ''} editingTerminal={editingTerminal} onSave={upsertPosTerminal} />
     </div>
   );
 }
