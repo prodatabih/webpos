@@ -8,6 +8,7 @@ using WebPos.Domain.Enums;
 namespace WebPos.WebApi.Controllers;
 
 [Route("api/superadmin")]
+[Route("api/admin")]
 [Authorize(Roles = nameof(UserRole.SuperAdmin))]
 public class SuperAdminController : ApiControllerBase
 {
@@ -123,11 +124,12 @@ public class SuperAdminController : ApiControllerBase
             tenant.Code,
             tenant.Name,
             tenant.IsActive,
-            tenant.CreatedAtUtc,
+            CreatedAt = tenant.CreatedAtUtc,
+            AdminEmail = adminUser.Email,
             AdminUser = new
             {
                 adminUser.Id,
-                adminUser.Username,
+                UserName = adminUser.Username,
                 adminUser.Email,
                 Role = adminUser.Role.ToString()
             }
@@ -135,9 +137,12 @@ public class SuperAdminController : ApiControllerBase
     }
 
     [HttpPatch("tenants/{id:guid}/toggle")]
+    [HttpPost("tenants/{id:guid}/toggle")]
     public async Task<IActionResult> ToggleTenant(Guid id, CancellationToken ct)
     {
-        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == id, ct);
+        var tenant = await _db.Tenants
+            .Include(t => t.Users)
+            .FirstOrDefaultAsync(t => t.Id == id, ct);
         if (tenant is null)
         {
             return NotFound();
@@ -160,6 +165,19 @@ public class SuperAdminController : ApiControllerBase
         });
 
         await _db.SaveChangesAsync(ct);
-        return Ok(new { tenant.Id, tenant.Code, tenant.Name, tenant.IsActive });
+        var adminEmail = tenant.Users
+            .Where(u => u.Role == UserRole.TenantAdmin)
+            .Select(u => u.Email)
+            .FirstOrDefault();
+
+        return Ok(new
+        {
+            tenant.Id,
+            tenant.Code,
+            tenant.Name,
+            tenant.IsActive,
+            CreatedAt = tenant.CreatedAtUtc,
+            AdminEmail = adminEmail
+        });
     }
 }

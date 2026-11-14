@@ -84,7 +84,7 @@ public class AuthController : ApiControllerBase
                 user.TenantId,
                 TenantCode = user.Tenant?.Code,
                 TenantName = user.Tenant?.Name,
-                user.Username,
+                UserName = user.Username,
                 user.Email,
                 Role = user.Role.ToString(),
                 user.MustChangePassword
@@ -117,12 +117,12 @@ public class AuthController : ApiControllerBase
             user.TenantId,
             TenantCode = user.Tenant?.Code,
             TenantName = user.Tenant?.Name,
-            user.Username,
+            UserName = user.Username,
             user.Email,
             Role = user.Role.ToString(),
             user.IsActive,
             user.MustChangePassword,
-            user.CreatedAtUtc
+            CreatedAt = user.CreatedAtUtc
         });
     }
 

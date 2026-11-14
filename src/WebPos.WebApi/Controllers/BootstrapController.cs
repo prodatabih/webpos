@@ -67,7 +67,7 @@ public class BootstrapController : ApiControllerBase
             otherWarehouseDocs = Array.Empty<object>(),
             posReceipts = await _db.PosReceipts.AsNoTracking().Include(x => x.Lines).Include(x => x.Payments).Where(x => x.TenantId == tid).ToListAsync(ct),
             kepLedgerEntries = await _db.KepLedgerEntries.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
-            auditLog = await _db.AuditLogEntries.AsNoTracking().Where(x => x.TenantId == tid).OrderByDescending(x => x.TimestampUtc).Take(200).ToListAsync(ct),
+            auditLog = await _db.AuditLogEntries.AsNoTracking().Where(x => x.TenantId == tid).OrderByDescending(x => x.OccurredAtUtc).Take(200).ToListAsync(ct),
         });
     }
 }

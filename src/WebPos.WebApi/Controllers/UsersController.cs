@@ -42,12 +42,12 @@ public class UsersController : ApiControllerBase
                     {
                         u.Id,
                         u.TenantId,
-                        u.Username,
+                        UserName = u.Username,
                         u.Email,
                         Role = u.Role.ToString(),
                         u.IsActive,
                         u.MustChangePassword,
-                        u.CreatedAtUtc
+                        CreatedAt = u.CreatedAtUtc
                     })
                     .ToListAsync(ct);
                 return Ok(allUsers);
@@ -63,12 +63,12 @@ public class UsersController : ApiControllerBase
             {
                 u.Id,
                 u.TenantId,
-                u.Username,
+                UserName = u.Username,
                 u.Email,
                 Role = u.Role.ToString(),
                 u.IsActive,
                 u.MustChangePassword,
-                u.CreatedAtUtc
+                CreatedAt = u.CreatedAtUtc
             })
             .ToListAsync(ct);
 
@@ -140,12 +140,12 @@ public class UsersController : ApiControllerBase
         {
             user.Id,
             user.TenantId,
-            user.Username,
+            UserName = user.Username,
             user.Email,
             Role = user.Role.ToString(),
             user.IsActive,
             user.MustChangePassword,
-            user.CreatedAtUtc
+            CreatedAt = user.CreatedAtUtc
         });
     }
 }

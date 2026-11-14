@@ -129,9 +129,9 @@ app.UseCors();
 
 var wwwRootPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 var fallbackDistPath = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "WebPos.Web", "dist"));
-var staticRoot = Directory.Exists(wwwRootPath)
-    ? wwwRootPath
-    : (Directory.Exists(fallbackDistPath) ? fallbackDistPath : null);
+var staticRoot = app.Environment.IsDevelopment()
+    ? (Directory.Exists(fallbackDistPath) ? fallbackDistPath : (Directory.Exists(wwwRootPath) ? wwwRootPath : null))
+    : (Directory.Exists(wwwRootPath) ? wwwRootPath : (Directory.Exists(fallbackDistPath) ? fallbackDistPath : null));
 
 if (staticRoot is not null)
 {
@@ -144,6 +144,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.Map("/api/{**catchAll}", () => Results.NotFound(new { message = "API endpoint not found." }));
 
 if (staticRoot is not null && File.Exists(Path.Combine(staticRoot, "index.html")))
 {
