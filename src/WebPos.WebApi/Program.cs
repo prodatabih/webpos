@@ -18,6 +18,12 @@ builder.Services.AddDbContext<WebPosDbContext>(options =>
     if (string.Equals(dbProvider, "Sqlite", StringComparison.OrdinalIgnoreCase))
     {
         var sqliteConn = builder.Configuration.GetConnectionString("Sqlite") ?? "Data Source=data/webpos_local.db";
+        var csBuilder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(sqliteConn);
+        var dbDir = Path.GetDirectoryName(Path.GetFullPath(csBuilder.DataSource));
+        if (!string.IsNullOrEmpty(dbDir))
+        {
+            Directory.CreateDirectory(dbDir);
+        }
         options.UseSqlite(sqliteConn);
     }
     else
