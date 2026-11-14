@@ -23,9 +23,9 @@ public class SuperAdminController : ApiControllerBase
     public sealed record CreateTenantRequest(
         string Code,
         string Name,
-        string AdminUsername,
         string AdminEmail,
-        string AdminPassword);
+        string AdminPassword,
+        string? AdminUsername = null);
 
     [HttpGet("tenants")]
     public async Task<IActionResult> GetTenants(CancellationToken ct)
@@ -39,7 +39,8 @@ public class SuperAdminController : ApiControllerBase
                 t.Code,
                 t.Name,
                 t.IsActive,
-                t.CreatedAtUtc,
+                CreatedAt = t.CreatedAtUtc,
+                AdminEmail = t.Users.Where(u => u.Role == UserRole.TenantAdmin).Select(u => u.Email).FirstOrDefault(),
                 UserCount = t.Users.Count,
                 CompanyCount = t.Companies.Count
             })

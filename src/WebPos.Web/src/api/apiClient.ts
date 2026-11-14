@@ -121,19 +121,19 @@ export const apiClient = {
     }),
 
   getTenants: (): Promise<TenantSummary[]> =>
-    request<TenantSummary[]>('/api/admin/tenants', {
+    request<TenantSummary[]>('/api/superadmin/tenants', {
       method: 'GET',
     }),
 
   createTenant: (payload: CreateTenantRequest): Promise<TenantSummary> =>
-    request<TenantSummary>('/api/admin/tenants', {
+    request<TenantSummary>('/api/superadmin/tenants', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
   toggleTenant: (tenantId: string): Promise<TenantSummary> =>
-    request<TenantSummary>(`/api/admin/tenants/${encodeURIComponent(tenantId)}/toggle`, {
-      method: 'POST',
+    request<TenantSummary>(`/api/superadmin/tenants/${encodeURIComponent(tenantId)}/toggle`, {
+      method: 'PATCH',
     }),
 
   getUsers: (): Promise<TenantUser[]> =>
@@ -153,59 +153,59 @@ export const apiClient = {
     }),
 
   saveCompany: (company: Company): Promise<Company> =>
-    request<Company>('/api/master/companies', {
+    request<Company>('/api/organization/companies', {
       method: 'POST',
       body: JSON.stringify(company),
     }),
 
   saveStore: (store: StoreLocation): Promise<StoreLocation> =>
-    request<StoreLocation>('/api/master/stores', {
+    request<StoreLocation>('/api/organization/stores', {
       method: 'POST',
       body: JSON.stringify(store),
     }),
 
   saveItem: (payload: SaveItemRequest): Promise<Item> =>
-    request<Item>('/api/master/items', {
+    request<Item>('/api/master-data/items', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
   savePartner: (partner: Partner): Promise<Partner> =>
-    request<Partner>('/api/master/partners', {
+    request<Partner>('/api/master-data/partners', {
       method: 'POST',
       body: JSON.stringify(partner),
     }),
 
   saveCalculation: (doc: CalculationDocument): Promise<CalculationDocument> =>
-    request<CalculationDocument>('/api/warehouse/calculations/draft', {
+    request<CalculationDocument>('/api/warehouse-documents/calculations', {
       method: 'POST',
       body: JSON.stringify(doc),
     }),
 
   postCalculation: (docId: string): Promise<CalculationDocument> =>
-    request<CalculationDocument>(`/api/warehouse/calculations/${encodeURIComponent(docId)}/post`, {
+    request<CalculationDocument>(`/api/warehouse-documents/calculations/${encodeURIComponent(docId)}/post`, {
       method: 'POST',
     }),
 
   saveLeveling: (doc: PriceLevelingDocument): Promise<PriceLevelingDocument> =>
-    request<PriceLevelingDocument>('/api/warehouse/price-levelings/draft', {
+    request<PriceLevelingDocument>('/api/warehouse-documents/levelings', {
       method: 'POST',
       body: JSON.stringify(doc),
     }),
 
   postLeveling: (docId: string): Promise<PriceLevelingDocument> =>
-    request<PriceLevelingDocument>(`/api/warehouse/price-levelings/${encodeURIComponent(docId)}/post`, {
+    request<PriceLevelingDocument>(`/api/warehouse-documents/levelings/${encodeURIComponent(docId)}/post`, {
       method: 'POST',
     }),
 
   saveTransfer: (doc: TransferDocument): Promise<TransferDocument> =>
-    request<TransferDocument>('/api/warehouse/transfers/draft', {
+    request<TransferDocument>('/api/warehouse-documents/transfers', {
       method: 'POST',
       body: JSON.stringify(doc),
     }),
 
   postTransfer: (docId: string): Promise<TransferDocument> =>
-    request<TransferDocument>(`/api/warehouse/transfers/${encodeURIComponent(docId)}/post`, {
+    request<TransferDocument>(`/api/warehouse-documents/transfers/${encodeURIComponent(docId)}/post`, {
       method: 'POST',
     }),
 
