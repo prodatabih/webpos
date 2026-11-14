@@ -47,13 +47,62 @@ public class BootstrapController : ApiControllerBase
         }
 
         var tid = tenantId.Value;
+        var companiesRaw = await _db.Companies.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var fiscalYearsRaw = await _db.FiscalYears.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var storesRaw = await _db.Stores.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var registersRaw = await _db.CashRegisters.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+
         return Ok(new
         {
-            companies = await _db.Companies.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
-            fiscalYears = await _db.FiscalYears.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
+            companies = companiesRaw.Select(c => new
+            {
+                c.Id,
+                Code = c.Jib,
+                c.Name,
+                TaxIdNumber = c.Jib,
+                VatIdNumber = c.PdvNumber ?? string.Empty,
+                c.Address,
+                c.City,
+                CurrencyCode = "BAM",
+                BankAccount = c.BankAccount ?? string.Empty,
+            }),
+            fiscalYears = fiscalYearsRaw.Select(fy => new
+            {
+                fy.Id,
+                fy.CompanyId,
+                fy.Year,
+                StartDate = $"{fy.Year}-01-01",
+                EndDate = $"{fy.Year}-12-31",
+                IsLocked = fy.IsClosed,
+            }),
             fiscalPeriods = Array.Empty<object>(),
-            storeLocations = await _db.Stores.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
-            posTerminals = await _db.CashRegisters.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
+            storeLocations = storesRaw.Select(s => new
+            {
+                s.Id,
+                s.CompanyId,
+                s.Code,
+                s.Name,
+                StoreType = s.StoreType switch
+                {
+                    Domain.Enums.StoreType.Wholesale => "WHOLESALE",
+                    Domain.Enums.StoreType.RawMaterial => "RAW_MATERIAL",
+                    _ => "RETAIL",
+                },
+                Address = string.Empty,
+                City = string.Empty,
+                IsActive = true,
+            }),
+            posTerminals = registersRaw.Select(r => new
+            {
+                r.Id,
+                r.StoreId,
+                r.Code,
+                r.Name,
+                FiscalPrefix = r.FiscalDeviceId ?? string.Empty,
+                LastSequenceNumber = 0,
+                IsOnline = true,
+                IsActive = true,
+            }),
             vatRates = await _db.VatRates.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
             partners = await _db.Partners.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
             items = await _db.Items.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),

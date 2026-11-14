@@ -157,11 +157,35 @@ export function logoutFromBackend(getState: GetStateFn, setState: SetStateFn): v
   }
 }
 
+import { showToast } from '../components/ui/Toast';
+
 export function syncIfApiMode(
   getState: GetStateFn,
   task: () => Promise<unknown>
 ): void {
   if (getState().backendMode === 'API') {
-    void task().catch(() => undefined);
+    void task().catch((err) => {
+      showToast({
+        title: t('common.errorTitle'),
+        description: err instanceof Error ? err.message : 'Greška pri snimanju na server.',
+        variant: 'error',
+      });
+    });
+  }
+}
+
+export async function persistIfApiMode(
+  getState: GetStateFn,
+  task: () => Promise<unknown>
+): Promise<ActionResult> {
+  if (getState().backendMode !== 'API') {
+    return { ok: true };
+  }
+  try {
+    await task();
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Greška pri snimanju na server.';
+    return { ok: false, error: message };
   }
 }

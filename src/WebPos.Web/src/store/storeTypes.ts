@@ -82,9 +82,9 @@ export interface AppStoreState {
   setSystemConfig: (config: Partial<SystemConfig>) => void;
   isDateInLockedPeriod: (dateStr: string) => boolean;
   toggleFiscalPeriodLock: (periodId: string) => void;
-  upsertCompany: (company: Company) => void;
-  upsertStoreLocation: (loc: StoreLocation) => void;
-  upsertPosTerminal: (term: PosTerminal) => void;
+  upsertCompany: (company: Company) => Promise<ActionResult>;
+  upsertStoreLocation: (loc: StoreLocation) => Promise<ActionResult>;
+  upsertPosTerminal: (term: PosTerminal) => Promise<ActionResult>;
   upsertVatRate: (rate: VatRate) => void;
   upsertPartner: (partner: Partner) => void;
   upsertItem: (item: Item, barcodes?: ItemBarcode[], bomLines?: ItemBomLine[]) => void;

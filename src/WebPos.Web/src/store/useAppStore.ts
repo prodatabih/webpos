@@ -28,6 +28,7 @@ import {
   initializeBackendSession,
   loginWithBackend,
   logoutFromBackend,
+  persistIfApiMode,
   syncIfApiMode,
 } from './storeBackendSync';
 
@@ -119,26 +120,32 @@ state = {
       ],
     });
   },
-  upsertCompany: (company) => {
+  upsertCompany: async (company) => {
+    const res = await persistIfApiMode(() => state, () => apiClient.saveCompany(company));
+    if (!res.ok) return res;
     setState({
       companies: upsertById(state.companies, company),
       activeCompanyId: state.activeCompanyId || company.id,
     });
-    syncIfApiMode(() => state, () => apiClient.saveCompany(company));
+    return { ok: true };
   },
-  upsertStoreLocation: (loc) => {
+  upsertStoreLocation: async (loc) => {
+    const res = await persistIfApiMode(() => state, () => apiClient.saveStore(loc));
+    if (!res.ok) return res;
     setState({
       storeLocations: upsertById(state.storeLocations, loc),
       activeStoreId: state.activeStoreId || loc.id,
     });
-    syncIfApiMode(() => state, () => apiClient.saveStore(loc));
+    return { ok: true };
   },
-  upsertPosTerminal: (term) => {
+  upsertPosTerminal: async (term) => {
+    const res = await persistIfApiMode(() => state, () => apiClient.saveRegister(term));
+    if (!res.ok) return res;
     setState({
       posTerminals: upsertById(state.posTerminals, term),
       activeTerminalId: state.activeTerminalId || term.id,
     });
-    syncIfApiMode(() => state, () => apiClient.saveRegister(term));
+    return { ok: true };
   },
   upsertVatRate: (rate) => setState({ vatRates: upsertById(state.vatRates, rate) }),
   upsertPartner: (partner) => {

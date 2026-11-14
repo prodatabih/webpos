@@ -7,6 +7,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { showToast } from '../../components/ui/Toast';
 
+import type { ActionResult } from '../../store/storeTypes';
+
 export function CompanyFormDialog({
   open,
   onClose,
@@ -16,7 +18,7 @@ export function CompanyFormDialog({
   open: boolean;
   onClose: () => void;
   editingCompany?: Company | null;
-  onSave: (company: Company) => void;
+  onSave: (company: Company) => Promise<ActionResult> | ActionResult | void;
 }) {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -25,6 +27,7 @@ export function CompanyFormDialog({
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('Sarajevo');
   const [bankAccount, setBankAccount] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -37,21 +40,30 @@ export function CompanyFormDialog({
     setBankAccount(editingCompany?.bankAccount ?? '');
   }, [open, editingCompany]);
 
-  const handleSubmit = () => {
-    if (!code.trim() || !name.trim()) return;
-    onSave({
-      id: editingCompany?.id ?? generateUuidV7(),
-      code: code.trim(),
-      name: name.trim(),
-      taxIdNumber: taxIdNumber.trim(),
-      vatIdNumber: vatIdNumber.trim(),
-      address: address.trim(),
-      city: city.trim(),
-      currencyCode: 'BAM',
-      bankAccount: bankAccount.trim(),
-    });
-    showToast({ title: t('messages.recordSaved'), variant: 'success' });
-    onClose();
+  const handleSubmit = async () => {
+    if (!code.trim() || !name.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await onSave({
+        id: editingCompany?.id ?? generateUuidV7(),
+        code: code.trim(),
+        name: name.trim(),
+        taxIdNumber: taxIdNumber.trim(),
+        vatIdNumber: vatIdNumber.trim(),
+        address: address.trim(),
+        city: city.trim(),
+        currencyCode: 'BAM',
+        bankAccount: bankAccount.trim(),
+      });
+      if (res && !res.ok) {
+        showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+        return;
+      }
+      showToast({ title: t('messages.recordSaved'), variant: 'success' });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -62,8 +74,8 @@ export function CompanyFormDialog({
       title={editingCompany ? `${t('common.edit')} — ${editingCompany.name}` : t('common.create')}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button variant="primary" onClick={handleSubmit}>{t('common.save')}</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
+          <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>{t('common.save')}</Button>
         </>
       }
     >
@@ -90,7 +102,7 @@ export function StoreFormDialog({
   onClose: () => void;
   companyId: string;
   editingStore?: StoreLocation | null;
-  onSave: (store: StoreLocation) => void;
+  onSave: (store: StoreLocation) => Promise<ActionResult> | ActionResult | void;
 }) {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -98,6 +110,7 @@ export function StoreFormDialog({
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('Sarajevo');
   const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -109,20 +122,33 @@ export function StoreFormDialog({
     setIsActive(editingStore?.isActive ?? true);
   }, [open, editingStore]);
 
-  const handleSubmit = () => {
-    if (!code.trim() || !name.trim()) return;
-    onSave({
-      id: editingStore?.id ?? generateUuidV7(),
-      companyId,
-      code: code.trim(),
-      name: name.trim(),
-      storeType,
-      address: address.trim(),
-      city: city.trim(),
-      isActive,
-    });
-    showToast({ title: t('messages.recordSaved'), variant: 'success' });
-    onClose();
+  const handleSubmit = async () => {
+    if (!companyId) {
+      showToast({ title: 'Prvo kreirajte preduzeće.', variant: 'error' });
+      return;
+    }
+    if (!code.trim() || !name.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await onSave({
+        id: editingStore?.id ?? generateUuidV7(),
+        companyId,
+        code: code.trim(),
+        name: name.trim(),
+        storeType,
+        address: address.trim(),
+        city: city.trim(),
+        isActive,
+      });
+      if (res && !res.ok) {
+        showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+        return;
+      }
+      showToast({ title: t('messages.recordSaved'), variant: 'success' });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -133,8 +159,8 @@ export function StoreFormDialog({
       title={editingStore ? `${t('common.edit')} — ${editingStore.name}` : t('common.create')}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button variant="primary" onClick={handleSubmit}>{t('common.save')}</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
+          <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>{t('common.save')}</Button>
         </>
       }
     >
@@ -176,13 +202,14 @@ export function TerminalFormDialog({
   stores: StoreLocation[];
   defaultStoreId: string;
   editingTerminal?: PosTerminal | null;
-  onSave: (term: PosTerminal) => void;
+  onSave: (term: PosTerminal) => Promise<ActionResult> | ActionResult | void;
 }) {
   const [storeId, setStoreId] = useState(defaultStoreId);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [fiscalPrefix, setFiscalPrefix] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -193,25 +220,34 @@ export function TerminalFormDialog({
     setIsActive(editingTerminal?.isActive ?? true);
   }, [open, editingTerminal, defaultStoreId, stores]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const resolvedStoreId = storeId || stores[0]?.id || '';
     if (!resolvedStoreId) {
       showToast({ title: 'Prvo kreirajte poslovnu jedinicu (objekat).', variant: 'error' });
       return;
     }
-    if (!code.trim() || !name.trim() || !fiscalPrefix.trim()) return;
-    onSave({
-      id: editingTerminal?.id ?? generateUuidV7(),
-      storeId: resolvedStoreId,
-      code: code.trim(),
-      name: name.trim(),
-      fiscalPrefix: fiscalPrefix.trim(),
-      lastSequenceNumber: editingTerminal?.lastSequenceNumber ?? 0,
-      isOnline: editingTerminal?.isOnline ?? true,
-      isActive,
-    });
-    showToast({ title: t('messages.recordSaved'), variant: 'success' });
-    onClose();
+    if (!code.trim() || !name.trim() || !fiscalPrefix.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await onSave({
+        id: editingTerminal?.id ?? generateUuidV7(),
+        storeId: resolvedStoreId,
+        code: code.trim(),
+        name: name.trim(),
+        fiscalPrefix: fiscalPrefix.trim(),
+        lastSequenceNumber: editingTerminal?.lastSequenceNumber ?? 0,
+        isOnline: editingTerminal?.isOnline ?? true,
+        isActive,
+      });
+      if (res && !res.ok) {
+        showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+        return;
+      }
+      showToast({ title: t('messages.recordSaved'), variant: 'success' });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -222,8 +258,8 @@ export function TerminalFormDialog({
       title={editingTerminal ? `${t('common.edit')} — ${editingTerminal.name}` : t('common.create')}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button variant="primary" onClick={handleSubmit}>{t('common.save')}</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
+          <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>{t('common.save')}</Button>
         </>
       }
     >

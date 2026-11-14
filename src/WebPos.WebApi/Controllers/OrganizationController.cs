@@ -33,18 +33,38 @@ public class OrganizationController : ApiControllerBase
     public async Task<IActionResult> CreateCompany([FromBody] UpsertCompanyRequest req, CancellationToken ct)
     {
         if (!TryGetTenantId(out var tid)) return Forbid();
-        var entity = new Company
+
+        Company? entity = null;
+        if (req.Id.HasValue && req.Id.Value != Guid.Empty)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tid,
-            Name = req.Name.Trim(),
-            Jib = req.Jib.Trim(),
-            PdvNumber = req.PdvNumber?.Trim(),
-            Address = req.Address.Trim(),
-            City = req.City.Trim(),
-            BankAccount = req.BankAccount?.Trim()
-        };
-        _db.Companies.Add(entity);
+            entity = await _db.Companies.FirstOrDefaultAsync(c => c.Id == req.Id.Value && c.TenantId == tid, ct);
+        }
+
+        if (entity is null)
+        {
+            entity = new Company
+            {
+                Id = req.Id.HasValue && req.Id.Value != Guid.Empty ? req.Id.Value : Guid.NewGuid(),
+                TenantId = tid,
+                Name = req.Name.Trim(),
+                Jib = req.Jib.Trim(),
+                PdvNumber = req.PdvNumber?.Trim(),
+                Address = req.Address.Trim(),
+                City = req.City.Trim(),
+                BankAccount = req.BankAccount?.Trim()
+            };
+            _db.Companies.Add(entity);
+        }
+        else
+        {
+            entity.Name = req.Name.Trim();
+            entity.Jib = req.Jib.Trim();
+            entity.PdvNumber = req.PdvNumber?.Trim();
+            entity.Address = req.Address.Trim();
+            entity.City = req.City.Trim();
+            entity.BankAccount = req.BankAccount?.Trim();
+        }
+
         await _db.SaveChangesAsync(ct);
         return Ok(entity);
     }
@@ -92,16 +112,40 @@ public class OrganizationController : ApiControllerBase
     public async Task<IActionResult> CreateStore([FromBody] UpsertStoreRequest req, CancellationToken ct)
     {
         if (!TryGetTenantId(out var tid)) return Forbid();
-        var entity = new Store
+
+        var companyExists = await _db.Companies.AnyAsync(c => c.Id == req.CompanyId && c.TenantId == tid, ct);
+        if (!companyExists)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tid,
-            CompanyId = req.CompanyId,
-            Code = req.Code.Trim(),
-            Name = req.Name.Trim(),
-            StoreType = req.StoreType
-        };
-        _db.Stores.Add(entity);
+            return BadRequest(new { message = "Odabrano preduzeće ne postoji u bazi." });
+        }
+
+        Store? entity = null;
+        if (req.Id.HasValue && req.Id.Value != Guid.Empty)
+        {
+            entity = await _db.Stores.FirstOrDefaultAsync(s => s.Id == req.Id.Value && s.TenantId == tid, ct);
+        }
+
+        if (entity is null)
+        {
+            entity = new Store
+            {
+                Id = req.Id.HasValue && req.Id.Value != Guid.Empty ? req.Id.Value : Guid.NewGuid(),
+                TenantId = tid,
+                CompanyId = req.CompanyId,
+                Code = req.Code.Trim(),
+                Name = req.Name.Trim(),
+                StoreType = req.StoreType
+            };
+            _db.Stores.Add(entity);
+        }
+        else
+        {
+            entity.CompanyId = req.CompanyId;
+            entity.Code = req.Code.Trim();
+            entity.Name = req.Name.Trim();
+            entity.StoreType = req.StoreType;
+        }
+
         await _db.SaveChangesAsync(ct);
         return Ok(entity);
     }
@@ -146,16 +190,40 @@ public class OrganizationController : ApiControllerBase
     public async Task<IActionResult> CreateRegister([FromBody] UpsertCashRegisterRequest req, CancellationToken ct)
     {
         if (!TryGetTenantId(out var tid)) return Forbid();
-        var entity = new CashRegister
+
+        var storeExists = await _db.Stores.AnyAsync(s => s.Id == req.StoreId && s.TenantId == tid, ct);
+        if (!storeExists)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tid,
-            StoreId = req.StoreId,
-            Code = req.Code.Trim(),
-            Name = req.Name.Trim(),
-            FiscalDeviceId = req.FiscalDeviceId?.Trim()
-        };
-        _db.CashRegisters.Add(entity);
+            return BadRequest(new { message = "Odabrana poslovnica ne postoji u bazi." });
+        }
+
+        CashRegister? entity = null;
+        if (req.Id.HasValue && req.Id.Value != Guid.Empty)
+        {
+            entity = await _db.CashRegisters.FirstOrDefaultAsync(r => r.Id == req.Id.Value && r.TenantId == tid, ct);
+        }
+
+        if (entity is null)
+        {
+            entity = new CashRegister
+            {
+                Id = req.Id.HasValue && req.Id.Value != Guid.Empty ? req.Id.Value : Guid.NewGuid(),
+                TenantId = tid,
+                StoreId = req.StoreId,
+                Code = req.Code.Trim(),
+                Name = req.Name.Trim(),
+                FiscalDeviceId = req.FiscalDeviceId?.Trim()
+            };
+            _db.CashRegisters.Add(entity);
+        }
+        else
+        {
+            entity.StoreId = req.StoreId;
+            entity.Code = req.Code.Trim();
+            entity.Name = req.Name.Trim();
+            entity.FiscalDeviceId = req.FiscalDeviceId?.Trim();
+        }
+
         await _db.SaveChangesAsync(ct);
         return Ok(entity);
     }

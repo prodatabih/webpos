@@ -156,6 +156,7 @@ export const apiClient = {
     request<Company>('/api/organization/companies', {
       method: 'POST',
       body: JSON.stringify({
+        id: company.id,
         name: company.name,
         jib: company.taxIdNumber || company.code,
         pdvNumber: company.vatIdNumber || null,
@@ -175,6 +176,7 @@ export const apiClient = {
     return request<StoreLocation>('/api/organization/stores', {
       method: 'POST',
       body: JSON.stringify({
+        id: store.id,
         companyId: store.companyId,
         code: store.code,
         name: store.name,
@@ -183,10 +185,11 @@ export const apiClient = {
     });
   },
 
-  saveRegister: (term: { storeId: string; code: string; name: string; fiscalPrefix: string }): Promise<unknown> =>
+  saveRegister: (term: { id?: string; storeId: string; code: string; name: string; fiscalPrefix: string }): Promise<unknown> =>
     request<unknown>('/api/organization/registers', {
       method: 'POST',
       body: JSON.stringify({
+        id: term.id,
         storeId: term.storeId,
         code: term.code,
         name: term.name,

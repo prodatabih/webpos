@@ -8,26 +8,31 @@ public sealed record UpsertCompanyRequest(
     string? PdvNumber,
     string Address,
     string City,
-    string? BankAccount);
+    string? BankAccount,
+    Guid? Id = null);
 
 public sealed record UpsertStoreRequest(
     Guid CompanyId,
     string Code,
     string Name,
-    StoreType StoreType);
+    StoreType StoreType,
+    Guid? Id = null);
 
 public sealed record UpsertCashRegisterRequest(
     Guid StoreId,
     string Code,
     string Name,
-    string? FiscalDeviceId);
+    string? FiscalDeviceId,
+    Guid? Id = null);
 
 public sealed record UpsertFiscalYearRequest(
     Guid CompanyId,
     int Year,
-    bool IsClosed);
+    bool IsClosed,
+    Guid? Id = null);
 
 public sealed record UpsertVatRateRequest(
     string Code,
     string Name,
-    decimal RatePercent);
+    decimal RatePercent,
+    Guid? Id = null);
