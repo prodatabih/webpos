@@ -11,6 +11,7 @@ public class WebPosDbContext : DbContext, IWebPosDbContext
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<TenantSetting> TenantSettings => Set<TenantSetting>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<Store> Stores => Set<Store>();
@@ -23,6 +24,7 @@ public class WebPosDbContext : DbContext, IWebPosDbContext
     public DbSet<ItemBomLine> ItemBomLines => Set<ItemBomLine>();
     public DbSet<StoreItemPrice> StoreItemPrices => Set<StoreItemPrice>();
     public DbSet<Partner> Partners => Set<Partner>();
+    public DbSet<LabelTemplate> LabelTemplates => Set<LabelTemplate>();
     public DbSet<InboundCalculation> InboundCalculations => Set<InboundCalculation>();
     public DbSet<InboundCalculationLine> InboundCalculationLines => Set<InboundCalculationLine>();
     public DbSet<PriceLeveling> PriceLevelings => Set<PriceLeveling>();
@@ -31,6 +33,8 @@ public class WebPosDbContext : DbContext, IWebPosDbContext
     public DbSet<WarehouseTransferLine> WarehouseTransferLines => Set<WarehouseTransferLine>();
     public DbSet<InventoryCount> InventoryCounts => Set<InventoryCount>();
     public DbSet<InventoryCountLine> InventoryCountLines => Set<InventoryCountLine>();
+    public DbSet<OtherWarehouseDocument> OtherWarehouseDocuments => Set<OtherWarehouseDocument>();
+    public DbSet<OtherWarehouseDocumentLine> OtherWarehouseDocumentLines => Set<OtherWarehouseDocumentLine>();
     public DbSet<PosReceipt> PosReceipts => Set<PosReceipt>();
     public DbSet<PosReceiptLine> PosReceiptLines => Set<PosReceiptLine>();
     public DbSet<PosReceiptPayment> PosReceiptPayments => Set<PosReceiptPayment>();

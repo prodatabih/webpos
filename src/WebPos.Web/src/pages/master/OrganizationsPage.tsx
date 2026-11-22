@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Edit2, Monitor, Plus, Store } from 'lucide-react';
+import { Building2, Edit2, Monitor, Plus, Store, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { useAppStore } from '../../store/useAppStore';
 import type { Company, PosTerminal, StoreLocation, StoreType } from '../../types/domain';
@@ -7,7 +7,14 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { showToast } from '../../components/ui/Toast';
 import { CompanyFormDialog, StoreFormDialog, TerminalFormDialog } from './OrganizationDialogs';
+
+type DeleteTarget =
+  | { kind: 'company'; item: Company }
+  | { kind: 'store'; item: StoreLocation }
+  | { kind: 'terminal'; item: PosTerminal };
 
 export function OrganizationsPage() {
   const {
@@ -17,8 +24,11 @@ export function OrganizationsPage() {
     activeStoreId,
     posTerminals,
     upsertCompany,
+    deleteCompany,
     upsertStoreLocation,
+    deleteStoreLocation,
     upsertPosTerminal,
+    deletePosTerminal,
   } = useAppStore();
 
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
@@ -27,6 +37,7 @@ export function OrganizationsPage() {
   const [editingStore, setEditingStore] = useState<StoreLocation | null>(null);
   const [terminalDialogOpen, setTerminalDialogOpen] = useState(false);
   const [editingTerminal, setEditingTerminal] = useState<PosTerminal | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const effectiveCompanyId = activeCompanyId || companies[0]?.id || '';
   const companyStores = effectiveCompanyId
@@ -41,6 +52,53 @@ export function OrganizationsPage() {
     if (st === 'RAW_MATERIAL') return t('master.storeTypeRawMaterial');
     return t('master.storeTypeProduction');
   };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    let res;
+    if (deleteTarget.kind === 'company') {
+      res = await deleteCompany(deleteTarget.item.id);
+    } else if (deleteTarget.kind === 'store') {
+      res = await deleteStoreLocation(deleteTarget.item.id);
+    } else {
+      res = await deletePosTerminal(deleteTarget.item.id);
+    }
+
+    if (!res.ok) {
+      showToast({
+        title: t('common.errorTitle'),
+        description: res.error,
+        variant: 'error',
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
+    showToast({ title: 'Zapis je uspješno obrisan.', variant: 'success' });
+    setDeleteTarget(null);
+  };
+
+  const deleteTitle = (() => {
+    if (!deleteTarget) return '';
+    if (deleteTarget.kind === 'company') {
+      return `Obrisati preduzeće "${deleteTarget.item.name}"?`;
+    }
+    if (deleteTarget.kind === 'store') {
+      return `Obrisati poslovnu jedinicu "${deleteTarget.item.name}"?`;
+    }
+    return `Obrisati POS kasu "${deleteTarget.item.name}"?`;
+  })();
+
+  const deleteDescription = (() => {
+    if (!deleteTarget) return '';
+    if (deleteTarget.kind === 'company') {
+      return 'Brisanje preduzeća je nepovratno i moguće je samo ako preduzeće nema povezanih poslovnica, dokumenata ili artikala.';
+    }
+    if (deleteTarget.kind === 'store') {
+      return 'Brisanje poslovnice je nepovratno i moguće je samo ako poslovnica nema povezanih kasa, zaliha ili dokumenata.';
+    }
+    return 'Brisanje POS blagajne je nepovratno i moguće je samo ako na njoj nisu izdati fiskalni računi.';
+  })();
 
   return (
     <div className="flex flex-col min-h-full">
@@ -88,21 +146,50 @@ export function OrganizationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {companies.map((c) => (
-                  <tr key={c.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-2.5 font-mono font-semibold">{c.code}</td>
-                    <td className="px-4 py-2.5 font-medium">{c.name}</td>
-                    <td className="px-4 py-2.5 font-mono">{c.taxIdNumber}</td>
-                    <td className="px-4 py-2.5 font-mono">{c.vatIdNumber}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{c.address}, {c.city}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => { setEditingCompany(c); setCompanyDialogOpen(true); }}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                        <span>{t('common.edit')}</span>
-                      </Button>
+                {companies.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                      Nema kreiranih preduzeća. Kliknite na „Preduzeće” da dodate prvo preduzeće.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  companies.map((c) => {
+                    const addressText = [c.address, c.city].filter((v) => v && v.trim()).join(', ');
+                    return (
+                      <tr key={c.id} className="hover:bg-muted/40">
+                        <td className="px-4 py-2.5 font-mono font-semibold">{c.code}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="font-medium">{c.name}</div>
+                          {c.bankAccount && (
+                            <div className="text-[11px] font-mono text-muted-foreground">
+                              Žiro: {c.bankAccount}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 font-mono">{c.taxIdNumber || '-'}</td>
+                        <td className="px-4 py-2.5 font-mono">{c.vatIdNumber || '-'}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{addressText || '-'}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => { setEditingCompany(c); setCompanyDialogOpen(true); }}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                              <span>{t('common.edit')}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeleteTarget({ kind: 'company', item: c })}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>{t('common.delete')}</span>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </CardContent>
@@ -127,26 +214,48 @@ export function OrganizationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {companyStores.map((st) => (
-                    <tr key={st.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-2.5 font-mono font-semibold">{st.code}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="font-medium">{st.name}</div>
-                        <div className="text-[11px] text-muted-foreground">{storeTypeLabel(st.storeType)} • {st.address}</div>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <Badge variant={st.isActive ? 'success' : 'secondary'}>
-                          {st.isActive ? t('common.active') : t('common.inactive')}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditingStore(st); setStoreDialogOpen(true); }}>
-                          <Edit2 className="h-3.5 w-3.5" />
-                          <span>{t('common.edit')}</span>
-                        </Button>
+                  {companyStores.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                        Nema kreiranih prodajnih objekata za odabrano preduzeće.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    companyStores.map((st) => (
+                      <tr key={st.id} className="hover:bg-muted/40">
+                        <td className="px-4 py-2.5 font-mono font-semibold">{st.code}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="font-medium">{st.name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {storeTypeLabel(st.storeType)}
+                            {st.address?.trim() ? ` • ${st.address.trim()}` : ''}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant={st.isActive ? 'success' : 'secondary'}>
+                            {st.isActive ? t('common.active') : t('common.inactive')}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => { setEditingStore(st); setStoreDialogOpen(true); }}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                              <span>{t('common.edit')}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeleteTarget({ kind: 'store', item: st })}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>{t('common.delete')}</span>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </CardContent>
@@ -170,27 +279,46 @@ export function OrganizationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {companyTerminals.map((tr) => {
-                    const st = companyStores.find((s) => s.id === tr.storeId);
-                    return (
-                      <tr key={tr.id} className="hover:bg-muted/40">
-                        <td className="px-4 py-2.5 font-mono font-semibold">{tr.code}</td>
-                        <td className="px-4 py-2.5">
-                          <div className="font-medium">{tr.name}</div>
-                          <div className="text-[11px] text-muted-foreground">{st?.name}</div>
-                        </td>
-                        <td className="px-4 py-2.5 font-mono">
-                          {tr.fiscalPrefix}-{String(tr.lastSequenceNumber).padStart(6, '0')}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <Button variant="ghost" size="sm" onClick={() => { setEditingTerminal(tr); setTerminalDialogOpen(true); }}>
-                            <Edit2 className="h-3.5 w-3.5" />
-                            <span>{t('common.edit')}</span>
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {companyTerminals.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                        Nema kreiranih POS blagajni.
+                      </td>
+                    </tr>
+                  ) : (
+                    companyTerminals.map((tr) => {
+                      const st = companyStores.find((s) => s.id === tr.storeId);
+                      return (
+                        <tr key={tr.id} className="hover:bg-muted/40">
+                          <td className="px-4 py-2.5 font-mono font-semibold">{tr.code}</td>
+                          <td className="px-4 py-2.5">
+                            <div className="font-medium">{tr.name}</div>
+                            <div className="text-[11px] text-muted-foreground">{st?.name}</div>
+                          </td>
+                          <td className="px-4 py-2.5 font-mono">
+                            {tr.fiscalPrefix}-{String(tr.lastSequenceNumber).padStart(6, '0')}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => { setEditingTerminal(tr); setTerminalDialogOpen(true); }}>
+                                <Edit2 className="h-3.5 w-3.5" />
+                                <span>{t('common.edit')}</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setDeleteTarget({ kind: 'terminal', item: tr })}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>{t('common.delete')}</span>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </CardContent>
@@ -201,6 +329,18 @@ export function OrganizationsPage() {
       <CompanyFormDialog open={companyDialogOpen} onClose={() => setCompanyDialogOpen(false)} editingCompany={editingCompany} onSave={upsertCompany} />
       <StoreFormDialog open={storeDialogOpen} onClose={() => setStoreDialogOpen(false)} companyId={effectiveCompanyId} editingStore={editingStore} onSave={upsertStoreLocation} />
       <TerminalFormDialog open={terminalDialogOpen} onClose={() => setTerminalDialogOpen(false)} stores={companyStores} defaultStoreId={activeStoreId || companyStores[0]?.id || ''} editingTerminal={editingTerminal} onSave={upsertPosTerminal} />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        variant="destructive"
+        title={deleteTitle}
+        description={deleteDescription}
+        confirmLabel={t('common.delete')}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

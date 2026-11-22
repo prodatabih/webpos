@@ -27,6 +27,10 @@ public class AuthController : ApiControllerBase
 
     public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
+    public sealed record ForgotPasswordRequest(string? EmailOrUsername = null, string? Email = null, string? UsernameOrEmail = null);
+
+    public sealed record ResetPasswordRequest(string? EmailOrUsername = null, string? Email = null, string? ResetCode = null, string? NewPassword = null);
+
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
@@ -34,7 +38,7 @@ public class AuthController : ApiControllerBase
         var identifier = (request.UsernameOrEmail ?? request.Email ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(identifier) || string.IsNullOrWhiteSpace(request.Password))
         {
-            return BadRequest(new { message = "Credentials are required." });
+            return BadRequest(new { message = "Korisničko ime/email i lozinka su obavezni." });
         }
 
         var normalized = identifier.ToLowerInvariant();
@@ -46,17 +50,17 @@ public class AuthController : ApiControllerBase
 
         if (user is null || !_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
-            return Unauthorized(new { message = "Invalid credentials." });
+            return Unauthorized(new { message = "Neispravni pristupni podaci." });
         }
 
         if (!user.IsActive)
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Korisnički nalog je deaktiviran." });
         }
 
         if (user.Tenant is not null && !user.Tenant.IsActive)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Tenant is inactive." });
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Tenant je deaktiviran." });
         }
 
         var token = _jwtTokenService.GenerateToken(user);
@@ -90,6 +94,116 @@ public class AuthController : ApiControllerBase
                 user.MustChangePassword
             }
         });
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken ct)
+    {
+        var identifier = (request.EmailOrUsername ?? request.Email ?? request.UsernameOrEmail ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            return BadRequest(new { message = "Email ili korisničko ime je obavezno." });
+        }
+
+        var normalized = identifier.ToLowerInvariant();
+        var user = await _db.Users
+            .FirstOrDefaultAsync(
+                u => u.IsActive && (u.Email.ToLower() == normalized || u.Username.ToLower() == normalized),
+                ct);
+
+        if (user is null)
+        {
+            return NotFound(new { message = "Korisnik sa unesenim emailom ili korisničkim imenom nije pronađen." });
+        }
+
+        const int expiresInMinutes = 30;
+        var code = Random.Shared.Next(100000, 1000000).ToString();
+        user.PasswordResetToken = code;
+        user.PasswordResetExpiresAtUtc = DateTime.UtcNow.AddMinutes(expiresInMinutes);
+
+        _db.AuditLogEntries.Add(new AuditLogEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = user.TenantId,
+            UserId = user.Id,
+            Username = user.Username,
+            Action = "FORGOT_PASSWORD",
+            EntityName = nameof(Domain.Entities.User),
+            EntityId = user.Id.ToString(),
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            OccurredAtUtc = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            message = "Kod za reset lozinke je generisan.",
+            resetCode = code,
+            expiresInMinutes
+        });
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken ct)
+    {
+        var identifier = (request.EmailOrUsername ?? request.Email ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            return BadRequest(new { message = "Email ili korisničko ime je obavezno." });
+        }
+
+        var resetCode = (request.ResetCode ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(resetCode))
+        {
+            return BadRequest(new { message = "Kod za reset lozinke je obavezan." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+        {
+            return BadRequest(new { message = "Nova lozinka mora imati najmanje 6 karaktera." });
+        }
+
+        var normalized = identifier.ToLowerInvariant();
+        var user = await _db.Users
+            .FirstOrDefaultAsync(
+                u => u.IsActive && (u.Email.ToLower() == normalized || u.Username.ToLower() == normalized),
+                ct);
+
+        if (user is null)
+        {
+            return NotFound(new { message = "Korisnik sa unesenim emailom ili korisničkim imenom nije pronađen." });
+        }
+
+        if (!string.Equals(user.PasswordResetToken, resetCode, StringComparison.Ordinal) ||
+            !user.PasswordResetExpiresAtUtc.HasValue ||
+            user.PasswordResetExpiresAtUtc.Value <= DateTime.UtcNow)
+        {
+            return BadRequest(new { message = "Kod za reset lozinke je neispravan ili je istekao." });
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        user.MustChangePassword = false;
+        user.PasswordResetToken = null;
+        user.PasswordResetExpiresAtUtc = null;
+
+        _db.AuditLogEntries.Add(new AuditLogEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = user.TenantId,
+            UserId = user.Id,
+            Username = user.Username,
+            Action = "RESET_PASSWORD",
+            EntityName = nameof(Domain.Entities.User),
+            EntityId = user.Id.ToString(),
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            OccurredAtUtc = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { message = "Lozinka je uspješno promijenjena." });
     }
 
     [HttpGet("me")]
@@ -137,7 +251,7 @@ public class AuthController : ApiControllerBase
 
         if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
         {
-            return BadRequest(new { message = "New password must be at least 6 characters." });
+            return BadRequest(new { message = "Nova lozinka mora imati najmanje 6 karaktera." });
         }
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == CurrentUserId.Value, ct);
@@ -148,7 +262,7 @@ public class AuthController : ApiControllerBase
 
         if (!_passwordHasher.VerifyPassword(request.CurrentPassword, user.PasswordHash))
         {
-            return BadRequest(new { message = "Current password is incorrect." });
+            return BadRequest(new { message = "Trenutna lozinka nije ispravna." });
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
@@ -168,6 +282,6 @@ public class AuthController : ApiControllerBase
         });
 
         await _db.SaveChangesAsync(ct);
-        return Ok(new { message = "Password updated." });
+        return Ok(new { message = "Lozinka je uspješno promijenjena." });
     }
 }

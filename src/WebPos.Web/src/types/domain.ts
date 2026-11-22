@@ -94,6 +94,7 @@ export interface Partner {
   email: string;
   paymentTermsDays: number;
   creditLimit: string;
+  discountPercent?: string;
   isActive: boolean;
 }
 
@@ -117,6 +118,22 @@ export interface ItemBomLine {
 
 export interface SystemConfig {
   allowPriceChangeWithoutLeveling: boolean;
+  allowNegativeStock?: boolean;
+  autoCreatePriceLevelingOnInbound?: boolean;
+  defaultCurrency?: string;
+}
+
+export interface LabelTemplate {
+  id: string;
+  name: string;
+  widthMm: number;
+  heightMm: number;
+  fontScale: number;
+  showBarcode: boolean;
+  showUnitPrice: boolean;
+  showOrigin: boolean;
+  showSku: boolean;
+  isDefault: boolean;
 }
 
 export interface Item {

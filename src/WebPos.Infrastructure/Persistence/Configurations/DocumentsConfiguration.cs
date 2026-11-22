@@ -65,6 +65,8 @@ public class PriceLevelingConfiguration : IEntityTypeConfiguration<PriceLeveling
         builder.Property(x => x.Reason).HasMaxLength(300);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(x => x.TotalDifferenceAmount2).HasPrecision(18, 2);
+        builder.Property(x => x.TotalVatDifference2).HasPrecision(18, 2);
+        builder.Property(x => x.TotalMarginDifference2).HasPrecision(18, 2);
 
         builder.HasIndex(x => new { x.TenantId, x.FiscalYearId, x.DocumentNumber }).IsUnique();
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
@@ -81,6 +83,9 @@ public class PriceLevelingLineConfiguration : IEntityTypeConfiguration<PriceLeve
         builder.Property(x => x.NewRetailPriceInclVat2).HasPrecision(18, 2);
         builder.Property(x => x.PriceDifference2).HasPrecision(18, 2);
         builder.Property(x => x.TotalDifference2).HasPrecision(18, 2);
+        builder.Property(x => x.VatRatePercent).HasPrecision(18, 4);
+        builder.Property(x => x.VatDifference2).HasPrecision(18, 2);
+        builder.Property(x => x.MarginDifference2).HasPrecision(18, 2);
 
         builder.HasOne(x => x.PriceLeveling)
             .WithMany(d => d.Lines)
@@ -156,6 +161,43 @@ public class InventoryCountLineConfiguration : IEntityTypeConfiguration<Inventor
         builder.HasOne(x => x.InventoryCount)
             .WithMany(d => d.Lines)
             .HasForeignKey(x => x.InventoryCountId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class OtherWarehouseDocumentConfiguration : IEntityTypeConfiguration<OtherWarehouseDocument>
+{
+    public void Configure(EntityTypeBuilder<OtherWarehouseDocument> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.DocumentNumber).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.Subtype).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.Property(x => x.TotalPurchaseValue2).HasPrecision(18, 2);
+        builder.Property(x => x.TotalRetailValue2).HasPrecision(18, 2);
+
+        builder.HasIndex(x => new { x.TenantId, x.FiscalYearId, x.DocumentNumber }).IsUnique();
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class OtherWarehouseDocumentLineConfiguration : IEntityTypeConfiguration<OtherWarehouseDocumentLine>
+{
+    public void Configure(EntityTypeBuilder<OtherWarehouseDocumentLine> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Quantity).HasPrecision(18, 4);
+        builder.Property(x => x.PurchasePriceExclVat4).HasPrecision(18, 4);
+        builder.Property(x => x.RetailPriceInclVat2).HasPrecision(18, 2);
+        builder.Property(x => x.LinePurchaseTotal2).HasPrecision(18, 2);
+        builder.Property(x => x.LineRetailTotal2).HasPrecision(18, 2);
+        builder.Property(x => x.Reason).HasMaxLength(300);
+
+        builder.HasOne(x => x.OtherWarehouseDocument)
+            .WithMany(d => d.Lines)
+            .HasForeignKey(x => x.OtherWarehouseDocumentId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
     }

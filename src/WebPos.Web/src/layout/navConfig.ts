@@ -19,6 +19,7 @@ import {
   BarChart3,
   Boxes,
   UserCog,
+  Settings,
   ServerCog,
 } from 'lucide-react';
 import type { TranslationKey } from '../i18n';
@@ -150,6 +151,14 @@ export const NAV_ITEMS: NavItemConfig[] = [
     roles: ['TenantAdmin'],
   },
   {
+    id: 'tenant-settings',
+    path: '/master/settings',
+    labelKey: 'nav.tenantSettings',
+    groupKey: 'nav.groupMasterData',
+    icon: Settings,
+    roles: ['TenantAdmin'],
+  },
+  {
     id: 'daily-turnover',
     path: '/reports/daily-turnover',
     labelKey: 'nav.dailyTurnover',
@@ -187,3 +196,16 @@ export const NAV_GROUPS: TranslationKey[] = [
   'nav.groupReports',
   'nav.groupAdmin',
 ];
+
+export function getVisibleNavItems(
+  currentUserRole: UserRole,
+  activeTenantId: string | null
+): NavItemConfig[] {
+  const hasTenantContext = currentUserRole !== 'SuperAdmin' || Boolean(activeTenantId);
+  return NAV_ITEMS.filter((item) => {
+    if (!hasTenantContext) {
+      return Boolean(item.roles?.includes('SuperAdmin'));
+    }
+    return !item.roles || item.roles.includes(currentUserRole);
+  });
+}

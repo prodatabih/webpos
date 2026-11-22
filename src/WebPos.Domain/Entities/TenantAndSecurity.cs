@@ -24,7 +24,20 @@ public class User
     public UserRole Role { get; set; }
     public bool IsActive { get; set; } = true;
     public bool MustChangePassword { get; set; }
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetExpiresAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public Tenant? Tenant { get; set; }
+}
+
+public class TenantSetting
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public bool AllowNegativeStock { get; set; }
+    public bool AllowPriceChangeWithoutLeveling { get; set; }
+    public bool AutoCreatePriceLevelingOnInbound { get; set; } = true;
+    public string DefaultCurrency { get; set; } = "BAM";
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }

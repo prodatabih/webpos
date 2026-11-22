@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Calendar, Download, Printer } from 'lucide-react';
+import { Calendar, Download, Printer, Store } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
 import { exportToExcel } from '../../lib/exportExcel';
@@ -37,15 +37,27 @@ export function DailyTurnoverPage() {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [dateFrom, setDateFrom] = useState(todayStr.slice(0, 7) + '-01');
   const [dateTo, setDateTo] = useState(todayStr);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('ALL');
   const [activeDimension, setActiveDimension] = useState<Dimension>('items');
   const [printModalOpen, setPrintModalOpen] = useState(false);
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0] ?? EMPTY_COMPANY_FALLBACK;
 
-  const filteredReceipts = useMemo(
-    () => filterReceiptsByPeriod(posReceipts, activeCompanyId, dateFrom, dateTo),
-    [posReceipts, activeCompanyId, dateFrom, dateTo]
+  const companyStores = useMemo(
+    () => storeLocations.filter((s) => s.companyId === activeCompanyId),
+    [storeLocations, activeCompanyId]
   );
+
+  const effectiveStoreId =
+    selectedStoreId === 'ALL' || companyStores.some((s) => s.id === selectedStoreId)
+      ? selectedStoreId
+      : 'ALL';
+
+  const filteredReceipts = useMemo(() => {
+    const periodReceipts = filterReceiptsByPeriod(posReceipts, activeCompanyId, dateFrom, dateTo);
+    if (effectiveStoreId === 'ALL') return periodReceipts;
+    return periodReceipts.filter((r) => r.storeId === effectiveStoreId);
+  }, [posReceipts, activeCompanyId, dateFrom, dateTo, effectiveStoreId]);
 
   const summary = useMemo(() => calculateSummary(filteredReceipts), [filteredReceipts]);
 
@@ -126,6 +138,23 @@ export function DailyTurnoverPage() {
           <div className="flex items-center gap-2 text-xs font-medium text-foreground">
             <span>{t('reports.dateTo')}:</span>
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded border border-input bg-card px-2 text-xs font-mono text-foreground" />
+          </div>
+          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+            <Store className="h-4 w-4 text-muted-foreground" />
+            <span>Poslovnica:</span>
+            <select
+              aria-label="Poslovnica"
+              value={effectiveStoreId}
+              onChange={(e) => setSelectedStoreId(e.target.value)}
+              className="h-8 rounded border border-input bg-card px-2.5 text-xs font-medium text-foreground"
+            >
+              <option value="ALL">Sve poslovnice ({t('common.all')})</option>
+              {companyStores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.code} — {s.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { BookOpen, Download, Printer } from 'lucide-react';
+import { AlertCircle, BookOpen, Calendar, Download, Printer, Store, X } from 'lucide-react';
 import Decimal from 'decimal.js';
 import { t } from '../../i18n';
 import { d, formatMoney2, round2 } from '../../lib/money';
@@ -30,17 +30,32 @@ export function KepLedgerPage() {
     posReceipts,
   } = useAppStore();
 
-  const [selectedStoreId, setSelectedStoreId] = useState<string>(activeStoreId);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(activeStoreId || 'ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [activeTab, setActiveTab] = useState<LedgerTab>('KEP');
   const [printModalOpen, setPrintModalOpen] = useState(false);
+
+  useEffect(() => {
+    setSelectedStoreId(activeStoreId || 'ALL');
+  }, [activeStoreId]);
 
   const companyStores = useMemo(
     () => storeLocations.filter((s) => s.companyId === activeCompanyId),
     [storeLocations, activeCompanyId]
   );
 
+  const effectiveStoreId = useMemo(() => {
+    if (selectedStoreId === 'ALL') return 'ALL';
+    if (companyStores.some((s) => s.id === selectedStoreId)) return selectedStoreId;
+    return companyStores[0]?.id ?? 'ALL';
+  }, [selectedStoreId, companyStores]);
+
   const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? companies[0] ?? EMPTY_COMPANY_FALLBACK;
-  const currentStore = companyStores.find((s) => s.id === selectedStoreId) ?? companyStores[0] ?? EMPTY_STORE_FALLBACK;
+  const currentStore =
+    effectiveStoreId === 'ALL'
+      ? (companyStores.find((s) => s.id === activeStoreId) ?? companyStores[0] ?? EMPTY_STORE_FALLBACK)
+      : (companyStores.find((s) => s.id === effectiveStoreId) ?? companyStores[0] ?? EMPTY_STORE_FALLBACK);
   const fiscalYearObj = fiscalYears.find((y) => y.id === activeFiscalYearId);
 
   const entries = useMemo(() => {
@@ -48,13 +63,19 @@ export function KepLedgerPage() {
       .filter(
         (e) =>
           e.companyId === activeCompanyId &&
-          e.fiscalYearId === activeFiscalYearId &&
-          (selectedStoreId === 'ALL' ? true : e.storeId === selectedStoreId)
+          (!activeFiscalYearId || e.fiscalYearId === activeFiscalYearId) &&
+          (effectiveStoreId === 'ALL' ? true : e.storeId === effectiveStoreId)
       )
-      .sort((a, b) => a.entryNumber - b.entryNumber);
+      .sort((a, b) =>
+        a.entryDate !== b.entryDate
+          ? a.entryDate < b.entryDate
+            ? -1
+            : 1
+          : a.entryNumber - b.entryNumber
+      );
 
     let running = new Decimal(0);
-    return raw.map((item, idx) => {
+    const withRunning = raw.map((item, idx) => {
       running = running.plus(d(item.debitRetailAmount)).minus(d(item.creditRetailAmount));
       return {
         ...item,
@@ -62,12 +83,26 @@ export function KepLedgerPage() {
         runningBalanceAmount: running.toFixed(2),
       };
     });
-  }, [kepLedgerEntries, activeCompanyId, activeFiscalYearId, selectedStoreId]);
+
+    if (!dateFrom && !dateTo) return withRunning;
+    return withRunning.filter((item) => {
+      const dStr = item.entryDate.slice(0, 10);
+      if (dateFrom && dStr < dateFrom) return false;
+      if (dateTo && dStr > dateTo) return false;
+      return true;
+    });
+  }, [kepLedgerEntries, activeCompanyId, activeFiscalYearId, effectiveStoreId, dateFrom, dateTo]);
 
   const kprEntries = useMemo<KprEntry[]>(() => {
     return posReceipts
       .filter((r) => r.companyId === activeCompanyId && r.status === 'POSTED')
-      .filter((r) => (selectedStoreId === 'ALL' ? true : r.storeId === selectedStoreId))
+      .filter((r) => (effectiveStoreId === 'ALL' ? true : r.storeId === effectiveStoreId))
+      .filter((r) => {
+        const dStr = r.issuedAt.slice(0, 10);
+        if (dateFrom && dStr < dateFrom) return false;
+        if (dateTo && dStr > dateTo) return false;
+        return true;
+      })
       .sort((a, b) => (a.issuedAt < b.issuedAt ? -1 : 1))
       .map((r, idx) => {
         const sign = r.receiptType === 'REFUND' ? -1 : 1;
@@ -77,13 +112,13 @@ export function KepLedgerPage() {
         return {
           entryNumber: idx + 1,
           entryDate: r.issuedAt.slice(0, 10),
-          docNumber: `${r.receiptNumber} (${r.fiscalNumber})`,
+          docNumber: r.fiscalNumber ? `${r.receiptNumber} (${r.fiscalNumber})` : r.receiptNumber,
           cashAmount: round2(cash),
           nonCashAmount: round2(nonCash),
           totalAmount: round2(tot),
         };
       });
-  }, [posReceipts, activeCompanyId, selectedStoreId]);
+  }, [posReceipts, activeCompanyId, effectiveStoreId, dateFrom, dateTo]);
 
   const totals = useMemo(() => {
     let debit = new Decimal(0);
@@ -113,15 +148,18 @@ export function KepLedgerPage() {
     };
   }, [entries, kprEntries]);
 
+  const hasDateFilter = Boolean(dateFrom || dateTo);
+  const storeCodeSlug = effectiveStoreId === 'ALL' ? 'sve-poslovnice' : (currentStore.code || 'poslovnica');
+
   const handleExportExcel = () => {
     if (activeTab === 'KEP') {
       const headers = [t('kep.entryNumber'), t('kep.entryDate'), t('warehouse.docNumber'), t('kep.documentDescription'), t('kep.debitAmount'), t('kep.creditAmount'), t('kep.runningBalance')];
       const rows = entries.map((e) => [e.entryNumber, e.entryDate, e.documentNumber, e.description, Number(e.debitRetailAmount), Number(e.creditRetailAmount), Number(e.runningBalanceAmount)]);
-      exportToExcel(`kep-tkm-${currentStore.code}`, 'Obrazac TKM', headers, rows);
+      exportToExcel(`kep-tkm-${storeCodeSlug}`, 'Obrazac TKM', headers, rows);
     } else {
       const headers = [t('kep.entryNumber'), t('common.date'), t('pos.originalFiscalNumber'), t('kep.cashTurnover'), t('kep.nonCashTurnover'), t('kep.totalTurnover')];
       const rows = kprEntries.map((k) => [k.entryNumber, k.entryDate, k.docNumber, Number(k.cashAmount), Number(k.nonCashAmount), Number(k.totalAmount)]);
-      exportToExcel(`kpr-${currentStore.code}`, 'Obrazac KPR', headers, rows);
+      exportToExcel(`kpr-${storeCodeSlug}`, 'Obrazac KPR', headers, rows);
     }
   };
 
@@ -150,6 +188,20 @@ export function KepLedgerPage() {
     []
   );
 
+  const clearDateFilterAction = hasDateFilter ? (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        setDateFrom('');
+        setDateTo('');
+      }}
+    >
+      <X className="h-3.5 w-3.5" />
+      <span>Poništi filter datuma</span>
+    </Button>
+  ) : undefined;
+
   return (
     <div className="flex flex-col min-h-full">
       <PageHeader
@@ -170,6 +222,15 @@ export function KepLedgerPage() {
       />
 
       <div className="p-6 space-y-5">
+        {companyStores.length === 0 && (
+          <div className="flex items-center gap-2.5 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-xs text-foreground">
+            <AlertCircle className="h-4 w-4 shrink-0 text-warning-foreground" />
+            <span>
+              Nema registrovanih poslovnica za aktivnu firmu. KEP / KPR knjige će se popuniti nakon definisanja poslovnice i knjiženja dokumenata.
+            </span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center justify-between">
@@ -200,7 +261,7 @@ export function KepLedgerPage() {
           </Card>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className="flex gap-2">
             <button
               type="button"
@@ -222,24 +283,75 @@ export function KepLedgerPage() {
             </button>
           </div>
 
-          <select
-            value={selectedStoreId}
-            onChange={(e) => setSelectedStoreId(e.target.value)}
-            className="h-8 rounded-md border border-input bg-card px-2.5 text-xs text-foreground font-medium"
-          >
-            <option value="ALL">{t('common.all')}</option>
-            {companyStores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.code} — {s.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-2.5 text-xs">
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>{t('reports.dateFrom')}:</span>
+              <input
+                type="date"
+                aria-label={t('reports.dateFrom')}
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-8 rounded-md border border-input bg-card px-2 font-mono text-xs text-foreground"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <span>{t('reports.dateTo')}:</span>
+              <input
+                type="date"
+                aria-label={t('reports.dateTo')}
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-8 rounded-md border border-input bg-card px-2 font-mono text-xs text-foreground"
+              />
+            </div>
+            {hasDateFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                title="Poništi filter datuma"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>Poništi</span>
+              </Button>
+            )}
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <Store className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                aria-label="Poslovnica"
+                value={effectiveStoreId}
+                onChange={(e) => setSelectedStoreId(e.target.value)}
+                className="h-8 rounded-md border border-input bg-card px-2.5 text-xs text-foreground font-medium"
+              >
+                <option value="ALL">Sve poslovnice ({t('common.all')})</option>
+                {companyStores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.code} — {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         {activeTab === 'KEP' ? (
-          <DataTable data={entries} columns={kepColumns} exportFileName="kep-tkm" />
+          <DataTable
+            data={entries}
+            columns={kepColumns}
+            exportFileName="kep-tkm"
+            emptyAction={clearDateFilterAction}
+          />
         ) : (
-          <DataTable data={kprEntries} columns={kprColumns} exportFileName="kpr-knjiga-prometa" />
+          <DataTable
+            data={kprEntries}
+            columns={kprColumns}
+            exportFileName="kpr-knjiga-prometa"
+            emptyAction={clearDateFilterAction}
+          />
         )}
       </div>
 
@@ -249,7 +361,7 @@ export function KepLedgerPage() {
         reportType={activeTab}
         company={activeCompany}
         store={currentStore}
-        fiscalYear={fiscalYearObj ? String(fiscalYearObj.year) : '2026'}
+        fiscalYear={fiscalYearObj ? String(fiscalYearObj.year) : String(new Date().getFullYear())}
         kepEntries={entries}
         kprEntries={kprEntries}
         totals={totals}

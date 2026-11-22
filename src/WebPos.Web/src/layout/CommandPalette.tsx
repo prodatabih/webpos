@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search, CornerDownLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { t } from '../i18n';
-import { NAV_ITEMS } from './navConfig';
+import { useAppStore } from '../store/useAppStore';
+import { getVisibleNavItems } from './navConfig';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -12,6 +13,8 @@ export interface CommandPaletteProps {
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
+  const currentUserRole = useAppStore((s) => s.currentUserRole);
+  const activeTenantId = useAppStore((s) => s.activeTenantId);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,15 +40,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
   }, [open]);
 
+  const visibleNavItems = useMemo(
+    () => getVisibleNavItems(currentUserRole, activeTenantId),
+    [currentUserRole, activeTenantId]
+  );
+
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return NAV_ITEMS;
-    return NAV_ITEMS.filter((item) => {
+    if (!q) return visibleNavItems;
+    return visibleNavItems.filter((item) => {
       const label = t(item.labelKey).toLowerCase();
       const group = t(item.groupKey).toLowerCase();
       return label.includes(q) || group.includes(q) || item.path.toLowerCase().includes(q);
     });
-  }, [query]);
+  }, [query, visibleNavItems]);
 
   if (!open) return null;
 

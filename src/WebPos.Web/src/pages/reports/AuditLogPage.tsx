@@ -9,7 +9,54 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
+import { Badge, type BadgeVariant } from '../../components/ui/Badge';
+
+interface AuditActionMeta {
+  label: string;
+  variant: BadgeVariant;
+}
+
+const AUDIT_ACTION_ORDER = [
+  'POST',
+  'REVERSE',
+  'DELETE_DRAFT',
+  'POS_SALE',
+  'POS_REFUND',
+  'FISCALIZE',
+  'LOCK_PERIOD',
+  'UNLOCK_PERIOD',
+  'UPDATE_SETTINGS',
+  'LOGIN',
+  'CHANGE_PASSWORD',
+  'FORGOT_PASSWORD',
+  'RESET_PASSWORD',
+  'CREATE_USER',
+  'CREATE_TENANT',
+  'TOGGLE_TENANT',
+  'CREATE',
+  'UPDATE',
+] as const;
+
+const AUDIT_ACTION_META: Record<string, AuditActionMeta> = {
+  POST: { label: 'Knjiženje', variant: 'success' },
+  POS_SALE: { label: 'POS prodaja', variant: 'success' },
+  FISCALIZE: { label: 'Fiskalizacija', variant: 'success' },
+  REVERSE: { label: 'Storno', variant: 'destructive' },
+  POS_REFUND: { label: 'POS reklamacija', variant: 'destructive' },
+  DELETE_DRAFT: { label: 'Brisanje nacrta', variant: 'destructive' },
+  LOCK_PERIOD: { label: 'Zaključavanje perioda', variant: 'destructive' },
+  UNLOCK_PERIOD: { label: 'Otključavanje perioda', variant: 'warning' },
+  TOGGLE_TENANT: { label: 'Status tenanta', variant: 'warning' },
+  CHANGE_PASSWORD: { label: 'Promjena lozinke', variant: 'warning' },
+  FORGOT_PASSWORD: { label: 'Zahtjev za reset lozinke', variant: 'warning' },
+  RESET_PASSWORD: { label: 'Reset lozinke', variant: 'warning' },
+  CREATE_TENANT: { label: 'Novi tenant', variant: 'default' },
+  CREATE_USER: { label: 'Novi korisnik', variant: 'default' },
+  CREATE: { label: 'Kreiranje', variant: 'default' },
+  UPDATE_SETTINGS: { label: 'Postavke sistema', variant: 'secondary' },
+  UPDATE: { label: 'Izmjena', variant: 'secondary' },
+  LOGIN: { label: 'Prijava', variant: 'outline' },
+};
 
 function formatStatePayload(raw?: string): string {
   if (!raw) return '-';
@@ -26,18 +73,33 @@ export function AuditLogPage() {
   const [actionFilter, setActionFilter] = useState<string>('ALL');
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
 
+  const availableActions = useMemo(() => {
+    const known = new Set<string>(AUDIT_ACTION_ORDER);
+    const extras: string[] = [];
+    auditLog.forEach((entry) => {
+      const act = String(entry.action);
+      if (act && !known.has(act) && !extras.includes(act)) {
+        extras.push(act);
+      }
+    });
+    return [...AUDIT_ACTION_ORDER, ...extras];
+  }, [auditLog]);
+
   const filteredLogs = useMemo(() => {
     return auditLog.filter((entry) =>
-      actionFilter === 'ALL' ? true : entry.action === actionFilter
+      actionFilter === 'ALL' ? true : String(entry.action) === actionFilter
     );
   }, [auditLog, actionFilter]);
 
-  const actionBadge = (action: AuditLogEntry['action']) => {
-    if (action === 'POST') return <Badge variant="success">{action}</Badge>;
-    if (action === 'REVERSE' || action === 'LOCK_PERIOD') {
-      return <Badge variant="destructive">{action}</Badge>;
+  const actionBadge = (action: string) => {
+    const meta = AUDIT_ACTION_META[action];
+    if (meta) {
+      return (
+        <Badge variant={meta.variant} title={action}>
+          {meta.label}
+        </Badge>
+      );
     }
-    if (action === 'UNLOCK_PERIOD') return <Badge variant="warning">{action}</Badge>;
     return <Badge variant="secondary">{action}</Badge>;
   };
 
@@ -80,7 +142,7 @@ export function AuditLogPage() {
       {
         accessorKey: 'action',
         header: t('audit.action'),
-        cell: ({ row }) => actionBadge(row.original.action),
+        cell: ({ row }) => actionBadge(String(row.original.action)),
       },
       {
         accessorKey: 'summary',
@@ -135,13 +197,15 @@ export function AuditLogPage() {
               onChange={(e) => setActionFilter(e.target.value)}
               className="h-8 rounded-md border border-input bg-card px-2.5 text-xs text-foreground"
             >
-              <option value="ALL">{t('common.all')}</option>
-              <option value="POST">POST</option>
-              <option value="REVERSE">REVERSE</option>
-              <option value="CREATE">CREATE</option>
-              <option value="UPDATE">UPDATE</option>
-              <option value="LOCK_PERIOD">LOCK_PERIOD</option>
-              <option value="UNLOCK_PERIOD">UNLOCK_PERIOD</option>
+              <option value="ALL">Sve akcije ({t('common.all')})</option>
+              {availableActions.map((act) => {
+                const meta = AUDIT_ACTION_META[act];
+                return (
+                  <option key={act} value={act}>
+                    {meta ? `${meta.label} (${act})` : act}
+                  </option>
+                );
+              })}
             </select>
           }
         />
@@ -174,7 +238,12 @@ export function AuditLogPage() {
               </div>
               <div>
                 <div className="text-muted-foreground">{t('audit.action')}</div>
-                <div className="mt-0.5">{actionBadge(selectedEntry.action)}</div>
+                <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  {actionBadge(String(selectedEntry.action))}
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {selectedEntry.action}
+                  </span>
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <div className="text-muted-foreground">{t('audit.summary')}</div>

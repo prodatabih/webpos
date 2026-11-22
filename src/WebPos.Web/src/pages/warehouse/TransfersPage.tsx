@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Eye, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Plus, Eye, CheckCircle2, RotateCcw, Trash2 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { d, formatMoney2 } from '../../lib/money';
@@ -11,12 +11,21 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { showToast } from '../../components/ui/Toast';
 import { TransferDialog } from './TransferDialog';
+import { buildBlankTransferLine } from './transferUtils';
+
+type ConfirmState =
+  | { type: 'post'; doc: TransferDocument }
+  | { type: 'delete'; doc: TransferDocument }
+  | { type: 'reverse'; doc: TransferDocument }
+  | null;
 
 export function TransfersPage() {
   const store = useAppStore();
   const [editingDoc, setEditingDoc] = useState<TransferDocument | null>(null);
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
 
   const storeTransfers = useMemo(
     () =>
@@ -28,45 +37,80 @@ export function TransfersPage() {
   );
 
   const handleCreateNew = () => {
+    if (!store.activeStoreId) {
+      showToast({ title: 'Prvo odaberite ili kreirajte poslovnicu.', variant: 'error' });
+      return;
+    }
+    if (!store.activeFiscalYearId) {
+      showToast({
+        title: 'Prvo kreirajte poslovnu godinu (Matični podaci -> Poslovni periodi).',
+        variant: 'error',
+      });
+      return;
+    }
     const seq = String(store.transfers.length + 1).padStart(4, '0');
     const today = new Date().toISOString().slice(0, 10);
-    const otherStore = store.storeLocations.find((s) => s.id !== store.activeStoreId);
+    const activeYear =
+      store.fiscalYears.find((fy) => fy.id === store.activeFiscalYearId)?.year ??
+      new Date().getFullYear();
+    const otherStore = store.storeLocations.find(
+      (s) => s.isActive && s.id !== store.activeStoreId
+    );
     const newDoc: TransferDocument = {
       id: generateUuidV7(),
       companyId: store.activeCompanyId,
       fiscalYearId: store.activeFiscalYearId,
       sourceStoreId: store.activeStoreId,
-      targetStoreId: otherStore?.id ?? store.activeStoreId,
-      docNumber: `MS-2026-${seq}`,
+      targetStoreId: otherStore?.id ?? '',
+      docNumber: `MS-${activeYear}-${seq}`,
       docDate: today,
       status: 'DRAFT',
       notes: '',
-      lines: [],
+      lines: [buildBlankTransferLine()],
       totalPurchaseValue: '0.00',
       totalSourceRetailValue: '0.00',
       totalTargetRetailValue: '0.00',
       createdBy: store.currentUserName,
       createdAt: new Date().toISOString(),
     };
-    store.saveTransferDraft(newDoc);
     setEditingDoc(newDoc);
   };
 
-  const handlePost = (docId: string) => {
-    const res = store.postTransfer(docId);
+  const executePost = async (docId: string) => {
+    const res = await store.postTransfer(docId);
     if (res.ok) {
       showToast({ title: t('messages.documentPosted'), variant: 'success' });
-    } else if (res.error) {
-      showToast({ title: res.error, variant: 'error' });
+    } else {
+      showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
     }
+    return res;
   };
 
-  const handleReverse = (docId: string) => {
-    const res = store.reverseTransfer(docId);
-    if (res.ok) {
-      showToast({ title: t('messages.documentReversed'), variant: 'info' });
-    } else if (res.error) {
-      showToast({ title: res.error, variant: 'error' });
+  const handleConfirmAction = async (reason?: string) => {
+    if (!confirmState) return;
+    if (confirmState.type === 'post') {
+      const res = await executePost(confirmState.doc.id);
+      if (res.ok) setConfirmState(null);
+      return;
+    }
+    if (confirmState.type === 'delete') {
+      const res = await store.deleteTransferDraft(confirmState.doc.id);
+      if (res.ok) {
+        showToast({ title: 'Nacrt međuskladišnice je uspješno obrisan.', variant: 'success' });
+        setConfirmState(null);
+      } else {
+        showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
+      }
+      return;
+    }
+    if (confirmState.type === 'reverse') {
+      const res = await store.reverseTransfer(confirmState.doc.id, reason);
+      if (res.ok) {
+        showToast({ title: t('messages.documentReversed'), variant: 'info' });
+        setConfirmState(null);
+      } else {
+        showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
+      }
     }
   };
 
@@ -141,13 +185,31 @@ export function TransfersPage() {
                 <span>{tr.status === 'DRAFT' ? t('common.edit') : t('common.view')}</span>
               </Button>
               {tr.status === 'DRAFT' && (
-                <Button variant="success" size="sm" onClick={() => handlePost(tr.id)}>
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>{t('common.postDocument')}</span>
-                </Button>
+                <>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => setConfirmState({ type: 'post', doc: tr })}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>{t('common.postDocument')}</span>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setConfirmState({ type: 'delete', doc: tr })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>{t('common.delete')}</span>
+                  </Button>
+                </>
               )}
               {tr.status === 'POSTED' && (
-                <Button variant="destructive" size="sm" onClick={() => handleReverse(tr.id)}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setConfirmState({ type: 'reverse', doc: tr })}
+                >
                   <RotateCcw className="h-3.5 w-3.5" />
                   <span>{t('common.reverseDocument')}</span>
                 </Button>
@@ -188,34 +250,84 @@ export function TransfersPage() {
           open={Boolean(editingDoc)}
           onOpenChange={(open) => !open && setEditingDoc(null)}
           initialDoc={editingDoc}
-          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0] ?? EMPTY_COMPANY_FALLBACK}
+          company={
+            store.companies.find((c) => c.id === store.activeCompanyId) ??
+            store.companies[0] ??
+            EMPTY_COMPANY_FALLBACK
+          }
           storeLocations={store.storeLocations}
           items={store.items}
           vatRates={store.vatRates}
           storePrices={store.storeItemPrices}
-          onSaveDraft={(draft) => {
-            const res = store.saveTransferDraft(draft);
+          onSaveDraft={async (draft) => {
+            const res = await store.saveTransferDraft(draft);
             if (res.ok) {
               showToast({ title: t('messages.documentSavedDraft'), variant: 'success' });
               setEditingDoc(null);
-            } else if (res.error) {
-              showToast({ title: res.error, variant: 'error' });
+            } else {
+              showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
             }
+            return res;
           }}
-          onPostDocument={(draft) => {
-            const saved = store.saveTransferDraft(draft);
+          onPostDocument={async (draft) => {
+            const saved = await store.saveTransferDraft(draft);
             if (!saved.ok) {
-              if (saved.error) showToast({ title: saved.error, variant: 'error' });
-              return;
+              showToast({ title: saved.error || t('common.errorTitle'), variant: 'error' });
+              return saved;
             }
-            handlePost(draft.id);
-            setEditingDoc(null);
+            const posted = await executePost(draft.id);
+            if (posted.ok) {
+              setEditingDoc(null);
+            }
+            return posted;
           }}
-          onAutoSave={(draft) => {
-            store.saveTransferDraft(draft);
+          onAutoSave={async (draft) => {
+            if (
+              !draft.sourceStoreId ||
+              !draft.targetStoreId ||
+              draft.sourceStoreId === draft.targetStoreId ||
+              !draft.lines.some((l) => Boolean(l.itemId))
+            ) {
+              return { ok: false };
+            }
+            return store.saveTransferDraft(draft);
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(confirmState)}
+        onOpenChange={(open) => !open && setConfirmState(null)}
+        title={
+          confirmState?.type === 'post'
+            ? `Knjiženje međuskladišnice ${confirmState.doc.docNumber}`
+            : confirmState?.type === 'delete'
+            ? `Brisanje nacrta ${confirmState.doc.docNumber}`
+            : confirmState?.type === 'reverse'
+            ? `Storniranje međuskladišnice ${confirmState.doc.docNumber}`
+            : ''
+        }
+        description={
+          confirmState?.type === 'post'
+            ? 'Da li ste sigurni da želite proknjižiti ovu međuskladišnicu? Zaliha će biti razdužena sa izlaznog i zadužena na ulaznom skladištu.'
+            : confirmState?.type === 'delete'
+            ? 'Da li ste sigurni da želite trajno obrisati ovaj nacrt međuskladišnice?'
+            : confirmState?.type === 'reverse'
+            ? 'Storniranjem se kreira protuknjiženje i poništava prenos robe između skladišta.'
+            : undefined
+        }
+        confirmLabel={
+          confirmState?.type === 'post'
+            ? t('common.postDocument')
+            : confirmState?.type === 'delete'
+            ? t('common.delete')
+            : t('common.reverseDocument')
+        }
+        variant={confirmState?.type === 'post' ? 'primary' : 'destructive'}
+        requireReason={confirmState?.type === 'reverse'}
+        reasonLabel={t('warehouse.reversalReason')}
+        onConfirm={handleConfirmAction}
+      />
     </div>
   );
 }

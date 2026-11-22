@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Edit2, Plus } from 'lucide-react';
+import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
 import { useAppStore } from '../../store/useAppStore';
@@ -9,19 +9,34 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { showToast } from '../../components/ui/Toast';
 import { PartnerFormDialog } from './PartnerFormDialog';
 
 export function PartnersPage() {
-  const { activeCompanyId, partners } = useAppStore();
+  const { activeCompanyId, partners, deletePartner } = useAppStore();
   const [typeFilter, setTypeFilter] = useState<'ALL' | PartnerType>('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
 
   const filteredPartners = useMemo(() => {
     return partners
-      .filter((p) => p.companyId === activeCompanyId)
+      .filter((p) => !p.companyId || !activeCompanyId || p.companyId === activeCompanyId)
       .filter((p) => (typeFilter === 'ALL' ? true : p.partnerType === typeFilter));
   }, [partners, activeCompanyId, typeFilter]);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const res = await deletePartner(deleteTarget.id);
+    if (!res.ok) {
+      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+    showToast({ title: 'Poslovni partner je uspješno obrisan.', variant: 'success' });
+    setDeleteTarget(null);
+  };
 
   const partnerTypeBadge = (pt: PartnerType) => {
     if (pt === 'SUPPLIER') {
@@ -45,14 +60,19 @@ export function PartnersPage() {
       {
         accessorKey: 'name',
         header: t('common.name'),
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium text-foreground">{row.original.name}</span>
-            <span className="text-[11px] text-muted-foreground">
-              {row.original.address}, {row.original.city}
-            </span>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const location = [row.original.address, row.original.city]
+            .filter((v) => v && v.trim())
+            .join(', ');
+          return (
+            <div className="flex flex-col">
+              <span className="font-medium text-foreground">{row.original.name}</span>
+              {location && (
+                <span className="text-[11px] text-muted-foreground">{location}</span>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'partnerType',
@@ -62,7 +82,9 @@ export function PartnersPage() {
       {
         accessorKey: 'taxIdNumber',
         header: t('master.taxIdNumber'),
-        cell: ({ row }) => <span className="font-mono">{row.original.taxIdNumber}</span>,
+        cell: ({ row }) => (
+          <span className="font-mono">{row.original.taxIdNumber || '-'}</span>
+        ),
       },
       {
         accessorKey: 'vatIdNumber',
@@ -102,7 +124,7 @@ export function PartnersPage() {
         id: 'actions',
         header: t('common.actions'),
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -114,6 +136,18 @@ export function PartnersPage() {
             >
               <Edit2 className="h-3.5 w-3.5" />
               <span>{t('common.edit')}</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget(row.original);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{t('common.delete')}</span>
             </Button>
           </div>
         ),
@@ -173,6 +207,18 @@ export function PartnersPage() {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         editingPartner={editingPartner}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        variant="destructive"
+        title={deleteTarget ? `Obrisati partnera "${deleteTarget.name}"?` : ''}
+        description="Brisanje poslovnog partnera je nepovratno i moguće je samo ako partner nema povezanih dokumenata ili računa."
+        confirmLabel={t('common.delete')}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

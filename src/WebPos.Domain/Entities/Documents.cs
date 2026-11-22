@@ -68,6 +68,8 @@ public class PriceLeveling
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
     public string? Reason { get; set; }
     public decimal TotalDifferenceAmount2 { get; set; }
+    public decimal TotalVatDifference2 { get; set; }
+    public decimal TotalMarginDifference2 { get; set; }
     public Guid? CreatedByUserId { get; set; }
     public Guid? PostedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -89,6 +91,9 @@ public class PriceLevelingLine
     public decimal NewRetailPriceInclVat2 { get; set; }
     public decimal PriceDifference2 { get; set; }
     public decimal TotalDifference2 { get; set; }
+    public decimal VatRatePercent { get; set; } = 17m;
+    public decimal VatDifference2 { get; set; }
+    public decimal MarginDifference2 { get; set; }
 
     public PriceLeveling? PriceLeveling { get; set; }
     public Item? Item { get; set; }
@@ -169,5 +174,45 @@ public class InventoryCountLine
     public decimal VatRatePercent { get; set; }
 
     public InventoryCount? InventoryCount { get; set; }
+    public Item? Item { get; set; }
+}
+
+public class OtherWarehouseDocument
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid StoreId { get; set; }
+    public Guid FiscalYearId { get; set; }
+    public string DocumentNumber { get; set; } = string.Empty;
+    public DateTime DocumentDate { get; set; }
+    public OtherWarehouseDocSubtype Subtype { get; set; }
+    public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
+    public string? Note { get; set; }
+    public decimal TotalPurchaseValue2 { get; set; }
+    public decimal TotalRetailValue2 { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public Guid? PostedByUserId { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? PostedAtUtc { get; set; }
+
+    public Store? Store { get; set; }
+    public ICollection<OtherWarehouseDocumentLine> Lines { get; set; } = new List<OtherWarehouseDocumentLine>();
+}
+
+public class OtherWarehouseDocumentLine
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OtherWarehouseDocumentId { get; set; }
+    public int LineNumber { get; set; }
+    public Guid ItemId { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal PurchasePriceExclVat4 { get; set; }
+    public decimal RetailPriceInclVat2 { get; set; }
+    public decimal LinePurchaseTotal2 { get; set; }
+    public decimal LineRetailTotal2 { get; set; }
+    public string? Reason { get; set; }
+
+    public OtherWarehouseDocument? OtherWarehouseDocument { get; set; }
     public Item? Item { get; set; }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Edit2, Plus } from 'lucide-react';
+import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, round2 } from '../../lib/money';
 import { formatDateBs, generateUuidV7 } from '../../lib/utils';
@@ -9,29 +9,38 @@ import type { VatRate } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
 
 export function VatRatesPage() {
-  const { activeCompanyId, vatRates, upsertVatRate } = useAppStore();
+  const { activeCompanyId, vatRates, upsertVatRate, deleteVatRate } = useAppStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRate, setEditingRate] = useState<VatRate | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<VatRate | null>(null);
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [ratePercent, setRatePercent] = useState('17.00');
   const [validFrom, setValidFrom] = useState('2026-01-01');
   const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    code?: string;
+    name?: string;
+    ratePercent?: string;
+  }>({});
 
   const companyRates = useMemo(
-    () => vatRates.filter((vr) => vr.companyId === activeCompanyId),
+    () => vatRates.filter((vr) => !vr.companyId || !activeCompanyId || vr.companyId === activeCompanyId),
     [vatRates, activeCompanyId]
   );
 
   useEffect(() => {
     if (!dialogOpen) return;
+    setFieldErrors({});
     if (editingRate) {
       setCode(editingRate.code);
       setName(editingRate.name);
@@ -48,23 +57,56 @@ export function VatRatesPage() {
   }, [dialogOpen, editingRate]);
 
   const handleSave = async () => {
-    if (!code.trim() || !name.trim()) return;
-    const payload: VatRate = {
-      id: editingRate?.id ?? generateUuidV7(),
-      companyId: activeCompanyId,
-      code: code.trim().toUpperCase(),
-      name: name.trim(),
-      ratePercent: round2(ratePercent),
-      validFrom: validFrom || '2026-01-01',
-      isActive,
-    };
-    const res = await upsertVatRate(payload);
-    if (!res.ok) {
-      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+    if (saving) return;
+    const normalizedRate = ratePercent.trim().replace(',', '.');
+    const parsedRate = Number(normalizedRate);
+
+    const nextErrors: { code?: string; name?: string; ratePercent?: string } = {};
+    if (!code.trim()) nextErrors.code = t('common.requiredField');
+    if (!name.trim()) nextErrors.name = t('common.requiredField');
+    if (!normalizedRate || !Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100) {
+      nextErrors.ratePercent = 'Unesite ispravnu PDV stopu (0 – 100).';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
       return;
     }
-    showToast({ title: t('messages.recordSaved'), variant: 'success' });
-    setDialogOpen(false);
+
+    setFieldErrors({});
+    setSaving(true);
+    try {
+      const payload: VatRate = {
+        id: editingRate?.id ?? generateUuidV7(),
+        companyId: editingRate?.companyId ?? activeCompanyId,
+        code: code.trim().toUpperCase(),
+        name: name.trim(),
+        ratePercent: round2(normalizedRate),
+        validFrom: validFrom || '2026-01-01',
+        isActive,
+      };
+      const res = await upsertVatRate(payload);
+      if (!res.ok) {
+        showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+        return;
+      }
+      showToast({ title: t('messages.recordSaved'), variant: 'success' });
+      setDialogOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const res = await deleteVatRate(deleteTarget.id);
+    if (!res.ok) {
+      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+    showToast({ title: 'PDV stopa je uspješno obrisana.', variant: 'success' });
+    setDeleteTarget(null);
   };
 
   const columns = useMemo<ColumnDef<VatRate>[]>(
@@ -114,7 +156,7 @@ export function VatRatesPage() {
         id: 'actions',
         header: t('common.actions'),
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -126,6 +168,18 @@ export function VatRatesPage() {
             >
               <Edit2 className="h-3.5 w-3.5" />
               <span>{t('common.edit')}</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget(row.original);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{t('common.delete')}</span>
             </Button>
           </div>
         ),
@@ -170,15 +224,17 @@ export function VatRatesPage() {
 
       <Dialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={() => {
+          if (!saving) setDialogOpen(false);
+        }}
         size="sm"
         title={editingRate ? `${t('common.edit')} — ${editingRate.name}` : t('common.create')}
         footer={
           <>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               {t('common.cancel')}
             </Button>
-            <Button variant="primary" onClick={handleSave}>
+            <Button variant="primary" onClick={() => void handleSave()} isLoading={saving}>
               {t('common.save')}
             </Button>
           </>
@@ -190,14 +246,24 @@ export function VatRatesPage() {
               label={t('common.code')}
               required
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              error={fieldErrors.code}
+              onChange={(e) => {
+                setCode(e.target.value);
+                if (fieldErrors.code) setFieldErrors((prev) => ({ ...prev, code: undefined }));
+              }}
               className="font-mono"
             />
             <Input
               label={t('common.vat')}
               required
               value={ratePercent}
-              onChange={(e) => setRatePercent(e.target.value)}
+              error={fieldErrors.ratePercent}
+              onChange={(e) => {
+                setRatePercent(e.target.value);
+                if (fieldErrors.ratePercent) {
+                  setFieldErrors((prev) => ({ ...prev, ratePercent: undefined }));
+                }
+              }}
               className="font-mono text-right"
             />
           </div>
@@ -205,7 +271,11 @@ export function VatRatesPage() {
             label={t('common.name')}
             required
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            error={fieldErrors.name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+            }}
           />
           <Input
             label={t('common.date')}
@@ -225,6 +295,18 @@ export function VatRatesPage() {
           </label>
         </div>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        variant="destructive"
+        title={deleteTarget ? `Obrisati PDV stopu "${deleteTarget.code} — ${deleteTarget.name}"?` : ''}
+        description="Brisanje poreske stope je nepovratno i moguće je samo ako stopa nije dodijeljena artiklima."
+        confirmLabel={t('common.delete')}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

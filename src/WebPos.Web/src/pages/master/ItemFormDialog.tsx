@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { t } from '../../i18n';
 import { cn, generateUuidV7 } from '../../lib/utils';
-import { round4 } from '../../lib/money';
+import { round2, round4 } from '../../lib/money';
 import { useAppStore } from '../../store/useAppStore';
 import type {
   Item,
@@ -9,6 +9,7 @@ import type {
   ItemBomLine,
   ItemType,
   NormativeMode,
+  StoreItemPrice,
 } from '../../types/domain';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
@@ -57,7 +58,24 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
   const [isActive, setIsActive] = useState(true);
   const [localBarcodes, setLocalBarcodes] = useState<ItemBarcode[]>([]);
   const [localBomLines, setLocalBomLines] = useState<ItemBomLine[]>([]);
+  const [localStorePrices, setLocalStorePrices] = useState<StoreItemPrice[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const availableVatRates = useMemo(() => {
+    const filtered = vatRates.filter(
+      (vr) => !vr.companyId || !activeCompanyId || vr.companyId === activeCompanyId
+    );
+    return filtered.length > 0 ? filtered : vatRates;
+  }, [vatRates, activeCompanyId]);
+
+  const companyStores = useMemo(
+    () =>
+      storeLocations.filter(
+        (s) => !activeCompanyId || s.companyId === activeCompanyId
+      ),
+    [storeLocations, activeCompanyId]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -66,21 +84,22 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
     if (editingItem) {
       setItemId(editingItem.id);
       setSku(editingItem.sku);
-      setPrimaryBarcode(editingItem.primaryBarcode);
+      setPrimaryBarcode(editingItem.primaryBarcode ?? '');
       setName(editingItem.name);
-      setShortName(editingItem.shortName);
+      setShortName(editingItem.shortName ?? '');
       setItemType(editingItem.itemType);
       setNormativeMode(editingItem.normativeMode);
       setUom(editingItem.uom);
       setNetContentQty(editingItem.netContentQty);
       setNetContentUom(editingItem.netContentUom);
       setVatRateId(editingItem.vatRateId);
-      setCategoryName(editingItem.categoryName);
-      setCountryOfOrigin(editingItem.countryOfOrigin);
-      setIsWeighable(editingItem.isWeighable);
+      setCategoryName(editingItem.categoryName ?? '');
+      setCountryOfOrigin(editingItem.countryOfOrigin ?? 'Bosna i Hercegovina');
+      setIsWeighable(Boolean(editingItem.isWeighable));
       setIsActive(editingItem.isActive);
       setLocalBarcodes(itemBarcodes.filter((b) => b.itemId === editingItem.id));
       setLocalBomLines(itemBomLines.filter((b) => b.parentItemId === editingItem.id));
+      setLocalStorePrices([]);
     } else {
       const nextId = generateUuidV7();
       setItemId(nextId);
@@ -93,13 +112,14 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
       setUom('kom');
       setNetContentQty('1.0000');
       setNetContentUom('kg');
-      setVatRateId(vatRates[0]?.id ?? 'vat-e17');
+      setVatRateId(availableVatRates[0]?.id ?? '');
       setCategoryName('');
       setCountryOfOrigin('Bosna i Hercegovina');
       setIsWeighable(false);
       setIsActive(true);
       setLocalBarcodes([]);
       setLocalBomLines([]);
+      setLocalStorePrices([]);
     }
   }, [open, editingItem]);
 
@@ -110,42 +130,93 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
     }
   };
 
+  const handleLocalStorePriceUpsert = (price: StoreItemPrice) => {
+    setLocalStorePrices((prev) => {
+      const idx = prev.findIndex(
+        (p) => p.storeId === price.storeId && p.itemId === price.itemId
+      );
+      if (idx >= 0) {
+        return prev.map((p, i) => (i === idx ? price : p));
+      }
+      return [...prev, price];
+    });
+  };
+
+  const handleExistingStorePriceUpsert = async (price: StoreItemPrice) => {
+    const res = await upsertStoreItemPrice(price);
+    if (!res.ok) {
+      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+    } else {
+      showToast({ title: t('messages.recordSaved'), variant: 'success' });
+    }
+  };
+
   const handleSave = async () => {
-    if (!sku.trim() || !name.trim() || !primaryBarcode.trim()) {
-      setErrorMsg(t('common.requiredField'));
+    if (saving) return;
+    const barcodeRequired = itemType !== 'SERVICE';
+    if (!sku.trim() || !name.trim() || (barcodeRequired && !primaryBarcode.trim())) {
+      setErrorMsg(
+        barcodeRequired
+          ? 'Popunite obavezna polja: Šifra artikla, Primarni EAN barkod i Naziv.'
+          : 'Popunite obavezna polja: Šifra artikla i Naziv.'
+      );
       return;
     }
-    const resolvedVatId = vatRateId || vatRates[0]?.id || '';
+    const resolvedVatId = vatRateId || availableVatRates[0]?.id || '';
     if (!resolvedVatId) {
       setErrorMsg('Prvo definišite barem jednu PDV stopu u Matični podaci -> PDV stope.');
       return;
     }
-    const payload: Item = {
-      id: itemId,
-      companyId: activeCompanyId,
-      sku: sku.trim(),
-      primaryBarcode: primaryBarcode.trim(),
-      name: name.trim(),
-      shortName: shortName.trim() || name.trim().slice(0, 24),
-      itemType,
-      normativeMode: itemType === 'COMPOSITE' ? 'ON_SALE_BACKFLUSH' : normativeMode,
-      uom: uom.trim() || 'kom',
-      netContentQty: round4(netContentQty),
-      netContentUom: netContentUom.trim() || 'kg',
-      vatRateId: resolvedVatId,
-      categoryName: categoryName.trim(),
-      countryOfOrigin: countryOfOrigin.trim(),
-      isWeighable,
-      isActive,
-    };
-    const res = await upsertItem(payload, localBarcodes, localBomLines);
-    if (!res.ok) {
-      setErrorMsg(res.error ?? 'Greška pri snimanju artikla.');
-      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
-      return;
+
+    setErrorMsg('');
+    setSaving(true);
+    try {
+      const payload: Item = {
+        id: itemId,
+        companyId: editingItem?.companyId ?? activeCompanyId,
+        sku: sku.trim(),
+        primaryBarcode: primaryBarcode.trim(),
+        name: name.trim(),
+        shortName: shortName.trim() || name.trim().slice(0, 24),
+        itemType,
+        normativeMode: itemType === 'COMPOSITE' ? 'ON_SALE_BACKFLUSH' : normativeMode,
+        uom: uom.trim() || 'kom',
+        netContentQty: round4(netContentQty.replace(',', '.')),
+        netContentUom: netContentUom.trim() || 'kg',
+        vatRateId: resolvedVatId,
+        categoryName: categoryName.trim(),
+        countryOfOrigin: countryOfOrigin.trim(),
+        isWeighable,
+        isActive,
+      };
+
+      const normalizedStorePrices =
+        !editingItem && localStorePrices.length > 0
+          ? localStorePrices.map((sp) => ({
+              ...sp,
+              itemId,
+              retailUnitPriceWithVat: round2(String(sp.retailUnitPriceWithVat).replace(',', '.')),
+              minStockQty: round4(String(sp.minStockQty).replace(',', '.')),
+              updatedAt: new Date().toISOString(),
+            }))
+          : undefined;
+
+      const res = await upsertItem(
+        payload,
+        localBarcodes,
+        localBomLines,
+        normalizedStorePrices
+      );
+      if (!res.ok) {
+        setErrorMsg(res.error ?? 'Greška pri snimanju artikla.');
+        showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+        return;
+      }
+      showToast({ title: t('messages.recordSaved'), variant: 'success' });
+      onClose();
+    } finally {
+      setSaving(false);
     }
-    showToast({ title: t('messages.recordSaved'), variant: 'success' });
-    onClose();
   };
 
   const tabs: Array<{ id: ActiveTab; label: string }> = [
@@ -159,13 +230,19 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        if (!saving) onClose();
+      }}
       size="xl"
       title={editingItem ? `${t('common.edit')} — ${editingItem.name}` : t('common.create')}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button variant="primary" onClick={handleSave}>{t('common.save')}</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="primary" onClick={() => void handleSave()} isLoading={saving}>
+            {t('common.save')}
+          </Button>
         </>
       }
     >
@@ -192,8 +269,21 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
 
         {activeTab === 'basic' && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            <Input label={t('master.sku')} required value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" />
-            <Input label={t('master.barcode')} required value={primaryBarcode} onChange={(e) => setPrimaryBarcode(e.target.value)} className="font-mono" />
+            <Input
+              label={t('master.sku')}
+              required
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              className="font-mono"
+            />
+            <Input
+              label={t('master.barcode')}
+              required={itemType !== 'SERVICE'}
+              placeholder={itemType === 'SERVICE' ? 'Opcionalno za usluge' : undefined}
+              value={primaryBarcode}
+              onChange={(e) => setPrimaryBarcode(e.target.value)}
+              className="font-mono"
+            />
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-foreground">{t('master.itemType')}</label>
               <select
@@ -208,9 +298,18 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
               </select>
             </div>
             <div className="sm:col-span-2">
-              <Input label={t('common.name')} required value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                label={t('common.name')}
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
-            <Input label={t('common.description')} value={shortName} onChange={(e) => setShortName(e.target.value)} />
+            <Input
+              label={t('common.description')}
+              value={shortName}
+              onChange={(e) => setShortName(e.target.value)}
+            />
             <Input label={t('common.uom')} value={uom} onChange={(e) => setUom(e.target.value)} />
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-foreground">{t('common.vat')}</label>
@@ -219,8 +318,10 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
                 onChange={(e) => setVatRateId(e.target.value)}
                 className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground"
               >
-                {vatRates.map((vr) => (
-                  <option key={vr.id} value={vr.id}>{vr.code} — {vr.name}</option>
+                {availableVatRates.map((vr) => (
+                  <option key={vr.id} value={vr.id}>
+                    {vr.code} — {vr.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -238,6 +339,26 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
                 ))}
               </datalist>
             </div>
+            <div className="sm:col-span-3 flex flex-wrap items-center gap-6 pt-1">
+              <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isWeighable}
+                  onChange={(e) => setIsWeighable(e.target.checked)}
+                  className="rounded border-input"
+                />
+                <span>Vagani artikal (vaga / težinski barkod)</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="rounded border-input"
+                />
+                <span>{t('common.active')}</span>
+              </label>
+            </div>
           </div>
         )}
 
@@ -250,18 +371,36 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
             parentItemId={itemId}
             allItems={items}
             bomLines={localBomLines}
-            stores={storeLocations.filter((s) => s.companyId === activeCompanyId)}
+            stores={companyStores}
             onChange={setLocalBomLines}
           />
         )}
 
         {activeTab === 'declaration' && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            <Input label={t('master.countryOfOrigin')} value={countryOfOrigin} onChange={(e) => setCountryOfOrigin(e.target.value)} />
-            <Input label={t('master.netContent')} value={netContentQty} onChange={(e) => setNetContentQty(e.target.value)} className="font-mono text-right" />
-            <Input label={t('common.uom')} value={netContentUom} onChange={(e) => setNetContentUom(e.target.value)} />
+            <Input
+              label={t('master.countryOfOrigin')}
+              value={countryOfOrigin}
+              onChange={(e) => setCountryOfOrigin(e.target.value)}
+            />
+            <Input
+              label={t('master.netContent')}
+              value={netContentQty}
+              onChange={(e) => setNetContentQty(e.target.value)}
+              className="font-mono text-right"
+            />
+            <Input
+              label={t('common.uom')}
+              value={netContentUom}
+              onChange={(e) => setNetContentUom(e.target.value)}
+            />
             <label className="flex items-center gap-2 text-xs font-medium text-foreground pt-2 cursor-pointer">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-input" />
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="rounded border-input"
+              />
               <span>{t('common.active')}</span>
             </label>
           </div>
@@ -270,17 +409,16 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
         {activeTab === 'prices' && (
           <ItemStorePricesTab
             itemId={itemId}
-            stores={storeLocations.filter((s) => s.companyId === activeCompanyId)}
-            storePrices={storeItemPrices}
+            stores={companyStores}
+            storePrices={editingItem ? storeItemPrices : localStorePrices}
+            isNewItem={!editingItem}
             allowPriceChangeWithoutLeveling={systemConfig.allowPriceChangeWithoutLeveling}
             onUpsertPrice={(price) => {
-              void upsertStoreItemPrice(price).then((res) => {
-                if (!res.ok) {
-                  showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
-                } else {
-                  showToast({ title: t('messages.recordSaved'), variant: 'success' });
-                }
-              });
+              if (!editingItem) {
+                handleLocalStorePriceUpsert(price);
+              } else {
+                void handleExistingStorePriceUpsert(price);
+              }
             }}
           />
         )}

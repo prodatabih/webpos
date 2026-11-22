@@ -8,6 +8,7 @@ import {
   FileSpreadsheet, Search, AlertCircle, Inbox,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { exportToExcel } from '../../lib/exportExcel';
 import { t } from '../../i18n';
 import { Button } from './Button';
 
@@ -57,13 +58,18 @@ export function DataTable<TData>({
     getPaginationRowModel: getPaginationRowModel(),
   });
 
+  const getExportableColumns = () =>
+    table.getVisibleLeafColumns().filter((col) => col.id.toLowerCase() !== 'actions');
+
+  const getColumnHeaderLabel = (col: ReturnType<typeof table.getVisibleLeafColumns>[number]): string => {
+    const hdr = col.columnDef.header;
+    return typeof hdr === 'string' ? hdr : col.id;
+  };
+
   const handleExportCsv = () => {
-    const visibleCols = table.getVisibleLeafColumns();
+    const visibleCols = getExportableColumns();
     const headerRow = visibleCols
-      .map((col) => {
-        const hdr = col.columnDef.header;
-        return typeof hdr === 'string' ? `"${hdr}"` : `"${col.id}"`;
-      })
+      .map((col) => `"${getColumnHeaderLabel(col).replace(/"/g, '""')}"`)
       .join(';');
     const rows = table.getFilteredRowModel().rows.map((row) =>
       visibleCols
@@ -83,6 +89,21 @@ export function DataTable<TData>({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    const visibleCols = getExportableColumns();
+    const headers = visibleCols.map((col) => getColumnHeaderLabel(col));
+    const rows: (string | number)[][] = table.getFilteredRowModel().rows.map((row) =>
+      visibleCols.map((col) => {
+        const val = row.getValue(col.id);
+        if (typeof val === 'number') {
+          return val;
+        }
+        return val === null || val === undefined ? '' : String(val);
+      })
+    );
+    exportToExcel(exportFileName, exportFileName, headers, rows);
   };
 
   if (error) {
@@ -146,7 +167,7 @@ export function DataTable<TData>({
             <Download className="h-3.5 w-3.5" />
             <span>{t('common.exportCsv')}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportCsv}>
+          <Button variant="outline" size="sm" onClick={handleExportExcel}>
             <FileSpreadsheet className="h-3.5 w-3.5" />
             <span>{t('common.exportExcel')}</span>
           </Button>

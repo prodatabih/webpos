@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Download, PackageSearch, Printer, Warehouse } from 'lucide-react';
+import { Calendar, Download, PackageSearch, Printer, RotateCcw, Warehouse } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatQty } from '../../lib/money';
 import { formatDateTimeBs } from '../../lib/utils';
 import { exportToExcel } from '../../lib/exportExcel';
+import { EMPTY_STORE_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import { useAppStore } from '../../store/useAppStore';
 import type { Item, StoreItemPrice } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -40,6 +41,12 @@ export function StockCardsPage() {
   const [selectedStoreId, setSelectedStoreId] = useState(activeStoreId);
   const [onlyWithStock, setOnlyWithStock] = useState(true);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  useEffect(() => {
+    setSelectedStoreId(activeStoreId);
+  }, [activeStoreId]);
 
   const companyStores = useMemo(
     () => storeLocations.filter((s) => s.companyId === activeCompanyId),
@@ -47,11 +54,15 @@ export function StockCardsPage() {
   );
 
   const currentStore = useMemo(
-    () => companyStores.find((s) => s.id === selectedStoreId) ?? companyStores[0]!,
+    () =>
+      companyStores.find((s) => s.id === selectedStoreId) ??
+      companyStores[0] ??
+      EMPTY_STORE_FALLBACK,
     [companyStores, selectedStoreId]
   );
 
   const stockRows = useMemo<ItemStockRow[]>(() => {
+    if (!currentStore.id) return [];
     return items
       .filter((it) => it.companyId === activeCompanyId)
       .map((it) => {
@@ -69,8 +80,8 @@ export function StockCardsPage() {
     [stockRows, selectedItemId]
   );
 
-  const movements = useMemo<StockMovement[]>(() => {
-    if (!activeItemRow) return [];
+  const allMovements = useMemo<StockMovement[]>(() => {
+    if (!activeItemRow || !currentStore.id) return [];
     return buildStockCardMovements({
       storeId: currentStore.id,
       itemId: activeItemRow.item.id,
@@ -82,38 +93,166 @@ export function StockCardsPage() {
       posReceipts,
       defaultPrice: activeItemRow.retailPrice,
     });
-  }, [activeItemRow, currentStore.id, calculations, priceLevelings, transfers, inventoryCounts, otherWarehouseDocs, posReceipts]);
+  }, [
+    activeItemRow,
+    currentStore.id,
+    calculations,
+    priceLevelings,
+    transfers,
+    inventoryCounts,
+    otherWarehouseDocs,
+    posReceipts,
+  ]);
+
+  const movements = useMemo<StockMovement[]>(() => {
+    if (!dateFrom && !dateTo) return allMovements;
+    return allMovements.filter((m) => {
+      const movDate = (m.date || '').slice(0, 10);
+      if (dateFrom && movDate < dateFrom) return false;
+      if (dateTo && movDate > dateTo) return false;
+      return true;
+    });
+  }, [allMovements, dateFrom, dateTo]);
 
   const handleExportExcel = () => {
     if (!activeItemRow) return;
-    const headers = [t('common.date'), t('warehouse.docSubtype'), t('warehouse.docNumber'), t('common.description'), t('stock.inQty'), t('stock.outQty'), t('stock.balanceQty'), t('stock.unitPrice'), t('stock.balanceValue')];
-    const rows = movements.map((m) => [m.date, m.docType, m.docNumber, m.description, Number(m.inQty), Number(m.outQty), Number(m.balanceQty), Number(m.unitPrice), Number(m.totalValue)]);
-    exportToExcel(`robna-kartica-${activeItemRow.item.sku}-${currentStore.code}`, `${activeItemRow.item.sku}`, headers, rows);
+    const headers = [
+      t('common.date'),
+      t('warehouse.docSubtype'),
+      t('warehouse.docNumber'),
+      t('common.description'),
+      t('stock.inQty'),
+      t('stock.outQty'),
+      t('stock.balanceQty'),
+      t('stock.unitPrice'),
+      t('stock.balanceValue'),
+    ];
+    const rows = movements.map((m) => [
+      m.date,
+      m.docType,
+      m.docNumber,
+      m.description,
+      Number(m.inQty),
+      Number(m.outQty),
+      Number(m.balanceQty),
+      Number(m.unitPrice),
+      Number(m.totalValue),
+    ]);
+    exportToExcel(
+      `robna-kartica-${activeItemRow.item.sku}-${currentStore.code || 'skladiste'}`,
+      `${activeItemRow.item.sku}`,
+      headers,
+      rows
+    );
   };
 
   const itemColumns = useMemo<ColumnDef<ItemStockRow>[]>(
     () => [
-      { accessorKey: 'item.sku', header: t('master.sku'), cell: ({ row }) => <span className="font-mono font-semibold">{row.original.item.sku}</span> },
-      { accessorKey: 'item.name', header: t('common.name'), cell: ({ row }) => <span className="font-medium">{row.original.item.name}</span> },
-      { accessorKey: 'item.uom', header: t('common.uom'), cell: ({ row }) => <Badge variant="outline">{row.original.item.uom}</Badge> },
-      { accessorKey: 'retailPrice', header: t('warehouse.retailPriceWithVat'), cell: ({ row }) => <div className="text-right font-mono">{formatMoney2(row.original.retailPrice, true)}</div> },
-      { accessorKey: 'stockQty', header: t('master.currentStock'), cell: ({ row }) => <div className="text-right font-mono font-bold">{formatQty(row.original.stockQty, 2)}</div> },
-      { accessorKey: 'totalValue', header: t('warehouse.retailValueWithVat'), cell: ({ row }) => <div className="text-right font-mono text-primary font-semibold">{formatMoney2(row.original.totalValue, true)}</div> },
+      {
+        accessorKey: 'item.sku',
+        header: t('master.sku'),
+        cell: ({ row }) => <span className="font-mono font-semibold">{row.original.item.sku}</span>,
+      },
+      {
+        accessorKey: 'item.name',
+        header: t('common.name'),
+        cell: ({ row }) => <span className="font-medium">{row.original.item.name}</span>,
+      },
+      {
+        accessorKey: 'item.uom',
+        header: t('common.uom'),
+        cell: ({ row }) => <Badge variant="outline">{row.original.item.uom}</Badge>,
+      },
+      {
+        accessorKey: 'retailPrice',
+        header: t('warehouse.retailPriceWithVat'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">{formatMoney2(row.original.retailPrice, true)}</div>
+        ),
+      },
+      {
+        accessorKey: 'stockQty',
+        header: t('master.currentStock'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono font-bold">{formatQty(row.original.stockQty, 2)}</div>
+        ),
+      },
+      {
+        accessorKey: 'totalValue',
+        header: t('warehouse.retailValueWithVat'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono text-primary font-semibold">
+            {formatMoney2(row.original.totalValue, true)}
+          </div>
+        ),
+      },
     ],
     []
   );
 
   const movementColumns = useMemo<ColumnDef<StockMovement>[]>(
     () => [
-      { accessorKey: 'date', header: t('common.date'), cell: ({ row }) => formatDateTimeBs(row.original.date) },
-      { accessorKey: 'docType', header: t('warehouse.docSubtype'), cell: ({ row }) => <Badge variant="outline">{row.original.docType}</Badge> },
-      { accessorKey: 'docNumber', header: t('warehouse.docNumber'), cell: ({ row }) => <span className="font-mono font-semibold">{row.original.docNumber}</span> },
-      { accessorKey: 'description', header: t('common.description'), cell: ({ row }) => <span className="text-muted-foreground">{row.original.description}</span> },
-      { accessorKey: 'inQty', header: t('stock.inQty'), cell: ({ row }) => <div className="text-right font-mono text-success font-semibold">{Number(row.original.inQty) > 0 ? formatQty(row.original.inQty, 2) : '-'}</div> },
-      { accessorKey: 'outQty', header: t('stock.outQty'), cell: ({ row }) => <div className="text-right font-mono text-destructive font-semibold">{Number(row.original.outQty) > 0 ? formatQty(row.original.outQty, 2) : '-'}</div> },
-      { accessorKey: 'balanceQty', header: t('stock.balanceQty'), cell: ({ row }) => <div className="text-right font-mono font-bold">{formatQty(row.original.balanceQty, 2)}</div> },
-      { accessorKey: 'unitPrice', header: t('stock.unitPrice'), cell: ({ row }) => <div className="text-right font-mono">{formatMoney2(row.original.unitPrice, true)}</div> },
-      { accessorKey: 'totalValue', header: t('stock.balanceValue'), cell: ({ row }) => <div className="text-right font-mono font-semibold text-primary">{formatMoney2(row.original.totalValue, true)}</div> },
+      {
+        accessorKey: 'date',
+        header: t('common.date'),
+        cell: ({ row }) => formatDateTimeBs(row.original.date),
+      },
+      {
+        accessorKey: 'docType',
+        header: t('warehouse.docSubtype'),
+        cell: ({ row }) => <Badge variant="outline">{row.original.docType}</Badge>,
+      },
+      {
+        accessorKey: 'docNumber',
+        header: t('warehouse.docNumber'),
+        cell: ({ row }) => <span className="font-mono font-semibold">{row.original.docNumber}</span>,
+      },
+      {
+        accessorKey: 'description',
+        header: t('common.description'),
+        cell: ({ row }) => <span className="text-muted-foreground">{row.original.description}</span>,
+      },
+      {
+        accessorKey: 'inQty',
+        header: t('stock.inQty'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono text-success font-semibold">
+            {Number(row.original.inQty) > 0 ? formatQty(row.original.inQty, 2) : '-'}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'outQty',
+        header: t('stock.outQty'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono text-destructive font-semibold">
+            {Number(row.original.outQty) > 0 ? formatQty(row.original.outQty, 2) : '-'}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'balanceQty',
+        header: t('stock.balanceQty'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono font-bold">{formatQty(row.original.balanceQty, 2)}</div>
+        ),
+      },
+      {
+        accessorKey: 'unitPrice',
+        header: t('stock.unitPrice'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">{formatMoney2(row.original.unitPrice, true)}</div>
+        ),
+      },
+      {
+        accessorKey: 'totalValue',
+        header: t('stock.balanceValue'),
+        cell: ({ row }) => (
+          <div className="text-right font-mono font-semibold text-primary">
+            {formatMoney2(row.original.totalValue, true)}
+          </div>
+        ),
+      },
     ],
     []
   );
@@ -139,21 +278,56 @@ export function StockCardsPage() {
 
       <div className="p-6 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4 p-3.5 rounded-lg border border-border bg-card">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Warehouse className="h-5 w-5 text-muted-foreground" />
             <select
-              value={selectedStoreId}
+              value={currentStore.id}
               onChange={(e) => setSelectedStoreId(e.target.value)}
-              className="h-8 rounded-md border border-input bg-card px-3 text-xs font-semibold text-foreground"
+              disabled={companyStores.length === 0}
+              className="h-8 rounded-md border border-input bg-card px-3 text-xs font-semibold text-foreground disabled:opacity-50"
             >
-              {companyStores.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.code} — {st.name} ({st.storeType})
-                </option>
-              ))}
+              {companyStores.length === 0 ? (
+                <option value="">Nema kreiranih poslovnica</option>
+              ) : (
+                companyStores.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.code} — {st.name} ({st.storeType})
+                  </option>
+                ))
+              )}
             </select>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 text-xs">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <label className="text-muted-foreground">{t('reports.dateFrom')}:</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+              />
+              <label className="text-muted-foreground">{t('reports.dateTo')}:</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+              />
+              {(dateFrom || dateTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDateFrom('');
+                    setDateTo('');
+                  }}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>{t('common.resetFilters')}</span>
+                </Button>
+              )}
+            </div>
             <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
               <input
                 type="checkbox"
@@ -176,7 +350,7 @@ export function StockCardsPage() {
               data={stockRows}
               columns={itemColumns}
               pageSize={8}
-              exportFileName={`zalihe-${currentStore.code}`}
+              exportFileName={`zalihe-${currentStore.code || 'skladiste'}`}
               onRowClick={(row) => setSelectedItemId(row.item.id)}
             />
           </div>
@@ -192,7 +366,8 @@ export function StockCardsPage() {
                         <h4 className="text-sm font-bold">{activeItemRow.item.name}</h4>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {t('common.uom')}: {activeItemRow.item.uom} • {t('app.storeLocation')}: {currentStore.code} ({currentStore.name})
+                        {t('common.uom')}: {activeItemRow.item.uom} • {t('app.storeLocation')}:{' '}
+                        {currentStore.code} ({currentStore.name})
                       </p>
                     </div>
                     <div className="text-right">
@@ -207,9 +382,16 @@ export function StockCardsPage() {
                   </CardContent>
                 </Card>
 
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t('stock.movementHistory')}
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('stock.movementHistory')}
+                  </h3>
+                  {(dateFrom || dateTo) && (
+                    <span className="text-[11px] text-muted-foreground">
+                      Prikazano {movements.length} od {allMovements.length} promjena
+                    </span>
+                  )}
+                </div>
                 <DataTable
                   data={movements}
                   columns={movementColumns}
@@ -219,7 +401,9 @@ export function StockCardsPage() {
               </>
             ) : (
               <div className="rounded-lg border border-border bg-card p-12 text-center text-xs text-muted-foreground">
-                {t('stock.selectItem')}
+                {companyStores.length === 0
+                  ? 'Prvo kreirajte poslovnicu kako biste pregledali robne kartice i zalihe.'
+                  : t('stock.selectItem')}
               </div>
             )}
           </div>

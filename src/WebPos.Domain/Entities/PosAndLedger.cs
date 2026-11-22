@@ -8,10 +8,15 @@ public class PosReceipt
     public Guid TenantId { get; set; }
     public Guid StoreId { get; set; }
     public Guid CashRegisterId { get; set; }
+    public Guid? FiscalYearId { get; set; }
     public Guid CashierUserId { get; set; }
+    public string? CashierName { get; set; }
     public Guid? CustomerId { get; set; }
     public string ReceiptNumber { get; set; } = string.Empty;
     public string? FiscalReceiptNumber { get; set; }
+    public string ReceiptType { get; set; } = "SALE";
+    public Guid? ReferenceReceiptId { get; set; }
+    public bool IsFiscalized { get; set; }
     public DateTime IssuedAtUtc { get; set; } = DateTime.UtcNow;
     public DocumentStatus Status { get; set; } = DocumentStatus.Posted;
     public PaymentMethod PaymentMethod { get; set; }

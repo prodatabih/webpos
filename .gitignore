@@ -9,3 +9,4 @@ obj/
 publish/
 src/WebPos.WebApi/wwwroot/
 .vs/
+obj*/

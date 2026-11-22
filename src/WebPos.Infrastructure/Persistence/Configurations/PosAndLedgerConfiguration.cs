@@ -11,6 +11,8 @@ public class PosReceiptConfiguration : IEntityTypeConfiguration<PosReceipt>
         builder.HasKey(x => x.Id);
         builder.Property(x => x.ReceiptNumber).HasMaxLength(64).IsRequired();
         builder.Property(x => x.FiscalReceiptNumber).HasMaxLength(64);
+        builder.Property(x => x.CashierName).HasMaxLength(150);
+        builder.Property(x => x.ReceiptType).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(x => x.PaymentMethod).HasConversion<string>().HasMaxLength(32).IsRequired();
 

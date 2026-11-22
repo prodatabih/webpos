@@ -245,4 +245,5 @@ export interface PosReceipt {
   cashierName: string;
   issuedAt: string;
   status: DocumentStatus;
+  isFiscalized?: boolean;
 }

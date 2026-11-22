@@ -13,7 +13,8 @@ public enum StoreType
 {
     Retail = 1,
     Wholesale = 2,
-    RawMaterial = 3
+    RawMaterial = 3,
+    Production = 4
 }
 
 public enum DocumentStatus
@@ -43,4 +44,13 @@ public enum LedgerDirection
 {
     Debit = 1,
     Credit = 2
+}
+
+public enum OtherWarehouseDocSubtype
+{
+    WriteoffKalorastur = 1,
+    InternalIssue = 2,
+    InternalReceipt = 3,
+    SupplierReturn = 4,
+    InternalProduction = 5
 }

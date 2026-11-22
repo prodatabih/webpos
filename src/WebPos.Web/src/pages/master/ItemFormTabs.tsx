@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatPrice4, formatQty, round2, round4 } from '../../lib/money';
@@ -27,7 +27,14 @@ export function ItemBarcodesTab({
     if (!barcode.trim()) return;
     onChange([
       ...barcodes,
-      { id: generateUuidV7(), itemId, barcode: barcode.trim(), uom: uom.trim() || 'pak', packMultiplier: round4(packMultiplier), description: description.trim() },
+      {
+        id: generateUuidV7(),
+        itemId,
+        barcode: barcode.trim(),
+        uom: uom.trim() || 'pak',
+        packMultiplier: round4(packMultiplier.replace(',', '.')),
+        description: description.trim(),
+      },
     ]);
     setBarcode('');
     setDescription('');
@@ -102,7 +109,20 @@ export function ItemBomTab({
   const [quantity, setQuantity] = useState('0.1000');
   const [wastePercent, setWastePercent] = useState('0.00');
 
-  const itemOptions = allItems.filter((i) => i.id !== parentItemId).map((i) => ({ value: i.id, code: i.sku, label: i.name, sublabel: i.uom }));
+  useEffect(() => {
+    const firstStoreId = stores[0]?.id ?? '';
+    if (!firstStoreId) {
+      setSourceStoreId('');
+      return;
+    }
+    if (!sourceStoreId || !stores.some((s) => s.id === sourceStoreId)) {
+      setSourceStoreId(firstStoreId);
+    }
+  }, [stores, sourceStoreId]);
+
+  const itemOptions = allItems
+    .filter((i) => i.id !== parentItemId)
+    .map((i) => ({ value: i.id, code: i.sku, label: i.name, sublabel: i.uom }));
 
   const handleAdd = () => {
     if (!componentItemId) return;
@@ -113,8 +133,8 @@ export function ItemBomTab({
         parentItemId,
         componentItemId,
         sourceStoreId: sourceStoreId || undefined,
-        quantity: round4(quantity),
-        wastePercent: round2(wastePercent),
+        quantity: round4(quantity.replace(',', '.')),
+        wastePercent: round2(wastePercent.replace(',', '.')),
       },
     ]);
     setComponentItemId('');
@@ -133,6 +153,7 @@ export function ItemBomTab({
             onChange={(e) => setSourceStoreId(e.target.value)}
             className="h-9 rounded-md border border-input bg-card px-2 text-xs text-foreground"
           >
+            {stores.length === 0 && <option value="">-- Nema skladišta --</option>}
             {stores.map((s) => (
               <option key={s.id} value={s.id}>{s.code} ({s.storeType})</option>
             ))}
@@ -188,21 +209,174 @@ export function ItemBomTab({
   );
 }
 
+function StorePriceRow({
+  store,
+  current,
+  isNewItem,
+  allowPriceChangeWithoutLeveling,
+  onUpsertPrice,
+}: {
+  store: StoreLocation;
+  current: StoreItemPrice;
+  isNewItem: boolean;
+  allowPriceChangeWithoutLeveling: boolean;
+  onUpsertPrice: (price: StoreItemPrice) => void;
+}) {
+  const [retailInput, setRetailInput] = useState(current.retailUnitPriceWithVat);
+  const [minStockInput, setMinStockInput] = useState(current.minStockQty);
+  const [shelfInput, setShelfInput] = useState(current.shelfLocation);
+
+  useEffect(() => {
+    setRetailInput(current.retailUnitPriceWithVat);
+    setMinStockInput(current.minStockQty);
+    setShelfInput(current.shelfLocation);
+  }, [
+    current.retailUnitPriceWithVat,
+    current.minStockQty,
+    current.shelfLocation,
+  ]);
+
+  const hasStock = Number(current.currentStockQty) > 0;
+  const isPriceLocked = !isNewItem && hasStock && !allowPriceChangeWithoutLeveling;
+
+  const emitDraftChange = (patch: Partial<StoreItemPrice>) => {
+    onUpsertPrice({
+      ...current,
+      retailUnitPriceWithVat: retailInput,
+      minStockQty: minStockInput,
+      shelfLocation: shelfInput,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleRetailBlur = () => {
+    const normalized = round2(retailInput.replace(',', '.'));
+    setRetailInput(normalized);
+    if (!isNewItem && normalized === round2(current.retailUnitPriceWithVat)) return;
+    emitDraftChange({
+      retailUnitPriceWithVat: normalized,
+      needsLabelPrint: true,
+    });
+  };
+
+  const handleMinStockBlur = () => {
+    const normalized = round4(minStockInput.replace(',', '.'));
+    setMinStockInput(normalized);
+    if (!isNewItem && normalized === round4(current.minStockQty)) return;
+    emitDraftChange({
+      minStockQty: normalized,
+    });
+  };
+
+  const handleShelfBlur = () => {
+    const trimmed = shelfInput.trim();
+    setShelfInput(trimmed);
+    if (!isNewItem && trimmed === current.shelfLocation) return;
+    emitDraftChange({
+      shelfLocation: trimmed,
+    });
+  };
+
+  return (
+    <tr>
+      <td className="px-3 py-2 font-medium">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">{store.code}</Badge>
+          <span>{store.name}</span>
+        </div>
+      </td>
+      <td className="px-3 py-2 font-mono text-right">{formatPrice4(current.purchaseUnitPrice, true)}</td>
+      <td className="px-3 py-2 font-mono text-right">{formatPrice4(current.wholesaleUnitPriceExclVat, true)}</td>
+      <td className="px-3 py-2 text-right">
+        <div className="flex flex-col items-end gap-1">
+          <input
+            type="text"
+            aria-label={`${t('warehouse.retailPriceWithVat')} — ${store.name}`}
+            value={retailInput}
+            disabled={isPriceLocked}
+            onChange={(e) => {
+              const val = e.target.value;
+              setRetailInput(val);
+              if (isNewItem) {
+                emitDraftChange({ retailUnitPriceWithVat: val, needsLabelPrint: true });
+              }
+            }}
+            onBlur={handleRetailBlur}
+            className={`h-7 w-24 rounded border border-input px-2 text-right font-mono text-xs ${
+              isPriceLocked ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-80' : 'bg-card text-foreground'
+            }`}
+          />
+          {isPriceLocked && (
+            <span className="text-[10px] text-destructive max-w-[140px] text-right font-medium leading-tight">
+              {t('master.priceChangeBlockedStock')}
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="px-3 py-2 font-mono text-right">
+        <Badge variant={hasStock ? 'default' : 'outline'}>
+          {formatQty(current.currentStockQty, 2)}
+        </Badge>
+      </td>
+      <td className="px-3 py-2 text-right">
+        <input
+          type="text"
+          aria-label={`${t('master.minStock')} — ${store.name}`}
+          value={minStockInput}
+          onChange={(e) => {
+            const val = e.target.value;
+            setMinStockInput(val);
+            if (isNewItem) {
+              emitDraftChange({ minStockQty: val });
+            }
+          }}
+          onBlur={handleMinStockBlur}
+          className="h-7 w-20 rounded border border-input bg-card px-2 text-right font-mono text-xs text-foreground"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="text"
+          aria-label={`${t('master.shelfLocation')} — ${store.name}`}
+          value={shelfInput}
+          onChange={(e) => {
+            const val = e.target.value;
+            setShelfInput(val);
+            if (isNewItem) {
+              emitDraftChange({ shelfLocation: val });
+            }
+          }}
+          onBlur={handleShelfBlur}
+          className="h-7 w-24 rounded border border-input bg-card px-2 font-mono text-xs text-foreground"
+        />
+      </td>
+    </tr>
+  );
+}
+
 export function ItemStorePricesTab({
   itemId,
   stores,
   storePrices,
+  isNewItem = false,
   allowPriceChangeWithoutLeveling = false,
   onUpsertPrice,
 }: {
   itemId: string;
   stores: StoreLocation[];
   storePrices: StoreItemPrice[];
+  isNewItem?: boolean;
   allowPriceChangeWithoutLeveling?: boolean;
   onUpsertPrice: (price: StoreItemPrice) => void;
 }) {
   return (
     <div className="space-y-2">
+      {isNewItem && (
+        <p className="text-xs text-muted-foreground">
+          Početne cijene, minimalne zalihe i pozicije po poslovnicama bit će snimljene zajedno sa artiklom klikom na „Snimi”.
+        </p>
+      )}
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-left text-xs">
           <thead className="bg-muted/60 border-b border-border text-muted-foreground">
@@ -212,62 +386,47 @@ export function ItemStorePricesTab({
               <th className="px-3 py-2 font-semibold text-right">{t('warehouse.sellingPriceExclVat')}</th>
               <th className="px-3 py-2 font-semibold text-right">{t('warehouse.retailPriceWithVat')}</th>
               <th className="px-3 py-2 font-semibold text-right">{t('master.currentStock')}</th>
+              <th className="px-3 py-2 font-semibold text-right">{t('master.minStock')}</th>
               <th className="px-3 py-2 font-semibold">{t('master.shelfLocation')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {stores.map((st) => {
-              const current: StoreItemPrice = storePrices.find((p) => p.storeId === st.id && p.itemId === itemId) ?? {
-                id: `sip-${st.id}-${itemId}`, storeId: st.id, itemId, purchaseUnitPrice: '0.0000', wholesaleUnitPriceExclVat: '0.0000',
-                retailUnitPriceWithVat: '0.00', currentStockQty: '0.0000', minStockQty: '10.0000', shelfLocation: 'A-01-01', needsLabelPrint: false, updatedAt: new Date().toISOString(),
-              };
-              const hasStock = Number(current.currentStockQty) > 0;
-              const isPriceLocked = hasStock && !allowPriceChangeWithoutLeveling;
+            {stores.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
+                  Nema kreiranih prodajnih objekata.
+                </td>
+              </tr>
+            ) : (
+              stores.map((st) => {
+                const current: StoreItemPrice = storePrices.find(
+                  (p) => p.storeId === st.id && p.itemId === itemId
+                ) ?? {
+                  id: `sip-${st.id}-${itemId}`,
+                  storeId: st.id,
+                  itemId,
+                  purchaseUnitPrice: '0.0000',
+                  wholesaleUnitPriceExclVat: '0.0000',
+                  retailUnitPriceWithVat: '0.00',
+                  currentStockQty: '0.0000',
+                  minStockQty: '0.0000',
+                  shelfLocation: '',
+                  needsLabelPrint: false,
+                  updatedAt: new Date().toISOString(),
+                };
 
-              return (
-                <tr key={st.id}>
-                  <td className="px-3 py-2 font-medium">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{st.code}</Badge>
-                      <span>{st.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-right">{formatPrice4(current.purchaseUnitPrice, true)}</td>
-                  <td className="px-3 py-2 font-mono text-right">{formatPrice4(current.wholesaleUnitPriceExclVat, true)}</td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex flex-col items-end gap-1">
-                      <input
-                        type="text"
-                        defaultValue={current.retailUnitPriceWithVat}
-                        disabled={isPriceLocked}
-                        onBlur={(e) => onUpsertPrice({ ...current, retailUnitPriceWithVat: round2(e.target.value), needsLabelPrint: true, updatedAt: new Date().toISOString() })}
-                        className={`h-7 w-24 rounded border border-input px-2 text-right font-mono text-xs ${
-                          isPriceLocked ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-80' : 'bg-card text-foreground'
-                        }`}
-                      />
-                      {isPriceLocked && (
-                        <span className="text-[10px] text-destructive max-w-[140px] text-right font-medium leading-tight">
-                          {t('master.priceChangeBlockedStock')}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-right">
-                    <Badge variant={hasStock ? 'default' : 'outline'}>
-                      {formatQty(current.currentStockQty, 2)}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      defaultValue={current.shelfLocation}
-                      onBlur={(e) => onUpsertPrice({ ...current, shelfLocation: e.target.value.trim(), updatedAt: new Date().toISOString() })}
-                      className="h-7 w-24 rounded border border-input bg-card px-2 font-mono text-xs text-foreground"
-                    />
-                  </td>
-                </tr>
-              );
-            })}
+                return (
+                  <StorePriceRow
+                    key={st.id}
+                    store={st}
+                    current={current}
+                    isNewItem={isNewItem}
+                    allowPriceChangeWithoutLeveling={allowPriceChangeWithoutLeveling}
+                    onUpsertPrice={onUpsertPrice}
+                  />
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

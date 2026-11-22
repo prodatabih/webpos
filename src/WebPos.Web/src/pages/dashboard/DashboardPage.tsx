@@ -10,6 +10,10 @@ import {
   Tags,
   ReceiptText,
   Package,
+  CheckCircle2,
+  Circle,
+  ArrowRight,
+  ListChecks,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
@@ -17,14 +21,19 @@ import { d, formatMoney2 } from '../../lib/money';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import { DashboardTables, type RecentWarehouseDocRow } from './DashboardTables';
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const activeStoreId = useAppStore((s) => s.activeStoreId);
   const activeFiscalYearId = useAppStore((s) => s.activeFiscalYearId);
+  const companies = useAppStore((s) => s.companies);
   const storeLocations = useAppStore((s) => s.storeLocations);
+  const posTerminals = useAppStore((s) => s.posTerminals);
   const fiscalYears = useAppStore((s) => s.fiscalYears);
+  const vatRates = useAppStore((s) => s.vatRates);
+  const items = useAppStore((s) => s.items);
   const posReceipts = useAppStore((s) => s.posReceipts);
   const calculations = useAppStore((s) => s.calculations);
   const priceLevelings = useAppStore((s) => s.priceLevelings);
@@ -35,6 +44,59 @@ export function DashboardPage() {
 
   const activeStore = storeLocations.find((s) => s.id === activeStoreId);
   const activeYear = fiscalYears.find((y) => y.id === activeFiscalYearId);
+
+  const needsInitialSetup =
+    companies.length === 0 ||
+    storeLocations.length === 0 ||
+    fiscalYears.length === 0 ||
+    vatRates.length === 0 ||
+    items.length === 0;
+
+  const setupSteps = useMemo(
+    () => [
+      {
+        step: 1,
+        label: 'Preduzeće',
+        description: 'Unesite podatke o preduzeću (JIB, PDV, žiro račun)',
+        done: companies.length > 0,
+        path: '/master/organizations',
+      },
+      {
+        step: 2,
+        label: 'Poslovnica i Blagajna',
+        description:
+          storeLocations.length > 0 && posTerminals.length === 0
+            ? 'Dodajte POS blagajnu za kreiranu poslovnicu'
+            : 'Kreirajte prodajni objekat i POS blagajnu',
+        done: storeLocations.length > 0 && posTerminals.length > 0,
+        path: '/master/organizations',
+      },
+      {
+        step: 3,
+        label: 'Poslovna godina',
+        description: 'Otvorite aktivnu poslovnu godinu i mjesečne periode',
+        done: fiscalYears.length > 0,
+        path: '/master/fiscal-periods',
+      },
+      {
+        step: 4,
+        label: 'PDV stope',
+        description: 'Definišite poreske tarifne stope (npr. E 17%)',
+        done: vatRates.length > 0,
+        path: '/master/vat-rates',
+      },
+      {
+        step: 5,
+        label: 'Artikli',
+        description: 'Dodajte prve artikle u šifarnik robe',
+        done: items.length > 0,
+        path: '/master/items',
+      },
+    ],
+    [companies.length, storeLocations.length, posTerminals.length, fiscalYears.length, vatRates.length, items.length]
+  );
+
+  const completedSetupCount = setupSteps.filter((s) => s.done).length;
 
   const metrics = useMemo(() => {
     const storeKep = kepEntries.filter((e) => e.storeId === activeStoreId && e.fiscalYearId === activeFiscalYearId);
@@ -70,7 +132,7 @@ export function DashboardPage() {
     const calcRows = calculations.filter((c) => c.storeId === activeStoreId).map((c) => ({
       id: c.id,
       docNumber: c.docNumber,
-      docDate: c.docDate,
+      docDate: c.docDate ?? '',
       typeLabel: t('nav.calculations'),
       partnerOrInfo: partners.find((p) => p.id === c.partnerId)?.name ?? '-',
       amount: c.totalRetailValueWithVat,
@@ -80,7 +142,7 @@ export function DashboardPage() {
     const nivRows = priceLevelings.filter((n) => n.storeId === activeStoreId).map((n) => ({
       id: n.id,
       docNumber: n.docNumber,
-      docDate: n.docDate,
+      docDate: n.docDate ?? '',
       typeLabel: t('nav.priceLeveling'),
       partnerOrInfo: n.reason,
       amount: n.totalRetailDifference,
@@ -90,14 +152,16 @@ export function DashboardPage() {
     const trfRows = transfers.filter((tr) => tr.sourceStoreId === activeStoreId || tr.targetStoreId === activeStoreId).map((tr) => ({
       id: tr.id,
       docNumber: tr.docNumber,
-      docDate: tr.docDate,
+      docDate: tr.docDate ?? '',
       typeLabel: t('nav.transfers'),
       partnerOrInfo: tr.notes,
       amount: tr.totalSourceRetailValue,
       status: tr.status,
       path: '/warehouse/transfers',
     }));
-    return [...calcRows, ...nivRows, ...trfRows].sort((a, b) => b.docDate.localeCompare(a.docDate)).slice(0, 6);
+    return [...calcRows, ...nivRows, ...trfRows]
+      .sort((a, b) => (b.docDate ?? '').localeCompare(a.docDate ?? ''))
+      .slice(0, 6);
   }, [calculations, priceLevelings, transfers, partners, activeStoreId]);
 
   const recentReceipts = useMemo(
@@ -132,6 +196,72 @@ export function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
+        {needsInitialSetup && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle className="text-sm font-semibold text-foreground">
+                    Kontrolna lista početnog podešavanja
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Dovršite osnovne korake kako biste mogli započeti rad sa robnim dokumentima i POS blagajnom.
+                  </p>
+                </div>
+              </div>
+              <Badge variant="default" className="font-mono shrink-0">
+                {completedSetupCount} / {setupSteps.length}
+              </Badge>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                {setupSteps.map((item) => (
+                  <div
+                    key={item.step}
+                    className={`flex flex-col justify-between gap-2.5 rounded-lg border p-3 transition-colors ${
+                      item.done
+                        ? 'border-success/30 bg-card/80'
+                        : 'border-border bg-card shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {item.done ? (
+                        <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-foreground">
+                          {item.step}. {item.label}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      {item.done ? (
+                        <Badge variant="success">Završeno</Badge>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => navigate(item.path)}
+                          className="w-full"
+                        >
+                          <span>Podesi</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">{t('kep.currentBalance')}</CardTitle></CardHeader>

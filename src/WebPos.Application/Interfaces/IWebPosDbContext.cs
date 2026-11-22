@@ -6,6 +6,7 @@ namespace WebPos.Application.Interfaces;
 public interface IWebPosDbContext
 {
     DbSet<Tenant> Tenants { get; }
+    DbSet<TenantSetting> TenantSettings { get; }
     DbSet<User> Users { get; }
     DbSet<Company> Companies { get; }
     DbSet<Store> Stores { get; }
@@ -18,6 +19,7 @@ public interface IWebPosDbContext
     DbSet<ItemBomLine> ItemBomLines { get; }
     DbSet<StoreItemPrice> StoreItemPrices { get; }
     DbSet<Partner> Partners { get; }
+    DbSet<LabelTemplate> LabelTemplates { get; }
     DbSet<InboundCalculation> InboundCalculations { get; }
     DbSet<InboundCalculationLine> InboundCalculationLines { get; }
     DbSet<PriceLeveling> PriceLevelings { get; }
@@ -26,6 +28,8 @@ public interface IWebPosDbContext
     DbSet<WarehouseTransferLine> WarehouseTransferLines { get; }
     DbSet<InventoryCount> InventoryCounts { get; }
     DbSet<InventoryCountLine> InventoryCountLines { get; }
+    DbSet<OtherWarehouseDocument> OtherWarehouseDocuments { get; }
+    DbSet<OtherWarehouseDocumentLine> OtherWarehouseDocumentLines { get; }
     DbSet<PosReceipt> PosReceipts { get; }
     DbSet<PosReceiptLine> PosReceiptLines { get; }
     DbSet<PosReceiptPayment> PosReceiptPayments { get; }

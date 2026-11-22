@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Eye, CheckCircle2, RotateCcw, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
 import { formatDateBs } from '../../lib/utils';
@@ -11,8 +11,9 @@ interface CalculationColumnsOptions {
   partners: Partner[];
   storeType: StoreType;
   onEdit: (doc: CalculationDocument) => void;
-  onPost: (docId: string) => void;
-  onReverse: (docId: string) => void;
+  onPost: (doc: CalculationDocument) => void;
+  onDelete: (doc: CalculationDocument) => void;
+  onReverse: (doc: CalculationDocument) => void;
 }
 
 export function getCalculationColumns({
@@ -20,6 +21,7 @@ export function getCalculationColumns({
   storeType,
   onEdit,
   onPost,
+  onDelete,
   onReverse,
 }: CalculationColumnsOptions): ColumnDef<CalculationDocument>[] {
   const isRaw = storeType === 'RAW_MATERIAL' || storeType === 'PRODUCTION';
@@ -118,13 +120,19 @@ export function getCalculationColumns({
               <span>{c.status === 'DRAFT' ? t('common.edit') : t('common.view')}</span>
             </Button>
             {c.status === 'DRAFT' && (
-              <Button variant="success" size="sm" onClick={() => onPost(c.id)}>
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>{t('common.postDocument')}</span>
-              </Button>
+              <>
+                <Button variant="success" size="sm" onClick={() => onPost(c)}>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>{t('common.postDocument')}</span>
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => onDelete(c)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>{t('common.delete')}</span>
+                </Button>
+              </>
             )}
             {c.status === 'POSTED' && (
-              <Button variant="destructive" size="sm" onClick={() => onReverse(c.id)}>
+              <Button variant="destructive" size="sm" onClick={() => onReverse(c)}>
                 <RotateCcw className="h-3.5 w-3.5" />
                 <span>{t('common.reverseDocument')}</span>
               </Button>

@@ -46,27 +46,35 @@ export function DashboardTables({ recentWarehouseDocs, recentReceipts }: Dashboa
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {recentWarehouseDocs.map((doc) => (
-                <tr
-                  key={doc.id}
-                  onClick={() => navigate(doc.path)}
-                  className="hover:bg-muted/40 cursor-pointer"
-                >
-                  <td className="px-4 py-2.5">
-                    <div className="font-mono font-medium text-foreground">{doc.docNumber}</div>
-                    <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">
-                      {doc.typeLabel} — {doc.partnerOrInfo}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{formatDateBs(doc.docDate)}</td>
-                  <td className="px-4 py-2.5 text-right font-mono font-medium">
-                    {formatMoney2(doc.amount, true)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <DocumentStatusBadge status={doc.status} />
+              {recentWarehouseDocs.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                    Nema evidentiranih robnih dokumenata za odabrani objekat.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recentWarehouseDocs.map((doc) => (
+                  <tr
+                    key={doc.id}
+                    onClick={() => navigate(doc.path)}
+                    className="hover:bg-muted/40 cursor-pointer"
+                  >
+                    <td className="px-4 py-2.5">
+                      <div className="font-mono font-medium text-foreground">{doc.docNumber}</div>
+                      <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                        {doc.typeLabel} — {doc.partnerOrInfo}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{formatDateBs(doc.docDate)}</td>
+                    <td className="px-4 py-2.5 text-right font-mono font-medium">
+                      {formatMoney2(doc.amount, true)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <DocumentStatusBadge status={doc.status} />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </CardContent>
@@ -90,31 +98,39 @@ export function DashboardTables({ recentWarehouseDocs, recentReceipts }: Dashboa
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {recentReceipts.map((rc) => (
-                <tr
-                  key={rc.id}
-                  onClick={() => navigate('/pos/receipts')}
-                  className="hover:bg-muted/40 cursor-pointer"
-                >
-                  <td className="px-4 py-2.5">
-                    <div className="font-mono font-medium text-foreground">{rc.receiptNumber}</div>
-                    <div className="text-[11px] font-mono text-muted-foreground">
-                      {rc.fiscalNumber}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {formatDateTimeBs(rc.issuedAt)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-mono font-medium">
-                    {formatMoney2(rc.totalGrossAmount, true)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Badge variant={rc.receiptType === 'REFUND' ? 'destructive' : 'success'}>
-                      {rc.receiptType === 'REFUND' ? t('status.REFUND') : t('status.SALE')}
-                    </Badge>
+              {recentReceipts.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                    Nema evidentiranih fiskalnih računa za odabrani objekat.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recentReceipts.map((rc) => (
+                  <tr
+                    key={rc.id}
+                    onClick={() => navigate('/pos/receipts')}
+                    className="hover:bg-muted/40 cursor-pointer"
+                  >
+                    <td className="px-4 py-2.5">
+                      <div className="font-mono font-medium text-foreground">{rc.receiptNumber}</div>
+                      <div className="text-[11px] font-mono text-muted-foreground">
+                        {rc.fiscalNumber}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {formatDateTimeBs(rc.issuedAt)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-medium">
+                      {formatMoney2(rc.totalGrossAmount, true)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Badge variant={rc.receiptType === 'REFUND' ? 'destructive' : 'success'}>
+                        {rc.receiptType === 'REFUND' ? t('status.REFUND') : t('status.SALE')}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </CardContent>

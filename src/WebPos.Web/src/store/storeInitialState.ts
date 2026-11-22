@@ -30,6 +30,8 @@ import type { AppStoreState } from './storeTypes';
 type DataKeys =
   | 'authStatus'
   | 'backendMode'
+  | 'connectionError'
+  | 'mustChangePassword'
   | 'currentUserRole'
   | 'currentUserEmail'
   | 'activeTenantId'
@@ -52,6 +54,7 @@ type DataKeys =
   | 'itemBarcodes'
   | 'itemBomLines'
   | 'storeItemPrices'
+  | 'labelTemplates'
   | 'calculations'
   | 'priceLevelings'
   | 'transfers'
@@ -66,6 +69,8 @@ type DataKeys =
 export const initialStoreData: Pick<AppStoreState, DataKeys> = {
   authStatus: 'AUTHENTICATED',
   backendMode: 'LOCAL_FALLBACK',
+  connectionError: null,
+  mustChangePassword: false,
   currentUserRole: 'TenantAdmin',
   currentUserEmail: 'tenant.admin@bosnatrgovina.ba',
   activeTenantId: null,
@@ -88,6 +93,7 @@ export const initialStoreData: Pick<AppStoreState, DataKeys> = {
   itemBarcodes: initialItemBarcodes,
   itemBomLines: initialItemBomLines,
   storeItemPrices: initialStoreItemPrices,
+  labelTemplates: [],
   calculations: initialCalculations,
   priceLevelings: initialPriceLevelings,
   transfers: initialTransfers,
@@ -99,5 +105,8 @@ export const initialStoreData: Pick<AppStoreState, DataKeys> = {
   auditLog: initialAuditLogs,
   systemConfig: {
     allowPriceChangeWithoutLeveling: false,
+    allowNegativeStock: false,
+    autoCreatePriceLevelingOnInbound: true,
+    defaultCurrency: 'BAM',
   },
 };

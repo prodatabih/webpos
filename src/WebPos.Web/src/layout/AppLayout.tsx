@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Menu, Moon, Search, Store, Sun, UserCheck, Wifi, WifiOff,
@@ -10,7 +10,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { ToastViewport } from '../components/ui/Toast';
 import { LoginDialog } from '../pages/auth/LoginDialog';
-import { NAV_GROUPS, NAV_ITEMS } from './navConfig';
+import { getVisibleNavItems, NAV_GROUPS } from './navConfig';
 import { CommandPalette } from './CommandPalette';
 
 export function AppLayout({ children }: { children?: React.ReactNode }) {
@@ -28,14 +28,44 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
     currentUserName, currentUserRole, activeTenantId,
   } = useAppStore();
 
-  const hasTenantContext = currentUserRole !== 'SuperAdmin' || Boolean(activeTenantId);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+    const syncNetworkStatus = () => setIsOnline(navigator.onLine);
+    syncNetworkStatus();
+    window.addEventListener('online', syncNetworkStatus);
+    window.addEventListener('offline', syncNetworkStatus);
+    return () => {
+      window.removeEventListener('online', syncNetworkStatus);
+      window.removeEventListener('offline', syncNetworkStatus);
+    };
+  }, [setIsOnline]);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (!hasTenantContext) {
-      return Boolean(item.roles?.includes('SuperAdmin'));
+  const hasTenantContext = currentUserRole !== 'SuperAdmin' || Boolean(activeTenantId);
+  const visibleNavItems = getVisibleNavItems(currentUserRole, activeTenantId);
+
+  const companyStores = activeCompanyId
+    ? storeLocations.filter((s) => s.companyId === activeCompanyId)
+    : storeLocations;
+
+  const companyFiscalYears = activeCompanyId
+    ? fiscalYears.filter((fy) => fy.companyId === activeCompanyId)
+    : fiscalYears;
+
+  const handleCompanyChange = (nextCompanyId: string) => {
+    setActiveCompanyId(nextCompanyId);
+    const nextStores = nextCompanyId
+      ? storeLocations.filter((s) => s.companyId === nextCompanyId)
+      : storeLocations;
+    if (!nextStores.some((s) => s.id === activeStoreId)) {
+      setActiveStoreId(nextStores[0]?.id ?? '');
     }
-    return !item.roles || item.roles.includes(currentUserRole);
-  });
+    const nextFiscalYears = nextCompanyId
+      ? fiscalYears.filter((fy) => fy.companyId === nextCompanyId)
+      : fiscalYears;
+    if (!nextFiscalYears.some((fy) => fy.id === activeFiscalYearId)) {
+      setActiveFiscalYearId(nextFiscalYears[0]?.id ?? '');
+    }
+  };
 
   const activeItem =
     visibleNavItems.find((item) =>
@@ -124,15 +154,14 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
 
         <div className="border-t border-sidebar-border p-3 text-xs flex items-center justify-between gap-2">
           {!sidebarCollapsed && <span className="truncate font-medium text-foreground">{currentUserName}</span>}
-          <button
-            type="button"
-            onClick={() => setIsOnline(!isOnline)}
-            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+          <div
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground select-none"
             title={isOnline ? t('app.online') : t('app.offline')}
+            aria-label={isOnline ? t('app.online') : t('app.offline')}
           >
             {isOnline ? <Wifi className="h-3.5 w-3.5 text-success" /> : <WifiOff className="h-3.5 w-3.5 text-warning" />}
             {!sidebarCollapsed && <span>{isOnline ? t('app.online') : t('app.offline')}</span>}
-          </button>
+          </div>
         </div>
       </aside>
 
@@ -170,7 +199,7 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
                 <select
                   aria-label={t('app.company')}
                   value={activeCompanyId}
-                  onChange={(e) => setActiveCompanyId(e.target.value)}
+                  onChange={(e) => handleCompanyChange(e.target.value)}
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">-- Odaberi preduzeće --</option>
@@ -186,7 +215,7 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">-- Odaberi poslovnicu --</option>
-                  {storeLocations.map((s) => (
+                  {companyStores.map((s) => (
                     <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
                   ))}
                 </select>
@@ -198,7 +227,7 @@ export function AppLayout({ children }: { children?: React.ReactNode }) {
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">-- Odaberi fiskalnu godinu --</option>
-                  {fiscalYears.map((fy) => (
+                  {companyFiscalYears.map((fy) => (
                     <option key={fy.id} value={fy.id}>
                       {fy.year} {fy.isLocked ? `(${t('status.LOCKED')})` : ''}
                     </option>

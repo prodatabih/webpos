@@ -4,7 +4,7 @@ import { getAppStoreState } from './useAppStore';
 import type { CalculationDocument, PosReceipt } from '../types/domain';
 
 describe('Accounting, KEP Ledger, Period Locking, and Audit Trail Verification', () => {
-  it('posts calculation with automatic price leveling on existing stock and records KEP & Audit entries', () => {
+  it('posts calculation with automatic price leveling on existing stock and records KEP & Audit entries', async () => {
     const store = getAppStoreState();
     const beforePriceState = store.storeItemPrices.find(
       (p) => p.storeId === 'store-1' && p.itemId === 'item-1'
@@ -54,10 +54,10 @@ describe('Accounting, KEP Ledger, Period Locking, and Audit Trail Verification',
       createdAt: '2026-11-08T10:00:00Z',
     };
 
-    const saveRes = getAppStoreState().saveCalculationDraft(draftCalc);
+    const saveRes = await getAppStoreState().saveCalculationDraft(draftCalc);
     expect(saveRes.ok).toBe(true);
 
-    const postRes = getAppStoreState().postCalculation('calc-test-auto-niv');
+    const postRes = await getAppStoreState().postCalculation('calc-test-auto-niv');
     expect(postRes.ok).toBe(true);
     expect(postRes.autoLevelingDocNumber).toBe('NIV-AUTO-KALK-PJ01-2026-0099');
 
@@ -91,18 +91,18 @@ describe('Accounting, KEP Ledger, Period Locking, and Audit Trail Verification',
     expect(auditEntry?.newState).toBe('POSTED');
   });
 
-  it('enforces immutability of POSTED documents and supports reversal with negative KEP storno', () => {
+  it('enforces immutability of POSTED documents and supports reversal with negative KEP storno', async () => {
     const store = getAppStoreState();
     const postedDoc = store.calculations.find((c) => c.id === 'calc-test-auto-niv');
     expect(postedDoc?.status).toBe('POSTED');
 
-    const modifyAttempt = store.saveCalculationDraft({
+    const modifyAttempt = await store.saveCalculationDraft({
       ...postedDoc!,
       notes: 'Pokušaj nedozvoljene izmjene',
     });
     expect(modifyAttempt.ok).toBe(false);
 
-    const revRes = store.reverseCalculation('calc-test-auto-niv', 'Pogrešan unos količine');
+    const revRes = await store.reverseCalculation('calc-test-auto-niv', 'Pogrešan unos količine');
     expect(revRes.ok).toBe(true);
 
     const afterRev = getAppStoreState();
@@ -121,12 +121,12 @@ describe('Accounting, KEP Ledger, Period Locking, and Audit Trail Verification',
     expect(revAudit?.newState).toBe('REVERSED');
   });
 
-  it('blocks posting in a locked fiscal period and logs period lock/unlock in auditLog', () => {
+  it('blocks posting in a locked fiscal period and logs period lock/unlock in auditLog', async () => {
     const store = getAppStoreState();
     expect(store.isDateInLockedPeriod('2026-10-15')).toBe(true);
     expect(store.isDateInLockedPeriod('2026-11-15')).toBe(false);
 
-    store.toggleFiscalPeriodLock('fp-2026-11');
+    await store.toggleFiscalPeriodLock('fp-2026-11');
     expect(getAppStoreState().isDateInLockedPeriod('2026-11-15')).toBe(true);
 
     const lockedDraft: CalculationDocument = {
@@ -150,15 +150,15 @@ describe('Accounting, KEP Ledger, Period Locking, and Audit Trail Verification',
       createdBy: 'tenant.admin',
       createdAt: '2026-11-15T10:00:00Z',
     };
-    getAppStoreState().saveCalculationDraft(lockedDraft);
-    const blockedPost = getAppStoreState().postCalculation('calc-locked-test');
+    await getAppStoreState().saveCalculationDraft(lockedDraft);
+    const blockedPost = await getAppStoreState().postCalculation('calc-locked-test');
     expect(blockedPost.ok).toBe(false);
 
-    getAppStoreState().toggleFiscalPeriodLock('fp-2026-11');
+    await getAppStoreState().toggleFiscalPeriodLock('fp-2026-11');
     expect(getAppStoreState().isDateInLockedPeriod('2026-11-15')).toBe(false);
   });
 
-  it('deducts BOM components on POS composite sale (ON_SALE_BACKFLUSH) and restores on refund', () => {
+  it('deducts BOM components on POS composite sale (ON_SALE_BACKFLUSH) and restores on refund', async () => {
     const beforeFlour = getAppStoreState().storeItemPrices.find(
       (p) => p.storeId === 'store-1' && p.itemId === 'item-2'
     );
@@ -215,7 +215,7 @@ describe('Accounting, KEP Ledger, Period Locking, and Audit Trail Verification',
       status: 'POSTED',
     };
 
-    const issueRes = getAppStoreState().issuePosReceipt(saleReceipt);
+    const issueRes = await getAppStoreState().issuePosReceipt(saleReceipt);
     expect(issueRes.ok).toBe(true);
 
     const afterSaleFlour = getAppStoreState().storeItemPrices.find(
@@ -223,7 +223,7 @@ describe('Accounting, KEP Ledger, Period Locking, and Audit Trail Verification',
     );
     expect(afterSaleFlour?.currentStockQty).toBe('208.9800');
 
-    const refundRes = getAppStoreState().refundPosReceipt('rcp-test-bom');
+    const refundRes = await getAppStoreState().refundPosReceipt('rcp-test-bom');
     expect(refundRes.ok).toBe(true);
 
     const afterRefundFlour = getAppStoreState().storeItemPrices.find(

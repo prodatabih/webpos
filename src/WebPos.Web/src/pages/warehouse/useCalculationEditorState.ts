@@ -3,10 +3,35 @@ import Decimal from 'decimal.js';
 import { calculateCalculationLine, d, round2 } from '../../lib/money';
 import { generateUuidV7 } from '../../lib/utils';
 import type {
-  CalculationDocument, Company, Item, Partner, StoreItemPrice, StoreLocation, VatRate,
+  CalculationDocument, CalculationLine, Company, Item, Partner, StoreItemPrice, StoreLocation, StoreType, VatRate,
 } from '../../types/domain';
 import { recomputeCalculationWithZtr, type CalculationLineField } from './calculationUtils';
 import { t } from '../../i18n';
+
+export function buildBlankCalculationLine(storeType: StoreType = 'RETAIL'): CalculationLine {
+  const isRaw = storeType === 'RAW_MATERIAL' || storeType === 'PRODUCTION';
+  return {
+    id: generateUuidV7(),
+    itemId: '',
+    quantity: '1.0000',
+    supplierUnitPrice: '0.0000',
+    discountPercent: '0.00',
+    netSupplierUnitPrice: '0.0000',
+    dependentCostPerUnit: '0.0000',
+    purchaseUnitPrice: '0.0000',
+    purchaseTotalValue: '0.00',
+    marginPercent: '0.00',
+    marginUnitAmount: '0.0000',
+    marginTotalAmount: '0.00',
+    sellingUnitPriceExclVat: '0.0000',
+    sellingTotalValueExclVat: '0.00',
+    vatRatePercent: isRaw ? '0.00' : '17.00',
+    embeddedVatUnitAmount: '0.0000',
+    embeddedVatTotalAmount: '0.00',
+    retailUnitPriceWithVat: '0.00',
+    retailTotalValueWithVat: '0.00',
+  };
+}
 
 interface UseCalculationEditorOptions {
   initialDoc: CalculationDocument;
@@ -27,7 +52,16 @@ export function useCalculationEditorState({
   vatRates,
   storePrices,
 }: UseCalculationEditorOptions) {
-  const [doc, setDoc] = useState<CalculationDocument>(initialDoc);
+  const initialStoreType =
+    storeLocations.find((s) => s.id === initialDoc.storeId)?.storeType ??
+    storeLocations[0]?.storeType ??
+    'RETAIL';
+
+  const [doc, setDoc] = useState<CalculationDocument>(() =>
+    initialDoc.status === 'DRAFT' && initialDoc.lines.length === 0
+      ? { ...initialDoc, lines: [buildBlankCalculationLine(initialStoreType)] }
+      : initialDoc
+  );
   const [isPrintPreview, setIsPrintPreview] = useState(false);
   const isReadOnly = doc.status !== 'DRAFT';
 
@@ -96,31 +130,14 @@ export function useCalculationEditorState({
       targetSellingPriceExclVat: isWholesale ? (existingPrice?.wholesaleUnitPriceExclVat ?? supPrice) : undefined,
       vatRatePercent: isRaw ? '0.00' : vatRate,
     });
-    setDoc(recomputeCalculationWithZtr(doc, [...doc.lines, { id: generateUuidV7(), itemId: item.id, ...initCalc }], totalZtr, allocMethod, freight, customs, handling, other, currentStore.storeType));
+    const newLine: CalculationLine = { id: generateUuidV7(), itemId: item.id, ...initCalc };
+    const baseLines =
+      doc.lines.length === 1 && !doc.lines[0]?.itemId ? [newLine] : [...doc.lines, newLine];
+    setDoc(recomputeCalculationWithZtr(doc, baseLines, totalZtr, allocMethod, freight, customs, handling, other, currentStore.storeType));
   };
 
   const handleAddBlankLine = () => {
-    const blank = {
-      id: generateUuidV7(),
-      itemId: '',
-      quantity: '1.0000',
-      supplierUnitPrice: '0.0000',
-      discountPercent: '0.00',
-      netSupplierUnitPrice: '0.0000',
-      dependentCostPerUnit: '0.0000',
-      purchaseUnitPrice: '0.0000',
-      purchaseTotalValue: '0.00',
-      marginPercent: '0.00',
-      marginUnitAmount: '0.0000',
-      marginTotalAmount: '0.00',
-      sellingUnitPriceExclVat: '0.0000',
-      sellingTotalValueExclVat: '0.00',
-      vatRatePercent: currentStore.storeType === 'RAW_MATERIAL' ? '0.00' : '17.00',
-      embeddedVatUnitAmount: '0.0000',
-      embeddedVatTotalAmount: '0.00',
-      retailUnitPriceWithVat: '0.00',
-      retailTotalValueWithVat: '0.00',
-    };
+    const blank = buildBlankCalculationLine(currentStore.storeType);
     setDoc((prev) => ({ ...prev, lines: [...prev.lines, blank] }));
   };
 

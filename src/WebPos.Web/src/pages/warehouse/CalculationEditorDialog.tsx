@@ -1,12 +1,15 @@
-import { useEffect, useRef } from 'react';
-import { CheckCircle2, Save, Printer, FileSpreadsheet } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CheckCircle2, Save, Printer, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { t } from '../../i18n';
+import { d } from '../../lib/money';
+import type { ActionResult } from '../../store/storeTypes';
 import type {
   CalculationDocument, Company, Item, Partner, StoreItemPrice, StoreLocation, VatRate,
 } from '../../types/domain';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
+import { showToast } from '../../components/ui/Toast';
 import { CalculationZtrPanel } from './CalculationZtrPanel';
 import { CalculationLinesTable } from './CalculationLinesTable';
 import { CalculationRecapPanel } from './CalculationRecapPanel';
@@ -25,9 +28,9 @@ interface CalculationEditorDialogProps {
   items: Item[];
   vatRates: VatRate[];
   storePrices: StoreItemPrice[];
-  onSaveDraft: (doc: CalculationDocument) => void;
-  onPostDocument: (doc: CalculationDocument) => void;
-  onAutoSave?: (doc: CalculationDocument) => void;
+  onSaveDraft: (doc: CalculationDocument) => Promise<ActionResult>;
+  onPostDocument: (doc: CalculationDocument) => Promise<ActionResult>;
+  onAutoSave?: (doc: CalculationDocument) => Promise<ActionResult>;
 }
 
 export function CalculationEditorDialog({
@@ -82,32 +85,135 @@ export function CalculationEditorDialog({
     storePrices,
   });
 
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const isBusy = isSaving || isPosting;
+
   const isInitialMount = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDirtyRef = useRef(false);
+
+  const canAutoSave = useCallback((candidate: CalculationDocument) => {
+    return (
+      candidate.status === 'DRAFT' &&
+      Boolean(candidate.partnerId) &&
+      candidate.lines.some((l) => Boolean(l.itemId))
+    );
+  }, []);
+
+  const sanitizeForPersist = useCallback((candidate: CalculationDocument): CalculationDocument => {
+    return {
+      ...candidate,
+      lines: candidate.lines.filter((l) => Boolean(l.itemId)),
+    };
+  }, []);
+
+  const runAutoSave = useCallback(
+    async (candidate: CalculationDocument) => {
+      if (!onAutoSave || !canAutoSave(candidate)) return;
+      setAutoSaveStatus('saving');
+      const res = await onAutoSave(sanitizeForPersist(candidate));
+      if (res.ok) {
+        isDirtyRef.current = false;
+        setAutoSaveStatus('saved');
+      } else {
+        setAutoSaveStatus('error');
+      }
+    },
+    [onAutoSave, canAutoSave, sanitizeForPersist]
+  );
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    if (doc.status !== 'DRAFT') return;
-    const timer = setTimeout(() => {
-      onAutoSave?.(doc);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [doc, onAutoSave]);
+    if (doc.status !== 'DRAFT' || isBusy) return;
+    isDirtyRef.current = true;
+    if (!canAutoSave(doc)) {
+      setAutoSaveStatus('idle');
+      return;
+    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      void runAutoSave(doc);
+    }, 600);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [doc, isBusy, canAutoSave, runAutoSave]);
 
   const handleClose = () => {
-    if (doc.status === 'DRAFT') {
-      onAutoSave?.(doc);
+    if (isBusy) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (doc.status === 'DRAFT' && isDirtyRef.current && canAutoSave(doc)) {
+      void runAutoSave(doc);
     }
     onOpenChange(false);
   };
+
+  const handleManualSave = async () => {
+    if (isBusy) return;
+    if (!doc.partnerId) {
+      showToast({ title: 'Odaberite dobavljača prije snimanja kalkulacije.', variant: 'error' });
+      return;
+    }
+    const validLines = doc.lines.filter((l) => Boolean(l.itemId));
+    if (validLines.length === 0) {
+      showToast({ title: 'Dodajte barem jedan artikal prije snimanja nacrta.', variant: 'error' });
+      return;
+    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setIsSaving(true);
+    try {
+      const res = await onSaveDraft(sanitizeForPersist(doc));
+      if (res.ok) {
+        isDirtyRef.current = false;
+        setAutoSaveStatus('saved');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleManualPost = async () => {
+    if (isBusy) return;
+    if (!doc.partnerId) {
+      showToast({ title: 'Odaberite dobavljača prije knjiženja kalkulacije.', variant: 'error' });
+      return;
+    }
+    const validLines = doc.lines.filter((l) => Boolean(l.itemId));
+    if (validLines.length === 0) {
+      showToast({ title: 'Dodajte barem jedan artikal prije knjiženja dokumenta.', variant: 'error' });
+      return;
+    }
+    if (validLines.some((l) => d(l.quantity).lte(0))) {
+      showToast({ title: 'Količina na svim stavkama mora biti veća od nule.', variant: 'error' });
+      return;
+    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setIsPosting(true);
+    try {
+      await onPostDocument(sanitizeForPersist(doc));
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const validLines = doc.lines.filter((l) => Boolean(l.itemId));
+  const canPost =
+    Boolean(doc.partnerId) &&
+    validLines.length > 0 &&
+    !validLines.some((l) => d(l.quantity).lte(0));
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next && doc.status === 'DRAFT') {
-          onAutoSave?.(doc);
+        if (!next) {
+          handleClose();
+          return;
         }
         onOpenChange(next);
       }}
@@ -125,16 +231,17 @@ export function CalculationEditorDialog({
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleClose}>{t('common.close')}</Button>
+            <Button variant="outline" onClick={handleClose} disabled={isBusy}>{t('common.close')}</Button>
             {!isReadOnly && (
               <>
-                <Button variant="secondary" onClick={() => onSaveDraft(doc)}>
+                <Button variant="secondary" onClick={handleManualSave} isLoading={isSaving} disabled={isBusy}>
                   <Save className="h-4 w-4" /><span>{t('common.saveDraft')}</span>
                 </Button>
                 <Button
                   variant="success"
-                  disabled={!doc.partnerId || doc.lines.length === 0 || doc.lines.some((l) => !l.itemId)}
-                  onClick={() => onPostDocument(doc)}
+                  disabled={!canPost || isBusy}
+                  isLoading={isPosting}
+                  onClick={handleManualPost}
                 >
                   <CheckCircle2 className="h-4 w-4" /><span>{t('warehouse.confirmCalculation')}</span>
                 </Button>
@@ -159,10 +266,22 @@ export function CalculationEditorDialog({
             <div className="flex items-center gap-2">
               <DocumentStatusBadge status={doc.status} />
               <span className="font-mono font-bold text-foreground">{doc.docNumber}</span>
-              {!isReadOnly && (
+              {!isReadOnly && autoSaveStatus === 'saving' && (
+                <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <Save className="h-3 w-3 animate-pulse" />
+                  {t('common.autoSaving')}
+                </span>
+              )}
+              {!isReadOnly && autoSaveStatus === 'saved' && (
                 <span className="inline-flex items-center gap-1 rounded bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
                   <Save className="h-3 w-3" />
                   {t('common.autoSaved')}
+                </span>
+              )}
+              {!isReadOnly && autoSaveStatus === 'error' && (
+                <span className="inline-flex items-center gap-1 rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                  <AlertCircle className="h-3 w-3" />
+                  Nacrt nije sačuvan
                 </span>
               )}
             </div>
@@ -210,7 +329,7 @@ export function CalculationEditorDialog({
           />
 
           <CalculationRecapPanel
-            itemCount={doc.lines.length}
+            itemCount={validLines.length}
             totalQuantity={totalQty}
             grossInvoiceValue={grossInv}
             totalDiscount={totalDisc}

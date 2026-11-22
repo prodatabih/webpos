@@ -9,6 +9,7 @@ import type {
   ItemBarcode,
   ItemBomLine,
   KepLedgerEntry,
+  LabelTemplate,
   OtherWarehouseDocument,
   Partner,
   PosReceipt,
@@ -25,6 +26,26 @@ import type {
 export interface LoginRequest {
   email: string;
   password: string;
+  usernameOrEmail?: string;
+}
+
+export interface ForgotPasswordResponse {
+  message?: string;
+  resetCode?: string;
+  code?: string;
+  token?: string;
+  expiresAtUtc?: string;
+}
+
+export interface ResetPasswordRequest {
+  emailOrUsername: string;
+  resetCode: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export interface AuthUserProfile {
@@ -35,6 +56,7 @@ export interface AuthUserProfile {
   tenantId: string | null;
   tenantCode?: string | null;
   tenantName?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export interface LoginResponse {
@@ -50,6 +72,8 @@ export interface TenantSummary {
   isActive: boolean;
   createdAt: string;
   adminEmail?: string;
+  userCount?: number;
+  companyCount?: number;
 }
 
 export interface CreateTenantRequest {
@@ -66,6 +90,7 @@ export interface TenantUser {
   role: Exclude<UserRole, 'SuperAdmin'>;
   isActive: boolean;
   createdAt: string;
+  mustChangePassword?: boolean;
 }
 
 export interface CreateUserRequest {
@@ -102,4 +127,5 @@ export interface BootstrapDataResponse {
   kepLedgerEntries: KepLedgerEntry[];
   auditLog: AuditLogEntry[];
   systemConfig?: SystemConfig;
+  labelTemplates?: LabelTemplate[];
 }

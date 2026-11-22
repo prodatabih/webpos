@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { d } from '../../lib/money';
 import { generateUuidV7 } from '../../lib/utils';
+import type { ActionResult } from '../../store/storeTypes';
 import type {
   Item,
   StoreItemPrice,
@@ -20,7 +21,8 @@ interface UseTransferEditorOptions {
   items: Item[];
   vatRates: VatRate[];
   storePrices: StoreItemPrice[];
-  onAutoSave?: (doc: TransferDocument) => void;
+  isBusy?: boolean;
+  onAutoSave?: (doc: TransferDocument) => Promise<ActionResult>;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -30,29 +32,88 @@ export function useTransferEditorState({
   items,
   vatRates,
   storePrices,
+  isBusy = false,
   onAutoSave,
   onOpenChange,
 }: UseTransferEditorOptions) {
-  const [doc, setDoc] = useState<TransferDocument>(initialDoc);
+  const [doc, setDoc] = useState<TransferDocument>(() =>
+    initialDoc.status === 'DRAFT' && initialDoc.lines.length === 0
+      ? { ...initialDoc, lines: [buildBlankTransferLine()] }
+      : initialDoc
+  );
   const [isPrintPreview, setIsPrintPreview] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const isReadOnly = doc.status !== 'DRAFT';
 
   const isInitialMount = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDirtyRef = useRef(false);
+
+  const canAutoSave = useCallback((candidate: TransferDocument) => {
+    return (
+      candidate.status === 'DRAFT' &&
+      Boolean(candidate.sourceStoreId) &&
+      Boolean(candidate.targetStoreId) &&
+      candidate.sourceStoreId !== candidate.targetStoreId &&
+      candidate.lines.some((l) => Boolean(l.itemId))
+    );
+  }, []);
+
+  const sanitizeForPersist = useCallback((candidate: TransferDocument): TransferDocument => {
+    const validLines = candidate.lines.filter((l) => Boolean(l.itemId));
+    return recomputeTransferDocTotals(candidate, validLines);
+  }, []);
+
+  const cancelPendingAutoSave = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const markSaved = useCallback(() => {
+    isDirtyRef.current = false;
+    setAutoSaveStatus('saved');
+  }, []);
+
+  const runAutoSave = useCallback(
+    async (candidate: TransferDocument) => {
+      if (!onAutoSave || !canAutoSave(candidate)) return;
+      setAutoSaveStatus('saving');
+      const res = await onAutoSave(sanitizeForPersist(candidate));
+      if (res.ok) {
+        isDirtyRef.current = false;
+        setAutoSaveStatus('saved');
+      } else {
+        setAutoSaveStatus('error');
+      }
+    },
+    [onAutoSave, canAutoSave, sanitizeForPersist]
+  );
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    if (doc.status !== 'DRAFT') return;
-    const timer = setTimeout(() => {
-      onAutoSave?.(doc);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [doc, onAutoSave]);
+    if (doc.status !== 'DRAFT' || isBusy) return;
+    isDirtyRef.current = true;
+    if (!canAutoSave(doc)) {
+      setAutoSaveStatus('idle');
+      return;
+    }
+    cancelPendingAutoSave();
+    timerRef.current = setTimeout(() => {
+      void runAutoSave(doc);
+    }, 600);
+    return cancelPendingAutoSave;
+  }, [doc, isBusy, canAutoSave, cancelPendingAutoSave, runAutoSave]);
 
   const handleClose = () => {
-    if (doc.status === 'DRAFT') {
-      onAutoSave?.(doc);
+    if (isBusy) return;
+    cancelPendingAutoSave();
+    if (doc.status === 'DRAFT' && isDirtyRef.current && canAutoSave(doc)) {
+      void runAutoSave(doc);
     }
     onOpenChange(false);
   };
@@ -79,7 +140,9 @@ export function useTransferEditorState({
       storePrices,
       vatRates,
     });
-    setDoc(recomputeTransferDocTotals(doc, [...doc.lines, nextLine]));
+    const baseLines =
+      doc.lines.length === 1 && !doc.lines[0]?.itemId ? [nextLine] : [...doc.lines, nextLine];
+    setDoc(recomputeTransferDocTotals(doc, baseLines));
   };
 
   const handleAddBlankLine = () => {
@@ -158,10 +221,14 @@ export function useTransferEditorState({
     isPrintPreview,
     setIsPrintPreview,
     isReadOnly,
+    autoSaveStatus,
     storeOptions,
     sourceStore,
     targetStore,
     priceDifferenceTotal,
+    sanitizeForPersist,
+    cancelPendingAutoSave,
+    markSaved,
     handleClose,
     handleAddItem,
     handleAddBlankLine,

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,17 +13,23 @@ import { Input } from '../../components/ui/Input';
 import { showToast } from '../../components/ui/Toast';
 
 const partnerSchema = z.object({
-  code: z.string().min(1, t('common.requiredField')),
-  name: z.string().min(2, t('common.requiredField')),
+  code: z.string().trim().min(1, t('common.requiredField')),
+  name: z.string().trim().min(2, 'Naziv mora imati najmanje 2 karaktera.'),
   partnerType: z.enum(['SUPPLIER', 'BUYER', 'BOTH']),
-  taxIdNumber: z.string().regex(/^\d{13}$/, t('common.requiredField')),
-  vatIdNumber: z.string().regex(/^(\d{12}|)$/, t('common.requiredField')),
-  address: z.string().min(1, t('common.requiredField')),
-  city: z.string().min(1, t('common.requiredField')),
+  taxIdNumber: z
+    .string()
+    .trim()
+    .refine((val) => val === '' || /^\d{13}$/.test(val), 'JIB mora imati 13 cifara'),
+  vatIdNumber: z
+    .string()
+    .trim()
+    .refine((val) => val === '' || /^\d{12}$/.test(val), 'PDV broj mora imati 12 cifara'),
+  address: z.string(),
+  city: z.string(),
   phone: z.string(),
   email: z.string(),
-  paymentTermsDays: z.coerce.number().int().min(0).max(365),
-  creditLimit: z.string().min(1, t('common.requiredField')),
+  paymentTermsDays: z.coerce.number().int().min(0, 'Min 0 dana').max(365, 'Maks 365 dana'),
+  creditLimit: z.string().trim().min(1, t('common.requiredField')),
   discountPercent: z.string(),
   isActive: z.boolean(),
 });
@@ -42,6 +48,7 @@ export function PartnerFormDialog({
   editingPartner,
 }: PartnerFormDialogProps) {
   const { activeCompanyId, partners, upsertPartner } = useAppStore();
+  const [saving, setSaving] = useState(false);
 
   const {
     register,
@@ -74,15 +81,15 @@ export function PartnerFormDialog({
         code: editingPartner.code,
         name: editingPartner.name,
         partnerType: editingPartner.partnerType,
-        taxIdNumber: editingPartner.taxIdNumber,
-        vatIdNumber: editingPartner.vatIdNumber,
-        address: editingPartner.address,
-        city: editingPartner.city,
-        phone: editingPartner.phone,
-        email: editingPartner.email,
+        taxIdNumber: editingPartner.taxIdNumber ?? '',
+        vatIdNumber: editingPartner.vatIdNumber ?? '',
+        address: editingPartner.address ?? '',
+        city: editingPartner.city ?? '',
+        phone: editingPartner.phone ?? '',
+        email: editingPartner.email ?? '',
         paymentTermsDays: editingPartner.paymentTermsDays,
-        creditLimit: editingPartner.creditLimit,
-        discountPercent: '0.00',
+        creditLimit: editingPartner.creditLimit ?? '0.00',
+        discountPercent: editingPartner.discountPercent ?? '0.00',
         isActive: editingPartner.isActive,
       });
     } else {
@@ -104,40 +111,55 @@ export function PartnerFormDialog({
     }
   }, [open, editingPartner, partners.length, reset]);
 
-  const onSubmit = (values: PartnerFormValues) => {
-    const payload: Partner = {
-      id: editingPartner?.id ?? generateUuidV7(),
-      companyId: activeCompanyId,
-      code: values.code.trim(),
-      name: values.name.trim(),
-      partnerType: values.partnerType as PartnerType,
-      taxIdNumber: values.taxIdNumber.trim(),
-      vatIdNumber: values.vatIdNumber.trim(),
-      address: values.address.trim(),
-      city: values.city.trim(),
-      phone: values.phone.trim(),
-      email: values.email.trim(),
-      paymentTermsDays: values.paymentTermsDays,
-      creditLimit: round2(values.creditLimit),
-      isActive: values.isActive,
-    };
-    upsertPartner(payload);
-    showToast({ title: t('messages.recordSaved'), variant: 'success' });
-    onClose();
+  const onSubmit = async (values: PartnerFormValues) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const normalizedCredit = values.creditLimit.trim().replace(',', '.');
+      const normalizedDiscount = (values.discountPercent || '0').trim().replace(',', '.');
+      const payload: Partner = {
+        id: editingPartner?.id ?? generateUuidV7(),
+        companyId: editingPartner?.companyId ?? activeCompanyId,
+        code: values.code.trim(),
+        name: values.name.trim(),
+        partnerType: values.partnerType as PartnerType,
+        taxIdNumber: values.taxIdNumber.trim(),
+        vatIdNumber: values.vatIdNumber.trim(),
+        address: values.address.trim(),
+        city: values.city.trim(),
+        phone: values.phone.trim(),
+        email: values.email.trim(),
+        paymentTermsDays: values.paymentTermsDays,
+        creditLimit: round2(normalizedCredit),
+        discountPercent: round2(normalizedDiscount || '0'),
+        isActive: values.isActive,
+      };
+      const res = await upsertPartner(payload);
+      if (!res.ok) {
+        showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+        return;
+      }
+      showToast({ title: t('messages.recordSaved'), variant: 'success' });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        if (!saving) onClose();
+      }}
       size="lg"
       title={editingPartner ? `${t('common.edit')} — ${editingPartner.name}` : t('common.create')}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" onClick={handleSubmit(onSubmit)}>
+          <Button variant="primary" onClick={handleSubmit(onSubmit)} isLoading={saving}>
             {t('common.save')}
           </Button>
         </>
@@ -174,8 +196,8 @@ export function PartnerFormDialog({
 
         <Input
           label={t('master.taxIdNumber')}
-          required
           maxLength={13}
+          placeholder="13 cifara (opcionalno za fizička/strana lica)"
           error={errors.taxIdNumber?.message}
           className="font-mono"
           {...register('taxIdNumber')}
@@ -183,6 +205,7 @@ export function PartnerFormDialog({
         <Input
           label={t('master.vatIdNumber')}
           maxLength={12}
+          placeholder="12 cifara (opcionalno)"
           error={errors.vatIdNumber?.message}
           className="font-mono"
           {...register('vatIdNumber')}
@@ -190,13 +213,11 @@ export function PartnerFormDialog({
 
         <Input
           label={t('master.address')}
-          required
           error={errors.address?.message}
           {...register('address')}
         />
         <Input
           label={t('master.city')}
-          required
           error={errors.city?.message}
           {...register('city')}
         />

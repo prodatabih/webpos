@@ -59,25 +59,33 @@ public class ReportsController : ApiControllerBase
 
         var receipts = await query.ToListAsync(ct);
 
+        static decimal SignFor(string? receiptType) =>
+            string.Equals(receiptType, "REFUND", StringComparison.OrdinalIgnoreCase) ? -1m : 1m;
+
         var byPayment = receipts
             .GroupBy(r => r.PaymentMethod.ToString())
             .Select(g => new
             {
                 PaymentMethod = g.Key,
                 Count = g.Count(),
-                GrossAmount2 = CalculationMath.Round2(g.Sum(x => x.TotalGrossAmount2)),
-                VatAmount2 = CalculationMath.Round2(g.Sum(x => x.TotalVatAmount2)),
-                NetAmount2 = CalculationMath.Round2(g.Sum(x => x.TotalNetAmount2))
+                GrossAmount2 = CalculationMath.Round2(g.Sum(x => x.TotalGrossAmount2 * SignFor(x.ReceiptType))),
+                VatAmount2 = CalculationMath.Round2(g.Sum(x => x.TotalVatAmount2 * SignFor(x.ReceiptType))),
+                NetAmount2 = CalculationMath.Round2(g.Sum(x => x.TotalNetAmount2 * SignFor(x.ReceiptType)))
             })
             .ToList();
+
+        var saleCount = receipts.Count(r => !string.Equals(r.ReceiptType, "REFUND", StringComparison.OrdinalIgnoreCase));
+        var refundCount = receipts.Count - saleCount;
 
         return Ok(new
         {
             DateUtc = targetDate,
             ReceiptCount = receipts.Count,
-            TotalGrossAmount2 = CalculationMath.Round2(receipts.Sum(r => r.TotalGrossAmount2)),
-            TotalVatAmount2 = CalculationMath.Round2(receipts.Sum(r => r.TotalVatAmount2)),
-            TotalNetAmount2 = CalculationMath.Round2(receipts.Sum(r => r.TotalNetAmount2)),
+            SaleCount = saleCount,
+            RefundCount = refundCount,
+            TotalGrossAmount2 = CalculationMath.Round2(receipts.Sum(r => r.TotalGrossAmount2 * SignFor(r.ReceiptType))),
+            TotalVatAmount2 = CalculationMath.Round2(receipts.Sum(r => r.TotalVatAmount2 * SignFor(r.ReceiptType))),
+            TotalNetAmount2 = CalculationMath.Round2(receipts.Sum(r => r.TotalNetAmount2 * SignFor(r.ReceiptType))),
             ByPaymentMethod = byPayment
         });
     }
@@ -85,14 +93,30 @@ public class ReportsController : ApiControllerBase
     [HttpGet("audit-log")]
     public async Task<IActionResult> GetAuditLog(
         [FromQuery] Guid? tenantId,
+        [FromQuery] string? entityName,
+        [FromQuery] string? action,
         [FromQuery] int take = 100,
         CancellationToken ct = default)
     {
         if (!TryGetTenantId(out var tid, tenantId)) return Forbid();
 
         var clampedTake = Math.Clamp(take, 1, 500);
-        var entries = await _db.AuditLogEntries.AsNoTracking()
-            .Where(a => a.TenantId == tid)
+        var query = _db.AuditLogEntries.AsNoTracking()
+            .Where(a => a.TenantId == tid);
+
+        if (!string.IsNullOrWhiteSpace(entityName))
+        {
+            var eName = entityName.Trim();
+            query = query.Where(a => a.EntityName == eName);
+        }
+
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            var act = action.Trim();
+            query = query.Where(a => a.Action == act);
+        }
+
+        var entries = await query
             .OrderByDescending(a => a.OccurredAtUtc)
             .Take(clampedTake)
             .ToListAsync(ct);

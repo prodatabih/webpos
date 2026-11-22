@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, List, ReceiptText } from 'lucide-react';
+import { AlertTriangle, Building2, CalendarDays, LayoutGrid, List, ReceiptText } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { d, round4 } from '../../lib/money';
@@ -25,6 +25,7 @@ export function PosTerminalPage() {
   const store = useAppStore();
   const activeTerminal = store.posTerminals.find((tr) => tr.id === store.activeTerminalId);
   const activeStore = store.storeLocations.find((st) => st.id === store.activeStoreId);
+  const activeFiscalYear = store.fiscalYears.find((fy) => fy.id === store.activeFiscalYearId);
 
   const [scanText, setScanText] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -35,6 +36,24 @@ export function PosTerminalPage() {
   const [cardAmount, setCardAmount] = useState('0.00');
   const [wireAmount, setWireAmount] = useState('0.00');
   const [heldDialogOpen, setHeldDialogOpen] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+
+  const missingContext = useMemo(() => {
+    const missing: string[] = [];
+    if (!store.activeStoreId || !activeStore) missing.push('aktivna poslovnica');
+    if (!store.activeTerminalId || !activeTerminal) missing.push('aktivna POS kasa (terminal)');
+    if (!store.activeFiscalYearId || !activeFiscalYear) missing.push('aktivna poslovna godina');
+    return missing;
+  }, [
+    store.activeStoreId,
+    activeStore,
+    store.activeTerminalId,
+    activeTerminal,
+    store.activeFiscalYearId,
+    activeFiscalYear,
+  ]);
+
+  const isPosContextReady = missingContext.length === 0;
 
   const appendOrIncrementItem = (item: Item, scannedBarcode: string, qtyToAdd: string) => {
     setLines((prev) => {
@@ -82,8 +101,8 @@ export function PosTerminalPage() {
     [lines, store.items, store.storeItemPrices, store.vatRates, store.activeStoreId]
   );
 
-  const handleHoldReceipt = () => {
-    if (lines.length === 0) return;
+  const handleHoldReceipt = useCallback(() => {
+    if (lines.length === 0 || issuing) return;
     store.holdPosReceipt({
       id: generateUuidV7(),
       storeId: store.activeStoreId,
@@ -96,10 +115,19 @@ export function PosTerminalPage() {
     setLines([]);
     setSelectedPartnerId('');
     showToast({ title: t('messages.receiptHeld'), variant: 'info' });
-  };
+  }, [lines, issuing, store, selectedPartnerId]);
 
-  const handleIssueReceipt = () => {
-    if (lines.length === 0) return;
+  const handleIssueReceipt = useCallback(async () => {
+    if (lines.length === 0 || issuing) return;
+    if (!isPosContextReady) {
+      showToast({
+        title: 'POS kasa nije podešena',
+        description: `Nedostaje: ${missingContext.join(', ')}. Podesite organizaciju i poslovni period prije izdavanja računa.`,
+        variant: 'error',
+      });
+      return;
+    }
+
     const receipt = buildPosReceiptFromCart({
       companyId: store.activeCompanyId,
       fiscalYearId: store.activeFiscalYearId,
@@ -118,34 +146,77 @@ export function PosTerminalPage() {
       storePrices: store.storeItemPrices,
       vatRates: store.vatRates,
     });
-    if (store.issuePosReceipt(receipt).ok) {
-      setLines([]);
-      setSelectedPartnerId('');
-      setCashReceived('0.00');
-      setCardAmount('0.00');
-      setWireAmount('0.00');
-      showToast({ title: t('messages.receiptIssued'), description: `${receipt.receiptNumber} (${receipt.fiscalNumber})`, variant: 'success' });
+
+    setIssuing(true);
+    try {
+      const res = await store.issuePosReceipt(receipt);
+      if (res.ok) {
+        setLines([]);
+        setSelectedPartnerId('');
+        setCashReceived('0.00');
+        setCardAmount('0.00');
+        setWireAmount('0.00');
+        showToast({
+          title: t('messages.receiptIssued'),
+          description: `${receipt.receiptNumber}${receipt.fiscalNumber ? ` (${receipt.fiscalNumber})` : ''}`,
+          variant: 'success',
+        });
+      } else {
+        showToast({
+          title: 'Izdavanje računa nije uspjelo',
+          description: res.error || 'Server nije potvrdio izdavanje POS računa.',
+          variant: 'error',
+        });
+      }
+    } finally {
+      setIssuing(false);
     }
-  };
+  }, [
+    lines,
+    issuing,
+    isPosContextReady,
+    missingContext,
+    store,
+    activeTerminal,
+    selectedPartnerId,
+    paymentMethod,
+    cashReceived,
+    cardAmount,
+    wireAmount,
+    totals,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F2') { e.preventDefault(); scanInputRef.current?.focus(); }
-      else if (e.key === 'F4') { e.preventDefault(); handleHoldReceipt(); }
-      else if (e.key === 'F5') { e.preventDefault(); setPaymentMethod('CASH'); }
-      else if (e.key === 'F6') { e.preventDefault(); setPaymentMethod('CARD'); }
-      else if (e.key === 'F8') { e.preventDefault(); navigate('/pos/receipts'); }
-      else if (e.key === 'F10') { e.preventDefault(); handleIssueReceipt(); }
+      if (e.key === 'F2') {
+        e.preventDefault();
+        scanInputRef.current?.focus();
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        handleHoldReceipt();
+      } else if (e.key === 'F5') {
+        e.preventDefault();
+        if (!issuing) setPaymentMethod('CASH');
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        if (!issuing) setPaymentMethod('CARD');
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        navigate('/pos/receipts');
+      } else if (e.key === 'F10') {
+        e.preventDefault();
+        void handleIssueReceipt();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  });
+  }, [handleHoldReceipt, handleIssueReceipt, issuing, navigate]);
 
   return (
     <div className="flex flex-col">
       <PageHeader
         title={t('pos.title')}
-        subtitle={`${activeStore?.name ?? ''} · ${activeTerminal?.name ?? ''}`}
+        subtitle={`${activeStore?.name ?? 'Poslovnica nije odabrana'} · ${activeTerminal?.name ?? 'Kasa nije odabrana'}`}
         breadcrumbs={[{ label: t('nav.groupPos') }, { label: t('nav.posRegister') }]}
         actions={
           <div className="flex items-center gap-1.5">
@@ -163,6 +234,35 @@ export function PosTerminalPage() {
       />
 
       <div className="p-6 space-y-4">
+        {!isPosContextReady && (
+          <div
+            role="alert"
+            className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-destructive mt-0.5" />
+              <div>
+                <p className="font-semibold text-destructive">
+                  Izdavanje POS računa je onemogućeno — nedostaje aktivni kontekst
+                </p>
+                <p className="mt-0.5 text-xs text-foreground/90">
+                  Nedostaje: <span className="font-semibold">{missingContext.join(', ')}</span>. Konfigurišite poslovnicu, POS terminal i aktivnu poslovnu godinu kako biste mogli izdavati račune.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => navigate('/master/organizations')}>
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Organizacija</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/master/fiscal-periods')}>
+                <CalendarDays className="h-3.5 w-3.5" />
+                <span>Poslovni periodi</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
         <PosShortcutsBanner />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -222,11 +322,13 @@ export function PosTerminalPage() {
               wireAmount={wireAmount}
               onWireAmountChange={setWireAmount}
               hasLines={lines.length > 0}
+              canIssue={isPosContextReady}
+              isIssuing={issuing}
               heldCount={store.heldReceipts.length}
               onHoldReceipt={handleHoldReceipt}
               onOpenHeldDialog={() => setHeldDialogOpen(true)}
               onClearReceipt={() => setLines([])}
-              onIssueReceipt={handleIssueReceipt}
+              onIssueReceipt={() => void handleIssueReceipt()}
             />
           </div>
         </div>

@@ -8,13 +8,22 @@ import type { CalculationDocument } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { showToast } from '../../components/ui/Toast';
 import { CalculationEditorDialog } from './CalculationEditorDialog';
 import { getCalculationColumns } from './calculationsColumns';
+import { buildBlankCalculationLine } from './useCalculationEditorState';
+
+type ConfirmState =
+  | { type: 'post'; doc: CalculationDocument }
+  | { type: 'delete'; doc: CalculationDocument }
+  | { type: 'reverse'; doc: CalculationDocument }
+  | null;
 
 export function CalculationsPage() {
   const store = useAppStore();
   const [editingDoc, setEditingDoc] = useState<CalculationDocument | null>(null);
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
 
   const currentStore = store.storeLocations.find((s) => s.id === store.activeStoreId);
   const storeType = currentStore?.storeType ?? 'RETAIL';
@@ -25,16 +34,30 @@ export function CalculationsPage() {
   );
 
   const handleCreateNew = () => {
+    if (!store.activeStoreId) {
+      showToast({ title: 'Prvo odaberite ili kreirajte poslovnicu.', variant: 'error' });
+      return;
+    }
+    if (!store.activeFiscalYearId) {
+      showToast({
+        title: 'Prvo kreirajte poslovnu godinu (Matični podaci -> Poslovni periodi).',
+        variant: 'error',
+      });
+      return;
+    }
     const seq = String(storeCalcs.length + 1).padStart(4, '0');
     const today = new Date().toISOString().slice(0, 10);
+    const activeYear =
+      store.fiscalYears.find((fy) => fy.id === store.activeFiscalYearId)?.year ??
+      new Date().getFullYear();
     const newDoc: CalculationDocument = {
       id: generateUuidV7(),
       companyId: store.activeCompanyId,
       fiscalYearId: store.activeFiscalYearId,
       storeId: store.activeStoreId,
-      docNumber: `KALK-2026-${seq}`,
+      docNumber: `KALK-${activeYear}-${seq}`,
       docDate: today,
-      partnerId: store.partners.find((p) => p.partnerType !== 'BUYER')?.id ?? '',
+      partnerId: store.partners.find((p) => p.isActive && p.partnerType !== 'BUYER')?.id ?? '',
       supplierInvoiceNumber: '',
       supplierInvoiceDate: today,
       receiptDate: today,
@@ -43,7 +66,7 @@ export function CalculationsPage() {
       receiverName: store.currentUserName,
       status: 'DRAFT',
       notes: '',
-      lines: [],
+      lines: [buildBlankCalculationLine(storeType)],
       totalPurchaseValue: '0.00',
       totalMarginAmount: '0.00',
       totalSellingValueExclVat: '0.00',
@@ -52,12 +75,11 @@ export function CalculationsPage() {
       createdBy: store.currentUserName,
       createdAt: new Date().toISOString(),
     };
-    store.saveCalculationDraft(newDoc);
     setEditingDoc(newDoc);
   };
 
-  const handlePost = (docId: string) => {
-    const res = store.postCalculation(docId);
+  const executePost = async (docId: string) => {
+    const res = await store.postCalculation(docId);
     if (res.ok) {
       showToast({
         title: t('messages.documentPosted'),
@@ -66,17 +88,37 @@ export function CalculationsPage() {
           : undefined,
         variant: 'success',
       });
-    } else if (res.error) {
-      showToast({ title: res.error, variant: 'error' });
+    } else {
+      showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
     }
+    return res;
   };
 
-  const handleReverse = (docId: string) => {
-    const res = store.reverseCalculation(docId);
-    if (res.ok) {
-      showToast({ title: t('messages.documentReversed'), variant: 'info' });
-    } else if (res.error) {
-      showToast({ title: res.error, variant: 'error' });
+  const handleConfirmAction = async (reason?: string) => {
+    if (!confirmState) return;
+    if (confirmState.type === 'post') {
+      const res = await executePost(confirmState.doc.id);
+      if (res.ok) setConfirmState(null);
+      return;
+    }
+    if (confirmState.type === 'delete') {
+      const res = await store.deleteCalculationDraft(confirmState.doc.id);
+      if (res.ok) {
+        showToast({ title: 'Nacrt kalkulacije je uspješno obrisan.', variant: 'success' });
+        setConfirmState(null);
+      } else {
+        showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
+      }
+      return;
+    }
+    if (confirmState.type === 'reverse') {
+      const res = await store.reverseCalculation(confirmState.doc.id, reason);
+      if (res.ok) {
+        showToast({ title: t('messages.documentReversed'), variant: 'info' });
+        setConfirmState(null);
+      } else {
+        showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
+      }
     }
   };
 
@@ -86,8 +128,9 @@ export function CalculationsPage() {
         partners: store.partners,
         storeType,
         onEdit: setEditingDoc,
-        onPost: handlePost,
-        onReverse: handleReverse,
+        onPost: (doc) => setConfirmState({ type: 'post', doc }),
+        onDelete: (doc) => setConfirmState({ type: 'delete', doc }),
+        onReverse: (doc) => setConfirmState({ type: 'reverse', doc }),
       }),
     [store.partners, storeType]
   );
@@ -120,35 +163,80 @@ export function CalculationsPage() {
           open={Boolean(editingDoc)}
           onOpenChange={(open) => !open && setEditingDoc(null)}
           initialDoc={editingDoc}
-          company={store.companies.find((c) => c.id === store.activeCompanyId) ?? store.companies[0] ?? EMPTY_COMPANY_FALLBACK}
+          company={
+            store.companies.find((c) => c.id === store.activeCompanyId) ??
+            store.companies[0] ??
+            EMPTY_COMPANY_FALLBACK
+          }
           storeLocations={store.storeLocations}
           partners={store.partners}
           items={store.items}
           vatRates={store.vatRates}
           storePrices={store.storeItemPrices}
-          onSaveDraft={(draft) => {
-            const res = store.saveCalculationDraft(draft);
+          onSaveDraft={async (draft) => {
+            const res = await store.saveCalculationDraft(draft);
             if (res.ok) {
               showToast({ title: t('messages.documentSavedDraft'), variant: 'success' });
               setEditingDoc(null);
-            } else if (res.error) {
-              showToast({ title: res.error, variant: 'error' });
+            } else {
+              showToast({ title: res.error || t('common.errorTitle'), variant: 'error' });
             }
+            return res;
           }}
-          onPostDocument={(draft) => {
-            const saved = store.saveCalculationDraft(draft);
+          onPostDocument={async (draft) => {
+            const saved = await store.saveCalculationDraft(draft);
             if (!saved.ok) {
-              if (saved.error) showToast({ title: saved.error, variant: 'error' });
-              return;
+              showToast({ title: saved.error || t('common.errorTitle'), variant: 'error' });
+              return saved;
             }
-            handlePost(draft.id);
-            setEditingDoc(null);
+            const posted = await executePost(draft.id);
+            if (posted.ok) {
+              setEditingDoc(null);
+            }
+            return posted;
           }}
-          onAutoSave={(draft) => {
-            store.saveCalculationDraft(draft);
+          onAutoSave={async (draft) => {
+            if (!draft.partnerId || !draft.lines.some((l) => Boolean(l.itemId))) {
+              return { ok: false };
+            }
+            return store.saveCalculationDraft(draft);
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(confirmState)}
+        onOpenChange={(open) => !open && setConfirmState(null)}
+        title={
+          confirmState?.type === 'post'
+            ? `Knjiženje kalkulacije ${confirmState.doc.docNumber}`
+            : confirmState?.type === 'delete'
+            ? `Brisanje nacrta ${confirmState.doc.docNumber}`
+            : confirmState?.type === 'reverse'
+            ? `Storniranje kalkulacije ${confirmState.doc.docNumber}`
+            : ''
+        }
+        description={
+          confirmState?.type === 'post'
+            ? 'Da li ste sigurni da želite proknjižiti ovu kalkulaciju? Zalihe, cijene i trgovačka knjiga (KEP) će biti ažurirani.'
+            : confirmState?.type === 'delete'
+            ? 'Da li ste sigurni da želite trajno obrisati ovaj nacrt kalkulacije?'
+            : confirmState?.type === 'reverse'
+            ? 'Storniranjem se kreira protuknjiženje i poništavaju efekti dokumenta na zalihama i KEP knjizi.'
+            : undefined
+        }
+        confirmLabel={
+          confirmState?.type === 'post'
+            ? t('common.postDocument')
+            : confirmState?.type === 'delete'
+            ? t('common.delete')
+            : t('common.reverseDocument')
+        }
+        variant={confirmState?.type === 'post' ? 'primary' : 'destructive'}
+        requireReason={confirmState?.type === 'reverse'}
+        reasonLabel={t('warehouse.reversalReason')}
+        onConfirm={handleConfirmAction}
+      />
     </div>
   );
 }

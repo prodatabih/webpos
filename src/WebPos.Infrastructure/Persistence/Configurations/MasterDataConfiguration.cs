@@ -17,6 +17,10 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.Property(x => x.CategoryPrefix).HasMaxLength(32);
         builder.Property(x => x.Uom).HasMaxLength(20).IsRequired();
         builder.Property(x => x.ItemType).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(x => x.NetContentQty).HasPrecision(18, 4);
+        builder.Property(x => x.NetContentUom).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.CountryOfOrigin).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.NormativeMode).HasMaxLength(32).IsRequired();
 
         builder.HasIndex(x => new { x.TenantId, x.Sku }).IsUnique();
 
@@ -33,6 +37,9 @@ public class ItemBarcodeConfiguration : IEntityTypeConfiguration<ItemBarcode>
     {
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Barcode).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.Uom).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.PackMultiplier).HasPrecision(18, 4);
+        builder.Property(x => x.Description).HasMaxLength(200);
         builder.HasIndex(x => new { x.TenantId, x.Barcode }).IsUnique();
 
         builder.HasOne(x => x.Item)
@@ -48,6 +55,7 @@ public class ItemBomLineConfiguration : IEntityTypeConfiguration<ItemBomLine>
     {
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Quantity).HasPrecision(18, 4);
+        builder.Property(x => x.WastePercent).HasPrecision(18, 4);
 
         builder.HasOne(x => x.ParentItem)
             .WithMany(i => i.BomLines)
@@ -75,6 +83,8 @@ public class StoreItemPriceConfiguration : IEntityTypeConfiguration<StoreItemPri
         builder.Property(x => x.WholesalePriceExclVat4).HasPrecision(18, 4);
         builder.Property(x => x.RetailPriceInclVat2).HasPrecision(18, 2);
         builder.Property(x => x.StockQty).HasPrecision(18, 4);
+        builder.Property(x => x.MinStockQty).HasPrecision(18, 4);
+        builder.Property(x => x.ShelfLocation).HasMaxLength(64).IsRequired();
 
         builder.HasIndex(x => new { x.TenantId, x.StoreId, x.ItemId }).IsUnique();
 
@@ -101,8 +111,25 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
         builder.Property(x => x.Pib).HasMaxLength(32);
         builder.Property(x => x.Address).HasMaxLength(250);
         builder.Property(x => x.City).HasMaxLength(100);
+        builder.Property(x => x.Phone).HasMaxLength(64);
+        builder.Property(x => x.Email).HasMaxLength(200);
         builder.Property(x => x.DefaultDiscountPct).HasPrecision(18, 4);
+        builder.Property(x => x.CreditLimit).HasPrecision(18, 2);
 
         builder.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+    }
+}
+
+public class LabelTemplateConfiguration : IEntityTypeConfiguration<LabelTemplate>
+{
+    public void Configure(EntityTypeBuilder<LabelTemplate> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Name).HasMaxLength(120).IsRequired();
+        builder.Property(x => x.WidthMm).HasPrecision(18, 2);
+        builder.Property(x => x.HeightMm).HasPrecision(18, 2);
+        builder.Property(x => x.FontScale).HasPrecision(18, 4);
+
+        builder.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
     }
 }

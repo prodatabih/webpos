@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { Banknote, CreditCard, Landmark, Layers, PauseCircle, Trash2, CheckCircle2 } from 'lucide-react';
+import { Banknote, CreditCard, Landmark, Layers, PauseCircle, Trash2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { t } from '../../i18n';
 import { d, formatMoney2, round2, type PosReceiptTotalsResult } from '../../lib/money';
 import type { Partner, PaymentMethod } from '../../types/domain';
@@ -29,6 +29,8 @@ interface PosPaymentPanelProps {
   wireAmount: string;
   onWireAmountChange: (val: string) => void;
   hasLines: boolean;
+  canIssue?: boolean;
+  isIssuing?: boolean;
   heldCount: number;
   onHoldReceipt: () => void;
   onOpenHeldDialog: () => void;
@@ -36,7 +38,7 @@ interface PosPaymentPanelProps {
   onIssueReceipt: () => void;
 }
 
-const QUICK_DENOMINATIONS = ['10', '20', '50', '100', '200'];
+const QUICK_CASH_INCREMENTS = [10, 20, 50, 100] as const;
 
 export function PosPaymentPanel({
   partners,
@@ -53,6 +55,8 @@ export function PosPaymentPanel({
   wireAmount,
   onWireAmountChange,
   hasLines,
+  canIssue = true,
+  isIssuing = false,
   heldCount,
   onHoldReceipt,
   onOpenHeldDialog,
@@ -80,51 +84,116 @@ export function PosPaymentPanel({
     paymentMethod === 'CASH' || paymentMethod === 'COMBINED'
       ? Decimal.max(new Decimal(0), cashVal.minus(remainingForCash))
       : new Decimal(0);
+  const cashShortfall =
+    (paymentMethod === 'CASH' || paymentMethod === 'COMBINED') && cashVal.gt(0) && cashVal.lt(remainingForCash)
+      ? remainingForCash.minus(cashVal)
+      : new Decimal(0);
+
+  const handleAddCashIncrement = (increment: number) => {
+    const next = d(cashReceived).plus(increment);
+    onCashReceivedChange(round2(next));
+  };
 
   return (
     <Card className="flex flex-col">
       <CardHeader className="pb-3"><CardTitle>{t('pos.paymentMethod')}</CardTitle></CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <Combobox label={t('pos.b2bBuyer')} options={buyerOptions} value={selectedPartnerId} onChange={onSelectPartner} />
+        <Combobox label={t('pos.b2bBuyer')} options={buyerOptions} value={selectedPartnerId} onChange={onSelectPartner} disabled={isIssuing} />
 
         <div className="grid grid-cols-2 gap-1.5">
-          <Button variant={paymentMethod === 'CASH' ? 'primary' : 'outline'} size="sm" onClick={() => onPaymentMethodChange('CASH')}>
+          <Button variant={paymentMethod === 'CASH' ? 'primary' : 'outline'} size="sm" disabled={isIssuing} onClick={() => onPaymentMethodChange('CASH')}>
             <Banknote className="h-3.5 w-3.5" /><span>{t('pos.payCash')}</span>
           </Button>
-          <Button variant={paymentMethod === 'CARD' ? 'primary' : 'outline'} size="sm" onClick={() => onPaymentMethodChange('CARD')}>
+          <Button variant={paymentMethod === 'CARD' ? 'primary' : 'outline'} size="sm" disabled={isIssuing} onClick={() => onPaymentMethodChange('CARD')}>
             <CreditCard className="h-3.5 w-3.5" /><span>{t('pos.payCard')}</span>
           </Button>
-          <Button variant={paymentMethod === 'WIRE' ? 'primary' : 'outline'} size="sm" onClick={() => onPaymentMethodChange('WIRE')}>
+          <Button variant={paymentMethod === 'WIRE' ? 'primary' : 'outline'} size="sm" disabled={isIssuing} onClick={() => onPaymentMethodChange('WIRE')}>
             <Landmark className="h-3.5 w-3.5" /><span>{t('pos.payWire')}</span>
           </Button>
-          <Button variant={paymentMethod === 'COMBINED' ? 'primary' : 'outline'} size="sm" onClick={() => onPaymentMethodChange('COMBINED')}>
+          <Button variant={paymentMethod === 'COMBINED' ? 'primary' : 'outline'} size="sm" disabled={isIssuing} onClick={() => onPaymentMethodChange('COMBINED')}>
             <Layers className="h-3.5 w-3.5" /><span>{t('pos.payCombined')}</span>
           </Button>
         </div>
 
         {(paymentMethod === 'CASH' || paymentMethod === 'COMBINED') && (
-          <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-3">
-            <Input label={t('pos.cashReceived')} type="number" step="0.01" value={cashReceived} onChange={(e) => onCashReceivedChange(e.target.value)} className="font-mono text-right" />
-            <div className="flex items-center gap-1 flex-wrap">
-              <Button variant="secondary" size="sm" className="flex-1 font-mono" onClick={() => onCashReceivedChange(round2(remainingForCash))}>
-                {formatMoney2(remainingForCash)}
+          <div className="flex flex-col gap-2.5 rounded-md border border-border bg-muted/30 p-3">
+            <div className="flex items-end gap-1.5">
+              <Input
+                label={t('pos.cashReceived')}
+                type="number"
+                step="0.01"
+                min="0"
+                disabled={isIssuing}
+                value={cashReceived}
+                onChange={(e) => onCashReceivedChange(e.target.value)}
+                className="font-mono text-right"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={isIssuing || cashVal.eq(0)}
+                onClick={() => onCashReceivedChange('0.00')}
+                title="Poništi primljeni iznos"
+                aria-label="Poništi primljeni iznos"
+                className="h-9 w-9 shrink-0"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
               </Button>
-              {QUICK_DENOMINATIONS.map((denom) => (
-                <Button key={denom} variant="outline" size="sm" className="font-mono px-2" onClick={() => onCashReceivedChange(round2(denom))}>
-                  {denom}
+            </div>
+
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isIssuing || !hasLines}
+                className="col-span-2 font-medium"
+                onClick={() => onCashReceivedChange(round2(remainingForCash))}
+              >
+                <span>Tačan iznos ({formatMoney2(remainingForCash, true)})</span>
+              </Button>
+              {QUICK_CASH_INCREMENTS.map((inc) => (
+                <Button
+                  key={inc}
+                  variant="outline"
+                  size="sm"
+                  disabled={isIssuing}
+                  className="font-mono"
+                  onClick={() => handleAddCashIncrement(inc)}
+                >
+                  +{inc} KM
                 </Button>
               ))}
             </div>
+
             {paymentMethod === 'COMBINED' && (
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <Input label={t('pos.payCard')} type="number" step="0.01" value={cardAmount} onChange={(e) => onCardAmountChange(e.target.value)} className="font-mono text-right" />
-                <Input label={t('pos.payWire')} type="number" step="0.01" value={wireAmount} onChange={(e) => onWireAmountChange(e.target.value)} className="font-mono text-right" />
+                <Input label={t('pos.payCard')} type="number" step="0.01" min="0" disabled={isIssuing} value={cardAmount} onChange={(e) => onCardAmountChange(e.target.value)} className="font-mono text-right" />
+                <Input label={t('pos.payWire')} type="number" step="0.01" min="0" disabled={isIssuing} value={wireAmount} onChange={(e) => onWireAmountChange(e.target.value)} className="font-mono text-right" />
               </div>
             )}
-            <div className="flex items-center justify-between pt-1 text-xs font-semibold">
-              <span className="text-muted-foreground">{t('pos.changeDue')}:</span>
-              <span className="font-mono text-sm text-success">{formatMoney2(changeAmount, true)}</span>
-            </div>
+
+            {paymentMethod === 'CASH' ? (
+              <div className="rounded-md border border-success/30 bg-success/10 px-3 py-2.5 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                    Kusur za vratiti
+                  </span>
+                  {cashShortfall.gt(0) && (
+                    <span className="text-[11px] font-medium text-destructive">
+                      Nedostaje: {formatMoney2(cashShortfall, true)}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-xl font-bold text-success">
+                  {formatMoney2(changeAmount, true)}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between pt-1 text-xs font-semibold">
+                <span className="text-muted-foreground">Kusur za vratiti:</span>
+                <span className="font-mono text-sm text-success">{formatMoney2(changeAmount, true)}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -150,17 +219,25 @@ export function PosPaymentPanel({
         </div>
 
         <div className="flex flex-col gap-2 pt-1">
-          <Button variant="success" size="lg" disabled={!hasLines} onClick={onIssueReceipt} className="w-full font-semibold">
-            <CheckCircle2 className="h-4 w-4" /><span>{t('pos.issueFiscalReceipt')}</span>
+          <Button
+            variant="success"
+            size="lg"
+            disabled={!hasLines || !canIssue || isIssuing}
+            isLoading={isIssuing}
+            onClick={onIssueReceipt}
+            className="w-full font-semibold"
+          >
+            {!isIssuing && <CheckCircle2 className="h-4 w-4" />}
+            <span>{isIssuing ? 'Izdavanje računa...' : t('pos.issueFiscalReceipt')}</span>
           </Button>
           <div className="grid grid-cols-3 gap-1.5">
-            <Button variant="outline" size="sm" disabled={!hasLines} onClick={onHoldReceipt}>
+            <Button variant="outline" size="sm" disabled={!hasLines || isIssuing} onClick={onHoldReceipt}>
               <PauseCircle className="h-3.5 w-3.5" /><span className="truncate">{t('pos.holdReceipt')}</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={onOpenHeldDialog}>
+            <Button variant="outline" size="sm" disabled={isIssuing} onClick={onOpenHeldDialog}>
               <span className="truncate">{t('pos.heldReceipts')} ({heldCount})</span>
             </Button>
-            <Button variant="destructive" size="sm" disabled={!hasLines} onClick={onClearReceipt}>
+            <Button variant="destructive" size="sm" disabled={!hasLines || isIssuing} onClick={onClearReceipt}>
               <Trash2 className="h-3.5 w-3.5" /><span className="truncate">{t('pos.clearReceipt')}</span>
             </Button>
           </div>

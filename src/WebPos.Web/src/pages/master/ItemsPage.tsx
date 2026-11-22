@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Edit2, Plus } from 'lucide-react';
+import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatPrice4, formatQty, d } from '../../lib/money';
 import { useAppStore } from '../../store/useAppStore';
@@ -9,6 +9,8 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { showToast } from '../../components/ui/Toast';
 import { ItemFormDialog } from './ItemFormDialog';
 
 interface ItemRow extends Item {
@@ -20,6 +22,8 @@ interface ItemRow extends Item {
   minStockQty: string;
 }
 
+type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
+
 export function ItemsPage() {
   const {
     activeCompanyId,
@@ -27,16 +31,24 @@ export function ItemsPage() {
     items,
     vatRates,
     storeItemPrices,
+    deleteItem,
   } = useAppStore();
 
   const [typeFilter, setTypeFilter] = useState<'ALL' | ItemType>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
 
   const rows = useMemo<ItemRow[]>(() => {
     return items
-      .filter((item) => item.companyId === activeCompanyId)
+      .filter((item) => !item.companyId || !activeCompanyId || item.companyId === activeCompanyId)
       .filter((item) => (typeFilter === 'ALL' ? true : item.itemType === typeFilter))
+      .filter((item) => {
+        if (statusFilter === 'ACTIVE') return item.isActive;
+        if (statusFilter === 'INACTIVE') return !item.isActive;
+        return true;
+      })
       .map((item) => {
         const vr = vatRates.find((v) => v.id === item.vatRateId);
         const sp = storeItemPrices.find(
@@ -52,7 +64,24 @@ export function ItemsPage() {
           minStockQty: sp?.minStockQty ?? '0.0000',
         };
       });
-  }, [items, activeCompanyId, typeFilter, vatRates, storeItemPrices, activeStoreId]);
+  }, [items, activeCompanyId, typeFilter, statusFilter, vatRates, storeItemPrices, activeStoreId]);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const res = await deleteItem(deleteTarget.id);
+    if (!res.ok) {
+      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+      setDeleteTarget(null);
+      return;
+    }
+    const successMsg =
+      res.message ||
+      (res.deactivated && !res.deleted
+        ? `Artikal "${deleteTarget.name}" je deaktiviran jer ima povezane dokumente.`
+        : `Artikal "${deleteTarget.name}" je uspješno obrisan.`);
+    showToast({ title: successMsg, variant: 'success' });
+    setDeleteTarget(null);
+  };
 
   const itemTypeLabel = (it: ItemType): string => {
     if (it === 'GOODS') return t('master.typeGoods');
@@ -74,7 +103,9 @@ export function ItemsPage() {
         accessorKey: 'primaryBarcode',
         header: t('master.barcode'),
         cell: ({ row }) => (
-          <span className="font-mono text-muted-foreground">{row.original.primaryBarcode}</span>
+          <span className="font-mono text-muted-foreground">
+            {row.original.primaryBarcode || '-'}
+          </span>
         ),
       },
       {
@@ -84,7 +115,8 @@ export function ItemsPage() {
           <div className="flex flex-col">
             <span className="font-medium text-foreground">{row.original.name}</span>
             <span className="text-[11px] text-muted-foreground">
-              {itemTypeLabel(row.original.itemType)} • {row.original.categoryName}
+              {itemTypeLabel(row.original.itemType)}
+              {row.original.categoryName ? ` • ${row.original.categoryName}` : ''}
             </span>
           </div>
         ),
@@ -132,10 +164,19 @@ export function ItemsPage() {
         },
       },
       {
+        accessorKey: 'isActive',
+        header: t('common.status'),
+        cell: ({ row }) => (
+          <Badge variant={row.original.isActive ? 'success' : 'secondary'}>
+            {row.original.isActive ? t('common.active') : t('common.inactive')}
+          </Badge>
+        ),
+      },
+      {
         id: 'actions',
         header: t('common.actions'),
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -147,6 +188,18 @@ export function ItemsPage() {
             >
               <Edit2 className="h-3.5 w-3.5" />
               <span>{t('common.edit')}</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget(row.original);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{row.original.isActive ? 'Obriši / Deaktiviraj' : t('common.delete')}</span>
             </Button>
           </div>
         ),
@@ -187,18 +240,30 @@ export function ItemsPage() {
             setDialogOpen(true);
           }}
           toolbarExtras={
-            <select
-              aria-label={t('master.itemType')}
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as 'ALL' | ItemType)}
-              className="h-8 rounded-md border border-input bg-card px-2.5 text-xs text-foreground"
-            >
-              <option value="ALL">{t('common.all')}</option>
-              <option value="GOODS">{t('master.typeGoods')}</option>
-              <option value="SERVICE">{t('master.typeService')}</option>
-              <option value="COMPOSITE">{t('master.typeComposite')}</option>
-              <option value="RAW_MATERIAL">{t('master.typeRawMaterial')}</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                aria-label={t('master.itemType')}
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as 'ALL' | ItemType)}
+                className="h-8 rounded-md border border-input bg-card px-2.5 text-xs text-foreground"
+              >
+                <option value="ALL">{t('common.all')}</option>
+                <option value="GOODS">{t('master.typeGoods')}</option>
+                <option value="SERVICE">{t('master.typeService')}</option>
+                <option value="COMPOSITE">{t('master.typeComposite')}</option>
+                <option value="RAW_MATERIAL">{t('master.typeRawMaterial')}</option>
+              </select>
+              <select
+                aria-label={t('common.status')}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                className="h-8 rounded-md border border-input bg-card px-2.5 text-xs text-foreground"
+              >
+                <option value="ALL">Svi statusi</option>
+                <option value="ACTIVE">{t('common.active')}</option>
+                <option value="INACTIVE">{t('common.inactive')}</option>
+              </select>
+            </div>
           }
         />
       </div>
@@ -207,6 +272,18 @@ export function ItemsPage() {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         editingItem={editingItem}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        variant="destructive"
+        title={deleteTarget ? `Obrisati ili deaktivirati artikal "${deleteTarget.name}"?` : ''}
+        description="Ako artikal nema povezanih robnih dokumenata niti računa, bit će trajno obrisan. U suprotnom će biti deaktiviran kako bi se sačuvala historija knjiženja."
+        confirmLabel="Obriši / Deaktiviraj"
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

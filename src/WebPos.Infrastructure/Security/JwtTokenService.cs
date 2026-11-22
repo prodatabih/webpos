@@ -22,9 +22,10 @@ public sealed class JwtTokenService : IJwtTokenService
         ArgumentNullException.ThrowIfNull(user);
 
         var key = _configuration["Jwt:Key"]
+            ?? _configuration["Jwt:Secret"]
             ?? throw new InvalidOperationException("JWT signing key (Jwt:Key) is not configured.");
-        var issuer = _configuration["Jwt:Issuer"] ?? "WebPos";
-        var audience = _configuration["Jwt:Audience"] ?? "WebPosClient";
+        var issuer = _configuration["Jwt:Issuer"] ?? "WebPos.WebApi";
+        var audience = _configuration["Jwt:Audience"] ?? "WebPos.Client";
         var expiryMinutes = int.TryParse(_configuration["Jwt:ExpiryMinutes"], out var parsed) && parsed > 0
             ? parsed
             : 480;

@@ -6,7 +6,6 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { showToast } from '../../components/ui/Toast';
-
 import type { ActionResult } from '../../store/storeTypes';
 
 export function CompanyFormDialog({
@@ -28,6 +27,7 @@ export function CompanyFormDialog({
   const [city, setCity] = useState('Sarajevo');
   const [bankAccount, setBankAccount] = useState('');
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ code?: string; name?: string }>({});
 
   useEffect(() => {
     if (!open) return;
@@ -38,10 +38,19 @@ export function CompanyFormDialog({
     setAddress(editingCompany?.address ?? '');
     setCity(editingCompany?.city ?? 'Sarajevo');
     setBankAccount(editingCompany?.bankAccount ?? '');
+    setFieldErrors({});
   }, [open, editingCompany]);
 
   const handleSubmit = async () => {
-    if (!code.trim() || !name.trim() || saving) return;
+    if (saving) return;
+    const nextErrors: { code?: string; name?: string } = {};
+    if (!code.trim()) nextErrors.code = t('common.requiredField');
+    if (!name.trim()) nextErrors.name = t('common.requiredField');
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      return;
+    }
+    setFieldErrors({});
     setSaving(true);
     try {
       const res = await onSave({
@@ -52,7 +61,7 @@ export function CompanyFormDialog({
         vatIdNumber: vatIdNumber.trim(),
         address: address.trim(),
         city: city.trim(),
-        currencyCode: 'BAM',
+        currencyCode: editingCompany?.currencyCode || 'BAM',
         bankAccount: bankAccount.trim(),
       });
       if (res && !res.ok) {
@@ -75,17 +84,45 @@ export function CompanyFormDialog({
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-          <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>{t('common.save')}</Button>
+          <Button variant="primary" onClick={() => void handleSubmit()} isLoading={saving}>{t('common.save')}</Button>
         </>
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Input label={t('common.code')} required value={code} onChange={(e) => setCode(e.target.value)} className="font-mono" />
-        <Input label={t('common.name')} required value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          label={t('common.code')}
+          required
+          value={code}
+          error={fieldErrors.code}
+          onChange={(e) => {
+            setCode(e.target.value);
+            if (fieldErrors.code) setFieldErrors((prev) => ({ ...prev, code: undefined }));
+          }}
+          className="font-mono"
+        />
+        <Input
+          label={t('common.name')}
+          required
+          value={name}
+          error={fieldErrors.name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+          }}
+        />
         <Input label={t('master.taxIdNumber')} value={taxIdNumber} onChange={(e) => setTaxIdNumber(e.target.value)} className="font-mono" />
         <Input label={t('master.vatIdNumber')} value={vatIdNumber} onChange={(e) => setVatIdNumber(e.target.value)} className="font-mono" />
         <Input label={t('master.address')} value={address} onChange={(e) => setAddress(e.target.value)} />
         <Input label={t('master.city')} value={city} onChange={(e) => setCity(e.target.value)} />
+        <div className="sm:col-span-2">
+          <Input
+            label="Žiro račun"
+            value={bankAccount}
+            onChange={(e) => setBankAccount(e.target.value)}
+            placeholder="npr. 1610000012345678"
+            className="font-mono"
+          />
+        </div>
       </div>
     </Dialog>
   );
@@ -111,6 +148,7 @@ export function StoreFormDialog({
   const [city, setCity] = useState('Sarajevo');
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ code?: string; name?: string; general?: string }>({});
 
   useEffect(() => {
     if (!open) return;
@@ -120,14 +158,25 @@ export function StoreFormDialog({
     setAddress(editingStore?.address ?? '');
     setCity(editingStore?.city ?? 'Sarajevo');
     setIsActive(editingStore?.isActive ?? true);
+    setFieldErrors({});
   }, [open, editingStore]);
 
   const handleSubmit = async () => {
+    if (saving) return;
     if (!companyId) {
-      showToast({ title: 'Prvo kreirajte preduzeće.', variant: 'error' });
+      const msg = 'Prvo kreirajte preduzeće.';
+      setFieldErrors({ general: msg });
+      showToast({ title: msg, variant: 'error' });
       return;
     }
-    if (!code.trim() || !name.trim() || saving) return;
+    const nextErrors: { code?: string; name?: string } = {};
+    if (!code.trim()) nextErrors.code = t('common.requiredField');
+    if (!name.trim()) nextErrors.name = t('common.requiredField');
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      return;
+    }
+    setFieldErrors({});
     setSaving(true);
     try {
       const res = await onSave({
@@ -160,30 +209,54 @@ export function StoreFormDialog({
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-          <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>{t('common.save')}</Button>
+          <Button variant="primary" onClick={() => void handleSubmit()} isLoading={saving}>{t('common.save')}</Button>
         </>
       }
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Input label={t('common.code')} required value={code} onChange={(e) => setCode(e.target.value)} className="font-mono" />
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-foreground">{t('app.storeLocation')}</label>
-          <select value={storeType} onChange={(e) => setStoreType(e.target.value as StoreType)} className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground">
-            <option value="RETAIL">{t('master.storeTypeRetail')}</option>
-            <option value="WHOLESALE">{t('master.storeTypeWholesale')}</option>
-            <option value="RAW_MATERIAL">{t('master.storeTypeRawMaterial')}</option>
-            <option value="PRODUCTION">{t('master.storeTypeProduction')}</option>
-          </select>
+      <div className="space-y-3">
+        {fieldErrors.general && (
+          <p className="text-xs font-medium text-destructive">{fieldErrors.general}</p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label={t('common.code')}
+            required
+            value={code}
+            error={fieldErrors.code}
+            onChange={(e) => {
+              setCode(e.target.value);
+              if (fieldErrors.code) setFieldErrors((prev) => ({ ...prev, code: undefined }));
+            }}
+            className="font-mono"
+          />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-foreground">{t('app.storeLocation')}</label>
+            <select value={storeType} onChange={(e) => setStoreType(e.target.value as StoreType)} className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground">
+              <option value="RETAIL">{t('master.storeTypeRetail')}</option>
+              <option value="WHOLESALE">{t('master.storeTypeWholesale')}</option>
+              <option value="RAW_MATERIAL">{t('master.storeTypeRawMaterial')}</option>
+              <option value="PRODUCTION">{t('master.storeTypeProduction')}</option>
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <Input
+              label={t('common.name')}
+              required
+              value={name}
+              error={fieldErrors.name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+              }}
+            />
+          </div>
+          <Input label={t('master.address')} value={address} onChange={(e) => setAddress(e.target.value)} />
+          <Input label={t('master.city')} value={city} onChange={(e) => setCity(e.target.value)} />
+          <label className="flex items-center gap-2 text-xs font-medium text-foreground pt-2 cursor-pointer">
+            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-input" />
+            <span>{t('common.active')}</span>
+          </label>
         </div>
-        <div className="sm:col-span-2">
-          <Input label={t('common.name')} required value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <Input label={t('master.address')} value={address} onChange={(e) => setAddress(e.target.value)} />
-        <Input label={t('master.city')} value={city} onChange={(e) => setCity(e.target.value)} />
-        <label className="flex items-center gap-2 text-xs font-medium text-foreground pt-2 cursor-pointer">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-input" />
-          <span>{t('common.active')}</span>
-        </label>
       </div>
     </Dialog>
   );
@@ -210,6 +283,12 @@ export function TerminalFormDialog({
   const [fiscalPrefix, setFiscalPrefix] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    storeId?: string;
+    code?: string;
+    name?: string;
+    fiscalPrefix?: string;
+  }>({});
 
   useEffect(() => {
     if (!open) return;
@@ -218,15 +297,34 @@ export function TerminalFormDialog({
     setName(editingTerminal?.name ?? '');
     setFiscalPrefix(editingTerminal?.fiscalPrefix ?? '');
     setIsActive(editingTerminal?.isActive ?? true);
+    setFieldErrors({});
   }, [open, editingTerminal, defaultStoreId, stores]);
 
   const handleSubmit = async () => {
+    if (saving) return;
     const resolvedStoreId = storeId || stores[0]?.id || '';
+    const nextErrors: {
+      storeId?: string;
+      code?: string;
+      name?: string;
+      fiscalPrefix?: string;
+    } = {};
     if (!resolvedStoreId) {
-      showToast({ title: 'Prvo kreirajte poslovnu jedinicu (objekat).', variant: 'error' });
+      nextErrors.storeId = 'Prvo kreirajte poslovnu jedinicu (objekat).';
+    }
+    if (!code.trim()) nextErrors.code = t('common.requiredField');
+    if (!name.trim()) nextErrors.name = t('common.requiredField');
+    if (!fiscalPrefix.trim()) nextErrors.fiscalPrefix = t('common.requiredField');
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      if (nextErrors.storeId) {
+        showToast({ title: nextErrors.storeId, variant: 'error' });
+      }
       return;
     }
-    if (!code.trim() || !name.trim() || !fiscalPrefix.trim() || saving) return;
+
+    setFieldErrors({});
     setSaving(true);
     try {
       const res = await onSave({
@@ -259,22 +357,61 @@ export function TerminalFormDialog({
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-          <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>{t('common.save')}</Button>
+          <Button variant="primary" onClick={() => void handleSubmit()} isLoading={saving}>{t('common.save')}</Button>
         </>
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1 sm:col-span-2">
           <label className="text-xs font-medium text-foreground">{t('app.storeLocation')}</label>
-          <select value={storeId} onChange={(e) => setStoreId(e.target.value)} className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground">
+          <select
+            value={storeId}
+            onChange={(e) => {
+              setStoreId(e.target.value);
+              if (fieldErrors.storeId) setFieldErrors((prev) => ({ ...prev, storeId: undefined }));
+            }}
+            className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+          >
             {stores.length === 0 && <option value="">-- Odaberi poslovnicu --</option>}
             {stores.map((s) => (<option key={s.id} value={s.id}>{s.code} — {s.name}</option>))}
           </select>
+          {fieldErrors.storeId && (
+            <p className="text-xs text-destructive font-medium">{fieldErrors.storeId}</p>
+          )}
         </div>
-        <Input label={t('common.code')} required value={code} onChange={(e) => setCode(e.target.value)} className="font-mono" />
-        <Input label={t('master.fiscalNumberPrefix')} required value={fiscalPrefix} onChange={(e) => setFiscalPrefix(e.target.value)} className="font-mono" />
+        <Input
+          label={t('common.code')}
+          required
+          value={code}
+          error={fieldErrors.code}
+          onChange={(e) => {
+            setCode(e.target.value);
+            if (fieldErrors.code) setFieldErrors((prev) => ({ ...prev, code: undefined }));
+          }}
+          className="font-mono"
+        />
+        <Input
+          label={t('master.fiscalNumberPrefix')}
+          required
+          value={fiscalPrefix}
+          error={fieldErrors.fiscalPrefix}
+          onChange={(e) => {
+            setFiscalPrefix(e.target.value);
+            if (fieldErrors.fiscalPrefix) setFieldErrors((prev) => ({ ...prev, fiscalPrefix: undefined }));
+          }}
+          className="font-mono"
+        />
         <div className="sm:col-span-2">
-          <Input label={t('common.name')} required value={name} onChange={(e) => setName(e.target.value)} />
+          <Input
+            label={t('common.name')}
+            required
+            value={name}
+            error={fieldErrors.name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+            }}
+          />
         </div>
         <label className="flex items-center gap-2 text-xs font-medium text-foreground pt-2 cursor-pointer">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-input" />

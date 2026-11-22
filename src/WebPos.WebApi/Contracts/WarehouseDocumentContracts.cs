@@ -1,3 +1,5 @@
+using WebPos.Domain.Enums;
+
 namespace WebPos.WebApi.Contracts;
 
 public sealed record CreateCalculationLineRequest(
@@ -20,7 +22,8 @@ public sealed record CreateCalculationRequest(
     string? OrderNumber,
     string? DeliveryNoteNumber,
     string? Note,
-    List<CreateCalculationLineRequest> Lines);
+    List<CreateCalculationLineRequest> Lines,
+    Guid? Id = null);
 
 public sealed record CreatePriceLevelingLineRequest(
     Guid ItemId,
@@ -46,7 +49,8 @@ public sealed record CreateTransferRequest(
     string DocumentNumber,
     DateTime DocumentDate,
     string? Note,
-    List<CreateTransferLineRequest> Lines);
+    List<CreateTransferLineRequest> Lines,
+    Guid? Id = null);
 
 public sealed record CreateInventoryCountLineRequest(
     Guid ItemId,
@@ -60,4 +64,22 @@ public sealed record CreateInventoryCountRequest(
     string DocumentNumber,
     DateTime CountDate,
     string? Note,
-    List<CreateInventoryCountLineRequest> Lines);
+    List<CreateInventoryCountLineRequest> Lines,
+    Guid? Id = null);
+
+public sealed record CreateOtherWarehouseDocLineRequest(
+    Guid ItemId,
+    decimal Quantity,
+    string? Reason);
+
+public sealed record CreateOtherWarehouseDocRequest(
+    Guid StoreId,
+    Guid FiscalYearId,
+    string DocumentNumber,
+    DateTime DocumentDate,
+    OtherWarehouseDocSubtype Subtype,
+    string? Note,
+    List<CreateOtherWarehouseDocLineRequest> Lines,
+    Guid? Id = null);
+
+public sealed record ReverseDocumentRequest(string? Reason = null);
