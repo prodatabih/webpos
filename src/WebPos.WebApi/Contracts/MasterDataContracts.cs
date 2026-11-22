@@ -18,6 +18,14 @@ public sealed record UpsertItemRequest(
     Guid? StoreId = null,
     decimal? PurchasePriceExclVat4 = null,
     decimal? WholesalePriceExclVat4 = null,
+    decimal? RetailPriceInclVat2 = null,
+    Guid? Id = null);
+
+public sealed record UpsertStoreItemPriceRequest(
+    Guid StoreId,
+    Guid ItemId,
+    decimal? PurchasePriceExclVat4 = null,
+    decimal? WholesalePriceExclVat4 = null,
     decimal? RetailPriceInclVat2 = null);
 
 public sealed record UpsertPartnerRequest(
@@ -29,4 +37,5 @@ public sealed record UpsertPartnerRequest(
     string? City,
     bool IsSupplier,
     bool IsCustomer,
-    decimal DefaultDiscountPct);
+    decimal DefaultDiscountPct,
+    Guid? Id = null);

@@ -48,9 +48,16 @@ public class BootstrapController : ApiControllerBase
 
         var tid = tenantId.Value;
         var companiesRaw = await _db.Companies.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var defaultCompanyId = companiesRaw.FirstOrDefault()?.Id ?? Guid.Empty;
         var fiscalYearsRaw = await _db.FiscalYears.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var fiscalPeriodsRaw = await _db.FiscalPeriods.AsNoTracking().Where(x => x.TenantId == tid).OrderBy(x => x.Month).ToListAsync(ct);
         var storesRaw = await _db.Stores.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var storeCompanyMap = storesRaw.ToDictionary(s => s.Id, s => s.CompanyId);
         var registersRaw = await _db.CashRegisters.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var vatRatesRaw = await _db.VatRates.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var itemsRaw = await _db.Items.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var storePricesRaw = await _db.StoreItemPrices.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct);
+        var levelingsRaw = await _db.PriceLevelings.AsNoTracking().Include(x => x.Lines).Where(x => x.TenantId == tid).OrderByDescending(x => x.DocumentDate).ToListAsync(ct);
 
         return Ok(new
         {
@@ -75,7 +82,19 @@ public class BootstrapController : ApiControllerBase
                 EndDate = $"{fy.Year}-12-31",
                 IsLocked = fy.IsClosed,
             }),
-            fiscalPeriods = Array.Empty<object>(),
+            fiscalPeriods = fiscalPeriodsRaw.Select(fp => new
+            {
+                fp.Id,
+                fp.CompanyId,
+                fp.FiscalYearId,
+                fp.Month,
+                fp.Name,
+                StartDate = fp.StartDate.ToString("yyyy-MM-dd"),
+                EndDate = fp.EndDate.ToString("yyyy-MM-dd"),
+                fp.IsLocked,
+                LockedAt = fp.LockedAtUtc,
+                fp.LockedBy,
+            }),
             storeLocations = storesRaw.Select(s => new
             {
                 s.Id,
@@ -103,14 +122,88 @@ public class BootstrapController : ApiControllerBase
                 IsOnline = true,
                 IsActive = true,
             }),
-            vatRates = await _db.VatRates.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
+            vatRates = vatRatesRaw.Select(v => new
+            {
+                v.Id,
+                CompanyId = defaultCompanyId,
+                v.Code,
+                v.Name,
+                RatePercent = v.RatePercent.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                ValidFrom = "2026-01-01",
+                IsActive = true,
+            }),
             partners = await _db.Partners.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
-            items = await _db.Items.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
+            items = itemsRaw.Select(i => new
+            {
+                i.Id,
+                i.CompanyId,
+                i.Sku,
+                PrimaryBarcode = i.PrimaryBarcode ?? string.Empty,
+                i.Name,
+                ShortName = i.ShortName ?? i.Name,
+                ItemType = i.ItemType switch
+                {
+                    Domain.Enums.ItemType.Service => "SERVICE",
+                    Domain.Enums.ItemType.Manufactured => "COMPOSITE",
+                    Domain.Enums.ItemType.RawMaterial => "RAW_MATERIAL",
+                    _ => "GOODS",
+                },
+                NormativeMode = i.ItemType == Domain.Enums.ItemType.Manufactured ? "ON_SALE_BACKFLUSH" : "NONE",
+                i.Uom,
+                NetContentQty = "1.0000",
+                NetContentUom = "kg",
+                i.VatRateId,
+                CategoryName = i.CategoryName ?? string.Empty,
+                CountryOfOrigin = "Bosna i Hercegovina",
+                i.IsWeighable,
+                i.IsActive,
+            }),
             itemBarcodes = await _db.ItemBarcodes.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
             itemBomLines = await _db.ItemBomLines.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
-            storeItemPrices = await _db.StoreItemPrices.AsNoTracking().Where(x => x.TenantId == tid).ToListAsync(ct),
+            storeItemPrices = storePricesRaw.Select(p => new
+            {
+                p.Id,
+                p.StoreId,
+                p.ItemId,
+                PurchaseUnitPrice = p.PurchasePriceExclVat4.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
+                WholesaleUnitPriceExclVat = p.WholesalePriceExclVat4.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
+                RetailUnitPriceWithVat = p.RetailPriceInclVat2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                CurrentStockQty = p.StockQty.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
+                MinStockQty = "0.0000",
+                ShelfLocation = "A-01-01",
+                NeedsLabelPrint = false,
+                UpdatedAt = DateTime.UtcNow.ToString("O"),
+            }),
             calculations = await _db.InboundCalculations.AsNoTracking().Include(x => x.Lines).Where(x => x.TenantId == tid).ToListAsync(ct),
-            priceLevelings = await _db.PriceLevelings.AsNoTracking().Include(x => x.Lines).Where(x => x.TenantId == tid).ToListAsync(ct),
+            priceLevelings = levelingsRaw.Select(d => new
+            {
+                d.Id,
+                CompanyId = storeCompanyMap.TryGetValue(d.StoreId, out var cid) ? cid : defaultCompanyId,
+                d.FiscalYearId,
+                d.StoreId,
+                DocNumber = d.DocumentNumber,
+                DocDate = d.DocumentDate.ToString("yyyy-MM-dd"),
+                Status = d.Status.ToString().ToUpperInvariant(),
+                Reason = d.Reason ?? string.Empty,
+                Lines = d.Lines.OrderBy(l => l.LineNumber).Select(l => new
+                {
+                    l.Id,
+                    l.ItemId,
+                    StockQuantity = l.StockQty.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
+                    OldRetailPriceWithVat = l.OldRetailPriceInclVat2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    NewRetailPriceWithVat = l.NewRetailPriceInclVat2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    PriceDifference = l.PriceDifference2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    TotalRetailDifference = l.TotalDifference2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    VatRatePercent = "17.00",
+                    TotalVatDifference = "0.00",
+                    TotalMarginDifference = l.TotalDifference2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                }),
+                TotalRetailDifference = d.TotalDifferenceAmount2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                TotalVatDifference = "0.00",
+                TotalMarginDifference = d.TotalDifferenceAmount2.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                CreatedBy = string.Empty,
+                CreatedAt = d.CreatedAtUtc.ToString("O"),
+            }),
             transfers = await _db.WarehouseTransfers.AsNoTracking().Include(x => x.Lines).Where(x => x.TenantId == tid).ToListAsync(ct),
             inventoryCounts = await _db.InventoryCounts.AsNoTracking().Include(x => x.Lines).Where(x => x.TenantId == tid).ToListAsync(ct),
             otherWarehouseDocs = Array.Empty<object>(),

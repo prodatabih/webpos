@@ -197,10 +197,80 @@ export const apiClient = {
       }),
     }),
 
-  saveItem: (payload: SaveItemRequest): Promise<Item> =>
-    request<Item>('/api/master-data/items', {
+  saveFiscalYear: (payload: { id?: string; companyId: string; year: number; isClosed?: boolean }): Promise<{
+    fiscalYear: { id: string; companyId: string; year: number; startDate: string; endDate: string; isLocked: boolean };
+    periods: Array<{ id: string; companyId: string; fiscalYearId: string; month: number; name: string; startDate: string; endDate: string; isLocked: boolean; lockedAt?: string; lockedBy?: string }>;
+  }> =>
+    request('/api/organization/fiscal-years', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        id: payload.id,
+        companyId: payload.companyId,
+        year: payload.year,
+        isClosed: payload.isClosed ?? false,
+      }),
+    }),
+
+  toggleFiscalPeriod: (periodId: string): Promise<unknown> =>
+    request(`/api/organization/fiscal-periods/${encodeURIComponent(periodId)}/toggle`, {
+      method: 'PATCH',
+    }),
+
+  saveVatRate: (rate: { id: string; code: string; name: string; ratePercent: string }): Promise<unknown> =>
+    request('/api/organization/vat-rates', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: rate.id,
+        code: rate.code,
+        name: rate.name,
+        ratePercent: Number(rate.ratePercent),
+      }),
+    }),
+
+  saveItem: (payload: SaveItemRequest): Promise<Item> => {
+    const itemTypeMap: Record<Item['itemType'], string> = {
+      GOODS: 'Goods',
+      SERVICE: 'Service',
+      COMPOSITE: 'Manufactured',
+      RAW_MATERIAL: 'RawMaterial',
+    };
+    const it = payload.item;
+    return request<Item>('/api/master-data/items', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: it.id,
+        companyId: it.companyId,
+        sku: it.sku,
+        primaryBarcode: it.primaryBarcode || null,
+        name: it.name,
+        shortName: it.shortName || null,
+        categoryName: it.categoryName || null,
+        categoryPrefix: null,
+        uom: it.uom || 'kom',
+        vatRateId: it.vatRateId,
+        itemType: itemTypeMap[it.itemType] ?? 'Goods',
+        isWeighable: it.isWeighable,
+        isActive: it.isActive,
+      }),
+    });
+  },
+
+  saveStoreItemPrice: (price: {
+    storeId: string;
+    itemId: string;
+    purchaseUnitPrice?: string;
+    wholesaleUnitPriceExclVat?: string;
+    retailUnitPriceWithVat?: string;
+  }): Promise<unknown> =>
+    request('/api/master-data/store-prices', {
+      method: 'POST',
+      body: JSON.stringify({
+        storeId: price.storeId,
+        itemId: price.itemId,
+        purchasePriceExclVat4: price.purchaseUnitPrice !== undefined ? Number(price.purchaseUnitPrice) : null,
+        wholesalePriceExclVat4: price.wholesaleUnitPriceExclVat !== undefined ? Number(price.wholesaleUnitPriceExclVat) : null,
+        retailPriceInclVat2: price.retailUnitPriceWithVat !== undefined ? Number(price.retailUnitPriceWithVat) : null,
+      }),
     }),
 
   savePartner: (partner: Partner): Promise<Partner> =>
@@ -223,7 +293,20 @@ export const apiClient = {
   saveLeveling: (doc: PriceLevelingDocument): Promise<PriceLevelingDocument> =>
     request<PriceLevelingDocument>('/api/warehouse-documents/levelings', {
       method: 'POST',
-      body: JSON.stringify(doc),
+      body: JSON.stringify({
+        id: doc.id,
+        storeId: doc.storeId,
+        fiscalYearId: doc.fiscalYearId,
+        documentNumber: doc.docNumber,
+        documentDate: doc.docDate,
+        reason: doc.reason || null,
+        lines: doc.lines
+          .filter((l) => Boolean(l.itemId))
+          .map((l) => ({
+            itemId: l.itemId,
+            newRetailPriceInclVat2: Number(l.newRetailPriceWithVat),
+          })),
+      }),
     }),
 
   postLeveling: (docId: string): Promise<PriceLevelingDocument> =>

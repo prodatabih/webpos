@@ -110,9 +110,14 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!sku.trim() || !name.trim() || !primaryBarcode.trim()) {
       setErrorMsg(t('common.requiredField'));
+      return;
+    }
+    const resolvedVatId = vatRateId || vatRates[0]?.id || '';
+    if (!resolvedVatId) {
+      setErrorMsg('Prvo definišite barem jednu PDV stopu u Matični podaci -> PDV stope.');
       return;
     }
     const payload: Item = {
@@ -127,13 +132,18 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
       uom: uom.trim() || 'kom',
       netContentQty: round4(netContentQty),
       netContentUom: netContentUom.trim() || 'kg',
-      vatRateId,
+      vatRateId: resolvedVatId,
       categoryName: categoryName.trim(),
       countryOfOrigin: countryOfOrigin.trim(),
       isWeighable,
       isActive,
     };
-    upsertItem(payload, localBarcodes, localBomLines);
+    const res = await upsertItem(payload, localBarcodes, localBomLines);
+    if (!res.ok) {
+      setErrorMsg(res.error ?? 'Greška pri snimanju artikla.');
+      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+      return;
+    }
     showToast({ title: t('messages.recordSaved'), variant: 'success' });
     onClose();
   };
@@ -263,7 +273,15 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
             stores={storeLocations.filter((s) => s.companyId === activeCompanyId)}
             storePrices={storeItemPrices}
             allowPriceChangeWithoutLeveling={systemConfig.allowPriceChangeWithoutLeveling}
-            onUpsertPrice={upsertStoreItemPrice}
+            onUpsertPrice={(price) => {
+              void upsertStoreItemPrice(price).then((res) => {
+                if (!res.ok) {
+                  showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+                } else {
+                  showToast({ title: t('messages.recordSaved'), variant: 'success' });
+                }
+              });
+            }}
           />
         )}
       </div>

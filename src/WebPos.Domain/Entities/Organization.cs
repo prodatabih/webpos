@@ -52,6 +52,24 @@ public class FiscalYear
     public bool IsClosed { get; set; }
 
     public Company? Company { get; set; }
+    public ICollection<FiscalPeriod> Periods { get; set; } = new List<FiscalPeriod>();
+}
+
+public class FiscalPeriod
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid FiscalYearId { get; set; }
+    public int Month { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public bool IsLocked { get; set; }
+    public DateTime? LockedAtUtc { get; set; }
+    public string? LockedBy { get; set; }
+
+    public FiscalYear? FiscalYear { get; set; }
 }
 
 public class VatRate

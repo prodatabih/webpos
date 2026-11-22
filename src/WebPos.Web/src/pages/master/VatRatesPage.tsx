@@ -47,7 +47,7 @@ export function VatRatesPage() {
     }
   }, [dialogOpen, editingRate]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!code.trim() || !name.trim()) return;
     const payload: VatRate = {
       id: editingRate?.id ?? generateUuidV7(),
@@ -58,7 +58,11 @@ export function VatRatesPage() {
       validFrom: validFrom || '2026-01-01',
       isActive,
     };
-    upsertVatRate(payload);
+    const res = await upsertVatRate(payload);
+    if (!res.ok) {
+      showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+      return;
+    }
     showToast({ title: t('messages.recordSaved'), variant: 'success' });
     setDialogOpen(false);
   };

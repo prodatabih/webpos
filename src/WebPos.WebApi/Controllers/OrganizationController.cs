@@ -268,17 +268,89 @@ public class OrganizationController : ApiControllerBase
     public async Task<IActionResult> CreateFiscalYear([FromBody] UpsertFiscalYearRequest req, CancellationToken ct)
     {
         if (!TryGetTenantId(out var tid)) return Forbid();
+
+        var companyExists = await _db.Companies.AnyAsync(c => c.Id == req.CompanyId && c.TenantId == tid, ct);
+        if (!companyExists)
+        {
+            return BadRequest(new { message = "Odabrano preduzeće ne postoji u bazi." });
+        }
+
+        if (req.Year < 2000 || req.Year > 2100)
+        {
+            return BadRequest(new { message = "Neispravna poslovna godina." });
+        }
+
+        var existsYear = await _db.FiscalYears.AnyAsync(
+            f => f.TenantId == tid && f.CompanyId == req.CompanyId && f.Year == req.Year, ct);
+        if (existsYear)
+        {
+            return Conflict(new { message = $"Poslovna godina {req.Year} već postoji za ovo preduzeće." });
+        }
+
         var entity = new FiscalYear
         {
-            Id = Guid.NewGuid(),
+            Id = req.Id.HasValue && req.Id.Value != Guid.Empty ? req.Id.Value : Guid.NewGuid(),
             TenantId = tid,
             CompanyId = req.CompanyId,
             Year = req.Year,
             IsClosed = req.IsClosed
         };
         _db.FiscalYears.Add(entity);
+
+        string[] monthNames =
+        [
+            "Januar", "Februar", "Mart", "April", "Maj", "Juni",
+            "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
+        ];
+
+        var periods = new List<FiscalPeriod>(12);
+        for (var m = 1; m <= 12; m++)
+        {
+            var start = new DateTime(req.Year, m, 1, 0, 0, 0, DateTimeKind.Utc);
+            var end = new DateTime(req.Year, m, DateTime.DaysInMonth(req.Year, m), 0, 0, 0, DateTimeKind.Utc);
+            var period = new FiscalPeriod
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tid,
+                CompanyId = req.CompanyId,
+                FiscalYearId = entity.Id,
+                Month = m,
+                Name = $"{monthNames[m - 1]} {req.Year}",
+                StartDate = start,
+                EndDate = end,
+                IsLocked = false
+            };
+            periods.Add(period);
+            _db.FiscalPeriods.Add(period);
+        }
+
         await _db.SaveChangesAsync(ct);
-        return Ok(entity);
+
+        return Ok(new
+        {
+            fiscalYear = new
+            {
+                entity.Id,
+                entity.CompanyId,
+                entity.Year,
+                StartDate = $"{entity.Year}-01-01",
+                EndDate = $"{entity.Year}-12-31",
+                IsLocked = entity.IsClosed
+            },
+            periods = periods.Select(p => new
+            {
+                p.Id,
+                p.CompanyId,
+                p.FiscalYearId,
+                p.Month,
+                p.Name,
+                StartDate = p.StartDate.ToString("yyyy-MM-dd"),
+                EndDate = p.EndDate.ToString("yyyy-MM-dd"),
+                p.IsLocked,
+                LockedAt = p.LockedAtUtc,
+                p.LockedBy
+            })
+        });
     }
 
     [HttpPut("fiscal-years/{id:guid}")]
@@ -292,6 +364,34 @@ public class OrganizationController : ApiControllerBase
         entity.IsClosed = req.IsClosed;
         await _db.SaveChangesAsync(ct);
         return Ok(entity);
+    }
+
+    [HttpPatch("fiscal-periods/{id:guid}/toggle")]
+    [HttpPost("fiscal-periods/{id:guid}/toggle")]
+    public async Task<IActionResult> ToggleFiscalPeriod(Guid id, CancellationToken ct)
+    {
+        if (!TryGetTenantId(out var tid)) return Forbid();
+        var period = await _db.FiscalPeriods.FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tid, ct);
+        if (period is null) return NotFound();
+
+        period.IsLocked = !period.IsLocked;
+        period.LockedAtUtc = period.IsLocked ? DateTime.UtcNow : null;
+        period.LockedBy = period.IsLocked ? CurrentUsername : null;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            period.Id,
+            period.CompanyId,
+            period.FiscalYearId,
+            period.Month,
+            period.Name,
+            StartDate = period.StartDate.ToString("yyyy-MM-dd"),
+            EndDate = period.EndDate.ToString("yyyy-MM-dd"),
+            period.IsLocked,
+            LockedAt = period.LockedAtUtc,
+            period.LockedBy
+        });
     }
 
     [HttpGet("vat-rates")]
@@ -309,15 +409,32 @@ public class OrganizationController : ApiControllerBase
     public async Task<IActionResult> CreateVatRate([FromBody] UpsertVatRateRequest req, CancellationToken ct)
     {
         if (!TryGetTenantId(out var tid)) return Forbid();
-        var entity = new VatRate
+
+        VatRate? entity = null;
+        if (req.Id.HasValue && req.Id.Value != Guid.Empty)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tid,
-            Code = req.Code.Trim(),
-            Name = req.Name.Trim(),
-            RatePercent = req.RatePercent
-        };
-        _db.VatRates.Add(entity);
+            entity = await _db.VatRates.FirstOrDefaultAsync(v => v.Id == req.Id.Value && v.TenantId == tid, ct);
+        }
+
+        if (entity is null)
+        {
+            entity = new VatRate
+            {
+                Id = req.Id.HasValue && req.Id.Value != Guid.Empty ? req.Id.Value : Guid.NewGuid(),
+                TenantId = tid,
+                Code = req.Code.Trim().ToUpperInvariant(),
+                Name = req.Name.Trim(),
+                RatePercent = req.RatePercent
+            };
+            _db.VatRates.Add(entity);
+        }
+        else
+        {
+            entity.Code = req.Code.Trim().ToUpperInvariant();
+            entity.Name = req.Name.Trim();
+            entity.RatePercent = req.RatePercent;
+        }
+
         await _db.SaveChangesAsync(ct);
         return Ok(entity);
     }
@@ -328,7 +445,7 @@ public class OrganizationController : ApiControllerBase
         if (!TryGetTenantId(out var tid)) return Forbid();
         var entity = await _db.VatRates.FirstOrDefaultAsync(v => v.Id == id && v.TenantId == tid, ct);
         if (entity is null) return NotFound();
-        entity.Code = req.Code.Trim();
+        entity.Code = req.Code.Trim().ToUpperInvariant();
         entity.Name = req.Name.Trim();
         entity.RatePercent = req.RatePercent;
         await _db.SaveChangesAsync(ct);

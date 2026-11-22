@@ -16,6 +16,44 @@ public static class ProductionDbSeeder
     {
         await db.Database.EnsureCreatedAsync(cancellationToken);
 
+        if (db.Database.IsNpgsql())
+        {
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "FiscalPeriods" (
+                    "Id" uuid NOT NULL PRIMARY KEY,
+                    "TenantId" uuid NOT NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "FiscalYearId" uuid NOT NULL,
+                    "Month" integer NOT NULL,
+                    "Name" text NOT NULL,
+                    "StartDate" timestamp with time zone NOT NULL,
+                    "EndDate" timestamp with time zone NOT NULL,
+                    "IsLocked" boolean NOT NULL DEFAULT FALSE,
+                    "LockedAtUtc" timestamp with time zone NULL,
+                    "LockedBy" text NULL,
+                    CONSTRAINT "FK_FiscalPeriods_FiscalYears_FiscalYearId" FOREIGN KEY ("FiscalYearId") REFERENCES "FiscalYears" ("Id") ON DELETE CASCADE
+                );
+                """, cancellationToken);
+        }
+        else
+        {
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "FiscalPeriods" (
+                    "Id" TEXT NOT NULL PRIMARY KEY,
+                    "TenantId" TEXT NOT NULL,
+                    "CompanyId" TEXT NOT NULL,
+                    "FiscalYearId" TEXT NOT NULL,
+                    "Month" INTEGER NOT NULL,
+                    "Name" TEXT NOT NULL,
+                    "StartDate" TEXT NOT NULL,
+                    "EndDate" TEXT NOT NULL,
+                    "IsLocked" INTEGER NOT NULL DEFAULT 0,
+                    "LockedAtUtc" TEXT NULL,
+                    "LockedBy" TEXT NULL
+                );
+                """, cancellationToken);
+        }
+
         var hasSuperAdmin = await db.Users
             .AnyAsync(u => u.Role == UserRole.SuperAdmin, cancellationToken);
 

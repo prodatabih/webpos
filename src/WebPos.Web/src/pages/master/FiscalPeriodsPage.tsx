@@ -1,38 +1,72 @@
-import { useMemo } from 'react';
-import { CalendarRange, Lock, Unlock } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CalendarRange, Lock, Plus, Unlock } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatDateBs, formatDateTimeBs } from '../../lib/utils';
 import { useAppStore } from '../../store/useAppStore';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { Dialog } from '../../components/ui/Dialog';
+import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
 
 export function FiscalPeriodsPage() {
   const {
+    companies,
     activeCompanyId,
     fiscalYears,
     activeFiscalYearId,
     setActiveFiscalYearId,
     fiscalPeriods,
+    createFiscalYear,
     toggleFiscalPeriodLock,
   } = useAppStore();
 
+  const [newYearOpen, setNewYearOpen] = useState(false);
+  const [yearInput, setYearInput] = useState(String(new Date().getFullYear()));
+  const [savingYear, setSavingYear] = useState(false);
+
+  const effectiveCompanyId = activeCompanyId || companies[0]?.id || '';
+
   const companyYears = useMemo(
-    () => fiscalYears.filter((fy) => fy.companyId === activeCompanyId),
-    [fiscalYears, activeCompanyId]
+    () => fiscalYears.filter((fy) => fy.companyId === effectiveCompanyId),
+    [fiscalYears, effectiveCompanyId]
   );
 
   const companyPeriods = useMemo(
     () =>
       fiscalPeriods
         .filter(
-          (fp) => fp.companyId === activeCompanyId && fp.fiscalYearId === activeFiscalYearId
+          (fp) => fp.companyId === effectiveCompanyId && fp.fiscalYearId === activeFiscalYearId
         )
         .sort((a, b) => a.month - b.month),
-    [fiscalPeriods, activeCompanyId, activeFiscalYearId]
+    [fiscalPeriods, effectiveCompanyId, activeFiscalYearId]
   );
+
+  const handleCreateYear = async () => {
+    if (!effectiveCompanyId) {
+      showToast({ title: 'Prvo kreirajte preduzeće u Organizaciji.', variant: 'error' });
+      return;
+    }
+    const parsedYear = Number(yearInput);
+    if (!Number.isInteger(parsedYear) || parsedYear < 2000 || parsedYear > 2100) {
+      showToast({ title: 'Unesite ispravnu poslovnu godinu (npr. 2026).', variant: 'error' });
+      return;
+    }
+    setSavingYear(true);
+    try {
+      const res = await createFiscalYear(effectiveCompanyId, parsedYear);
+      if (!res.ok) {
+        showToast({ title: t('common.errorTitle'), description: res.error, variant: 'error' });
+        return;
+      }
+      showToast({ title: `Kreirana poslovna godina ${parsedYear} sa 12 mjesečnih perioda.`, variant: 'success' });
+      setNewYearOpen(false);
+    } finally {
+      setSavingYear(false);
+    }
+  };
 
   const handleToggleLock = (periodId: string) => {
     toggleFiscalPeriodLock(periodId);
@@ -47,6 +81,12 @@ export function FiscalPeriodsPage() {
           { label: t('nav.groupMasterData') },
           { label: t('nav.fiscalPeriods') },
         ]}
+        primaryAction={
+          <Button variant="primary" size="sm" onClick={() => setNewYearOpen(true)}>
+            <Plus className="h-4 w-4" />
+            <span>Nova poslovna godina</span>
+          </Button>
+        }
       />
 
       <div className="p-6 space-y-6">
@@ -173,6 +213,37 @@ export function FiscalPeriodsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={newYearOpen}
+        onClose={() => setNewYearOpen(false)}
+        size="sm"
+        title="Nova poslovna godina"
+        description="Kreiranjem poslovne godine automatski se generiše svih 12 mjesečnih perioda (Januar–Decembar)."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setNewYearOpen(false)} disabled={savingYear}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="primary" onClick={() => void handleCreateYear()} disabled={savingYear}>
+              {t('common.save')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Input
+            label="Godina"
+            type="number"
+            min={2000}
+            max={2100}
+            required
+            value={yearInput}
+            onChange={(e) => setYearInput(e.target.value)}
+            className="font-mono"
+          />
+        </div>
+      </Dialog>
     </div>
   );
 }

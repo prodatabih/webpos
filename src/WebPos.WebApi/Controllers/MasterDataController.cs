@@ -48,43 +48,133 @@ public class MasterDataController : ApiControllerBase
     {
         if (!TryGetTenantId(out var tid)) return Forbid();
 
-        var item = new Item
+        var vatExists = await _db.VatRates.AnyAsync(v => v.Id == req.VatRateId && v.TenantId == tid, ct);
+        if (!vatExists)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tid,
-            CompanyId = req.CompanyId,
-            Sku = req.Sku.Trim(),
-            PrimaryBarcode = req.PrimaryBarcode?.Trim(),
-            Name = req.Name.Trim(),
-            ShortName = req.ShortName?.Trim(),
-            CategoryName = req.CategoryName?.Trim(),
-            CategoryPrefix = req.CategoryPrefix?.Trim(),
-            Uom = string.IsNullOrWhiteSpace(req.Uom) ? "kom" : req.Uom.Trim(),
-            VatRateId = req.VatRateId,
-            ItemType = req.ItemType,
-            IsWeighable = req.IsWeighable,
-            IsActive = req.IsActive
-        };
+            return BadRequest(new { message = "Odabrana PDV stopa ne postoji u bazi. Prvo definišite PDV stopu u Matični podaci -> PDV stope." });
+        }
 
-        _db.Items.Add(item);
-
-        if (req.StoreId.HasValue && req.StoreId.Value != Guid.Empty)
+        Item? item = null;
+        if (req.Id.HasValue && req.Id.Value != Guid.Empty)
         {
-            _db.StoreItemPrices.Add(new StoreItemPrice
+            item = await _db.Items
+                .Include(i => i.StorePrices)
+                .FirstOrDefaultAsync(i => i.Id == req.Id.Value && i.TenantId == tid, ct);
+        }
+
+        if (item is null)
+        {
+            item = new Item
             {
-                Id = Guid.NewGuid(),
+                Id = req.Id.HasValue && req.Id.Value != Guid.Empty ? req.Id.Value : Guid.NewGuid(),
                 TenantId = tid,
-                StoreId = req.StoreId.Value,
-                ItemId = item.Id,
-                PurchasePriceExclVat4 = CalculationMath.Round4(req.PurchasePriceExclVat4 ?? 0m),
-                WholesalePriceExclVat4 = CalculationMath.Round4(req.WholesalePriceExclVat4 ?? 0m),
-                RetailPriceInclVat2 = CalculationMath.Round2(req.RetailPriceInclVat2 ?? 0m),
-                StockQty = 0m
-            });
+                CompanyId = req.CompanyId,
+                Sku = req.Sku.Trim(),
+                PrimaryBarcode = req.PrimaryBarcode?.Trim(),
+                Name = req.Name.Trim(),
+                ShortName = req.ShortName?.Trim(),
+                CategoryName = req.CategoryName?.Trim(),
+                CategoryPrefix = req.CategoryPrefix?.Trim(),
+                Uom = string.IsNullOrWhiteSpace(req.Uom) ? "kom" : req.Uom.Trim(),
+                VatRateId = req.VatRateId,
+                ItemType = req.ItemType,
+                IsWeighable = req.IsWeighable,
+                IsActive = req.IsActive
+            };
+            _db.Items.Add(item);
+
+            if (req.StoreId.HasValue && req.StoreId.Value != Guid.Empty)
+            {
+                _db.StoreItemPrices.Add(new StoreItemPrice
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tid,
+                    StoreId = req.StoreId.Value,
+                    ItemId = item.Id,
+                    PurchasePriceExclVat4 = CalculationMath.Round4(req.PurchasePriceExclVat4 ?? 0m),
+                    WholesalePriceExclVat4 = CalculationMath.Round4(req.WholesalePriceExclVat4 ?? 0m),
+                    RetailPriceInclVat2 = CalculationMath.Round2(req.RetailPriceInclVat2 ?? 0m),
+                    StockQty = 0m
+                });
+            }
+        }
+        else
+        {
+            item.CompanyId = req.CompanyId;
+            item.Sku = req.Sku.Trim();
+            item.PrimaryBarcode = req.PrimaryBarcode?.Trim();
+            item.Name = req.Name.Trim();
+            item.ShortName = req.ShortName?.Trim();
+            item.CategoryName = req.CategoryName?.Trim();
+            item.CategoryPrefix = req.CategoryPrefix?.Trim();
+            item.Uom = string.IsNullOrWhiteSpace(req.Uom) ? "kom" : req.Uom.Trim();
+            item.VatRateId = req.VatRateId;
+            item.ItemType = req.ItemType;
+            item.IsWeighable = req.IsWeighable;
+            item.IsActive = req.IsActive;
         }
 
         await _db.SaveChangesAsync(ct);
         return Ok(item);
+    }
+
+    [HttpPost("store-prices")]
+    public async Task<IActionResult> UpsertStorePrice([FromBody] UpsertStoreItemPriceRequest req, CancellationToken ct)
+    {
+        if (!TryGetTenantId(out var tid)) return Forbid();
+
+        var storeExists = await _db.Stores.AnyAsync(s => s.Id == req.StoreId && s.TenantId == tid, ct);
+        if (!storeExists) return BadRequest(new { message = "Odabrana poslovnica ne postoji u bazi." });
+
+        var itemExists = await _db.Items.AnyAsync(i => i.Id == req.ItemId && i.TenantId == tid, ct);
+        if (!itemExists) return BadRequest(new { message = "Artikal još nije snimljen u bazu. Prvo snimite artikal." });
+
+        var priceRow = await _db.StoreItemPrices
+            .FirstOrDefaultAsync(p => p.TenantId == tid && p.StoreId == req.StoreId && p.ItemId == req.ItemId, ct);
+
+        if (priceRow is null)
+        {
+            priceRow = new StoreItemPrice
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tid,
+                StoreId = req.StoreId,
+                ItemId = req.ItemId,
+                PurchasePriceExclVat4 = CalculationMath.Round4(req.PurchasePriceExclVat4 ?? 0m),
+                WholesalePriceExclVat4 = CalculationMath.Round4(req.WholesalePriceExclVat4 ?? 0m),
+                RetailPriceInclVat2 = CalculationMath.Round2(req.RetailPriceInclVat2 ?? 0m),
+                StockQty = 0m
+            };
+            _db.StoreItemPrices.Add(priceRow);
+        }
+        else
+        {
+            if (req.RetailPriceInclVat2.HasValue)
+            {
+                var newRetail2 = CalculationMath.Round2(req.RetailPriceInclVat2.Value);
+                if (priceRow.RetailPriceInclVat2 != newRetail2 && priceRow.StockQty > 0m)
+                {
+                    return Conflict(new
+                    {
+                        code = "STOCK_EXISTS_LEVELING_REQUIRED",
+                        message = "Maloprodajna cijena se ne može mijenjati direktno dok postoji zaliha (> 0). Kreirajte i proknjižite nivelaciju cijena.",
+                        stockQty = priceRow.StockQty
+                    });
+                }
+                priceRow.RetailPriceInclVat2 = newRetail2;
+            }
+            if (req.PurchasePriceExclVat4.HasValue)
+            {
+                priceRow.PurchasePriceExclVat4 = CalculationMath.Round4(req.PurchasePriceExclVat4.Value);
+            }
+            if (req.WholesalePriceExclVat4.HasValue)
+            {
+                priceRow.WholesalePriceExclVat4 = CalculationMath.Round4(req.WholesalePriceExclVat4.Value);
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(priceRow);
     }
 
     [HttpPut("items/{id:guid}")]

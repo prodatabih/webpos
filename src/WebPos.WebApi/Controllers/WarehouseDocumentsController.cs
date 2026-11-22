@@ -174,22 +174,53 @@ public class WarehouseDocumentsController : ApiControllerBase
     {
         if (!TryGetTenantId(out var tid)) return Forbid();
 
-        var doc = new PriceLeveling
+        if (!await _db.Stores.AnyAsync(s => s.Id == req.StoreId && s.TenantId == tid, ct))
+            return BadRequest(new { message = "Odabrana poslovnica ne postoji u bazi." });
+
+        if (!await _db.FiscalYears.AnyAsync(f => f.Id == req.FiscalYearId && f.TenantId == tid, ct))
+            return BadRequest(new { message = "Odabrana poslovna godina ne postoji u bazi. Prvo kreirajte poslovnu godinu." });
+
+        PriceLeveling? doc = null;
+        if (req.Id.HasValue && req.Id.Value != Guid.Empty)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tid,
-            StoreId = req.StoreId,
-            FiscalYearId = req.FiscalYearId,
-            DocumentNumber = req.DocumentNumber.Trim(),
-            DocumentDate = req.DocumentDate,
-            Status = DocumentStatus.Draft,
-            Reason = req.Reason?.Trim(),
-            CreatedByUserId = CurrentUserId,
-            CreatedAtUtc = DateTime.UtcNow
-        };
+            doc = await _db.PriceLevelings
+                .Include(d => d.Lines)
+                .FirstOrDefaultAsync(d => d.Id == req.Id.Value && d.TenantId == tid, ct);
+        }
+
+        var isNew = doc is null;
+        if (doc is not null)
+        {
+            if (doc.Status == DocumentStatus.Posted)
+                return BadRequest(new { message = "Proknjižena nivelacija se ne može mijenjati." });
+
+            doc.StoreId = req.StoreId;
+            doc.FiscalYearId = req.FiscalYearId;
+            doc.DocumentNumber = req.DocumentNumber.Trim();
+            doc.DocumentDate = req.DocumentDate;
+            doc.Reason = req.Reason?.Trim();
+            _db.PriceLevelingLines.RemoveRange(doc.Lines);
+            doc.Lines.Clear();
+        }
+        else
+        {
+            doc = new PriceLeveling
+            {
+                Id = req.Id.HasValue && req.Id.Value != Guid.Empty ? req.Id.Value : Guid.NewGuid(),
+                TenantId = tid,
+                StoreId = req.StoreId,
+                FiscalYearId = req.FiscalYearId,
+                DocumentNumber = req.DocumentNumber.Trim(),
+                DocumentDate = req.DocumentDate,
+                Status = DocumentStatus.Draft,
+                Reason = req.Reason?.Trim(),
+                CreatedByUserId = CurrentUserId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+        }
 
         var lineNo = 1;
-        foreach (var l in req.Lines)
+        foreach (var l in req.Lines.Where(x => x.ItemId != Guid.Empty))
         {
             var price = await _db.StoreItemPrices
                 .AsNoTracking()
@@ -201,7 +232,7 @@ public class WarehouseDocumentsController : ApiControllerBase
             var diffPerUnit = CalculationMath.Round2(newPrice - oldPrice);
             var totalDiff = CalculationMath.Round2(diffPerUnit * stockQty);
 
-            doc.Lines.Add(new PriceLevelingLine
+            var lineEntity = new PriceLevelingLine
             {
                 Id = Guid.NewGuid(),
                 TenantId = tid,
@@ -213,11 +244,20 @@ public class WarehouseDocumentsController : ApiControllerBase
                 NewRetailPriceInclVat2 = newPrice,
                 PriceDifference2 = diffPerUnit,
                 TotalDifference2 = totalDiff
-            });
+            };
+            doc.Lines.Add(lineEntity);
+            if (!isNew)
+            {
+                _db.PriceLevelingLines.Add(lineEntity);
+            }
         }
 
         doc.TotalDifferenceAmount2 = CalculationMath.Round2(doc.Lines.Sum(x => x.TotalDifference2));
-        _db.PriceLevelings.Add(doc);
+        if (isNew)
+        {
+            _db.PriceLevelings.Add(doc);
+        }
+
         await _db.SaveChangesAsync(ct);
         return Ok(doc);
     }

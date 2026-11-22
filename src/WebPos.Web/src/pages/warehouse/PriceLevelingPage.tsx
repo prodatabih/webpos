@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
 import { PriceLevelingDialog } from './PriceLevelingDialog';
+import { buildBlankLevelingLine } from './priceLevelingUtils';
 
 export function PriceLevelingPage() {
   const store = useAppStore();
@@ -24,18 +25,27 @@ export function PriceLevelingPage() {
   );
 
   const handleCreateNew = () => {
+    if (!store.activeStoreId) {
+      showToast({ title: 'Prvo odaberite ili kreirajte poslovnicu.', variant: 'error' });
+      return;
+    }
+    if (!store.activeFiscalYearId) {
+      showToast({ title: 'Prvo kreirajte poslovnu godinu (Matični podaci -> Poslovni periodi).', variant: 'error' });
+      return;
+    }
     const seq = String(storeLevelings.length + 1).padStart(4, '0');
     const today = new Date().toISOString().slice(0, 10);
+    const activeYear = store.fiscalYears.find((fy) => fy.id === store.activeFiscalYearId)?.year ?? new Date().getFullYear();
     const newDoc: PriceLevelingDocument = {
       id: generateUuidV7(),
       companyId: store.activeCompanyId,
       fiscalYearId: store.activeFiscalYearId,
       storeId: store.activeStoreId,
-      docNumber: `NIV-2026-${seq}`,
+      docNumber: `NIV-${activeYear}-${seq}`,
       docDate: today,
       status: 'DRAFT',
       reason: '',
-      lines: [],
+      lines: [buildBlankLevelingLine()],
       totalRetailDifference: '0.00',
       totalVatDifference: '0.00',
       totalMarginDifference: '0.00',

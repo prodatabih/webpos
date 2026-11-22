@@ -11,6 +11,7 @@ public interface IWebPosDbContext
     DbSet<Store> Stores { get; }
     DbSet<CashRegister> CashRegisters { get; }
     DbSet<FiscalYear> FiscalYears { get; }
+    DbSet<FiscalPeriod> FiscalPeriods { get; }
     DbSet<VatRate> VatRates { get; }
     DbSet<Item> Items { get; }
     DbSet<ItemBarcode> ItemBarcodes { get; }

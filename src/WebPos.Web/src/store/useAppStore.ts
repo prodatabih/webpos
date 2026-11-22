@@ -92,6 +92,31 @@ state = {
     setState({ systemConfig: { ...state.systemConfig, ...cfg } }),
   isDateInLockedPeriod: (dateStr) =>
     checkDateLocked(state.activeCompanyId, dateStr, state.fiscalYears, state.fiscalPeriods),
+  createFiscalYear: async (companyId, year) => {
+    const id = generateUuidV7();
+    if (state.backendMode === 'API') {
+      try {
+        const res = await apiClient.saveFiscalYear({ id, companyId, year, isClosed: false });
+        setState({
+          fiscalYears: upsertById(state.fiscalYears, res.fiscalYear),
+          fiscalPeriods: [
+            ...state.fiscalPeriods.filter((p) => p.fiscalYearId !== res.fiscalYear.id),
+            ...res.periods,
+          ],
+          activeFiscalYearId: state.activeFiscalYearId || res.fiscalYear.id,
+        });
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Greška pri kreiranju poslovne godine.' };
+      }
+    }
+    const fy = { id, companyId, year, startDate: `${year}-01-01`, endDate: `${year}-12-31`, isLocked: false };
+    setState({
+      fiscalYears: upsertById(state.fiscalYears, fy),
+      activeFiscalYearId: state.activeFiscalYearId || fy.id,
+    });
+    return { ok: true };
+  },
   toggleFiscalPeriodLock: (periodId) => {
     const target = state.fiscalPeriods.find((p) => p.id === periodId);
     if (!target) return;
@@ -119,6 +144,7 @@ state = {
         ...state.auditLog,
       ],
     });
+    syncIfApiMode(() => state, () => apiClient.toggleFiscalPeriod(periodId));
   },
   upsertCompany: async (company) => {
     const res = await persistIfApiMode(() => state, () => apiClient.saveCompany(company));
@@ -147,12 +173,19 @@ state = {
     });
     return { ok: true };
   },
-  upsertVatRate: (rate) => setState({ vatRates: upsertById(state.vatRates, rate) }),
+  upsertVatRate: async (rate) => {
+    const res = await persistIfApiMode(() => state, () => apiClient.saveVatRate(rate));
+    if (!res.ok) return res;
+    setState({ vatRates: upsertById(state.vatRates, rate) });
+    return { ok: true };
+  },
   upsertPartner: (partner) => {
     setState({ partners: upsertById(state.partners, partner) });
     syncIfApiMode(() => state, () => apiClient.savePartner(partner));
   },
-  upsertItem: (item, barcodes, bomLines) => {
+  upsertItem: async (item, barcodes, bomLines) => {
+    const res = await persistIfApiMode(() => state, () => apiClient.saveItem({ item, barcodes, bomLines }));
+    if (!res.ok) return res;
     setState({
       items: upsertById(state.items, item),
       itemBarcodes: barcodes
@@ -162,10 +195,14 @@ state = {
         ? [...state.itemBomLines.filter((b) => b.parentItemId !== item.id), ...bomLines]
         : state.itemBomLines,
     });
-    syncIfApiMode(() => state, () => apiClient.saveItem({ item, barcodes, bomLines }));
+    return { ok: true };
   },
-  upsertStoreItemPrice: (price) =>
-    setState({ storeItemPrices: upsertById(state.storeItemPrices, price) }),
+  upsertStoreItemPrice: async (price) => {
+    const res = await persistIfApiMode(() => state, () => apiClient.saveStoreItemPrice(price));
+    if (!res.ok) return res;
+    setState({ storeItemPrices: upsertById(state.storeItemPrices, price) });
+    return { ok: true };
+  },
   clearLabelPrintFlags: (storeId, itemIds) =>
     setState({
       storeItemPrices: state.storeItemPrices.map((p) =>
@@ -190,7 +227,10 @@ state = {
     const { next, res } = saveDraftGeneric(state.priceLevelings, doc);
     if (res.ok) {
       setState({ priceLevelings: next });
-      syncIfApiMode(() => state, () => apiClient.saveLeveling(doc));
+      const hasValidLine = doc.lines.some((l) => Boolean(l.itemId));
+      if (doc.storeId && doc.fiscalYearId && hasValidLine) {
+        syncIfApiMode(() => state, () => apiClient.saveLeveling(doc));
+      }
     }
     return res;
   },

@@ -16,6 +16,7 @@ public class WebPosDbContext : DbContext, IWebPosDbContext
     public DbSet<Store> Stores => Set<Store>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
+    public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
     public DbSet<VatRate> VatRates => Set<VatRate>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemBarcode> ItemBarcodes => Set<ItemBarcode>();

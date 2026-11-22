@@ -32,7 +32,8 @@ public sealed record CreatePriceLevelingRequest(
     string DocumentNumber,
     DateTime DocumentDate,
     string? Reason,
-    List<CreatePriceLevelingLineRequest> Lines);
+    List<CreatePriceLevelingLineRequest> Lines,
+    Guid? Id = null);
 
 public sealed record CreateTransferLineRequest(
     Guid ItemId,

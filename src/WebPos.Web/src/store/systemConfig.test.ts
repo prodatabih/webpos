@@ -20,7 +20,7 @@ describe('SystemConfig and Item domain updates', () => {
     expect(getAppStoreState().systemConfig.allowPriceChangeWithoutLeveling).toBe(false);
   });
 
-  it('supports groupCode and categoryPrefix on Item objects', () => {
+  it('supports groupCode and categoryPrefix on Item objects', async () => {
     const newItem: Item = {
       id: 'test-item-custom-fields',
       companyId: 'comp-1',
@@ -43,7 +43,7 @@ describe('SystemConfig and Item domain updates', () => {
     };
 
     const store = getAppStoreState();
-    store.upsertItem(newItem);
+    await store.upsertItem(newItem);
 
     const saved = getAppStoreState().items.find((i) => i.id === 'test-item-custom-fields');
     expect(saved).toBeDefined();
