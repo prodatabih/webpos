@@ -4,6 +4,7 @@ import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, round2 } from '../../lib/money';
 import { formatDateBs, generateUuidV7 } from '../../lib/utils';
+import { useListNewShortcut } from '../../lib/keyboardGridUtils';
 import { useAppStore } from '../../store/useAppStore';
 import type { VatRate } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -12,6 +13,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 import { Badge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
 
@@ -37,6 +39,13 @@ export function VatRatesPage() {
     () => vatRates.filter((vr) => !vr.companyId || !activeCompanyId || vr.companyId === activeCompanyId),
     [vatRates, activeCompanyId]
   );
+
+  const handleCreateNew = () => {
+    setEditingRate(null);
+    setDialogOpen(true);
+  };
+
+  useListNewShortcut(handleCreateNew, !dialogOpen && !deleteTarget);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -197,13 +206,7 @@ export function VatRatesPage() {
           { label: t('nav.vatRates') },
         ]}
         primaryAction={
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditingRate(null);
-              setDialogOpen(true);
-            }}
-          >
+          <Button variant="primary" onClick={handleCreateNew}>
             <Plus className="h-4 w-4" />
             <span>{t('common.create')}</span>
           </Button>
@@ -253,19 +256,31 @@ export function VatRatesPage() {
               }}
               className="font-mono"
             />
-            <Input
-              label={t('common.vat')}
-              required
-              value={ratePercent}
-              error={fieldErrors.ratePercent}
-              onChange={(e) => {
-                setRatePercent(e.target.value);
-                if (fieldErrors.ratePercent) {
-                  setFieldErrors((prev) => ({ ...prev, ratePercent: undefined }));
-                }
-              }}
-              className="font-mono text-right"
-            />
+            <div className="flex flex-col gap-1 w-full">
+              <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                <span>{t('common.vat')}</span>
+                <span className="text-destructive">*</span>
+              </label>
+              <NumericInput
+                decimals={2}
+                min={0}
+                max={100}
+                required
+                value={ratePercent}
+                onChange={(val) => {
+                  setRatePercent(val);
+                  if (fieldErrors.ratePercent) {
+                    setFieldErrors((prev) => ({ ...prev, ratePercent: undefined }));
+                  }
+                }}
+                className={`h-9 font-mono text-right ${
+                  fieldErrors.ratePercent ? 'border-destructive focus-visible:ring-destructive' : ''
+                }`}
+              />
+              {fieldErrors.ratePercent && (
+                <p className="text-xs text-destructive font-medium">{fieldErrors.ratePercent}</p>
+              )}
+            </div>
           </div>
           <Input
             label={t('common.name')}

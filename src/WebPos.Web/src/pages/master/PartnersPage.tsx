@@ -3,6 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
+import { useListNewShortcut } from '../../lib/keyboardGridUtils';
 import { useAppStore } from '../../store/useAppStore';
 import type { Partner, PartnerType } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -19,6 +20,13 @@ export function PartnersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
+
+  const handleCreateNew = () => {
+    setEditingPartner(null);
+    setDialogOpen(true);
+  };
+
+  useListNewShortcut(handleCreateNew, !dialogOpen && !deleteTarget);
 
   const filteredPartners = useMemo(() => {
     return partners
@@ -165,13 +173,7 @@ export function PartnersPage() {
           { label: t('nav.partners') },
         ]}
         primaryAction={
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditingPartner(null);
-              setDialogOpen(true);
-            }}
-          >
+          <Button variant="primary" onClick={handleCreateNew}>
             <Plus className="h-4 w-4" />
             <span>{t('common.create')}</span>
           </Button>

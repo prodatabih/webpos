@@ -1,18 +1,24 @@
+import type React from 'react';
 import { Copy, Search, X } from 'lucide-react';
 import { t } from '../../i18n';
 import { d, formatMoney2, formatQty, round2 } from '../../lib/money';
 import type { Item, PriceLevelingLine } from '../../types/domain';
 import { Button } from '../../components/ui/Button';
 import { Combobox, type ComboboxOption } from '../../components/ui/Combobox';
+import { NumericInput } from '../../components/ui/NumericInput';
 
 interface PriceLevelingLineRowProps {
   line: PriceLevelingLine;
   idx: number;
+  isLastRow: boolean;
   item?: Item;
   isReadOnly: boolean;
   comboboxOptions: ComboboxOption[];
   onSelectItem: (itemId: string) => void;
+  onAfterSelectItem: () => void;
   onNewPriceChange: (val: string) => void;
+  onAdvanceFocus: (currentEl: HTMLElement) => void;
+  onRowFocus: () => void;
   onCopy: () => void;
   onRemove: () => void;
 }
@@ -20,18 +26,29 @@ interface PriceLevelingLineRowProps {
 export function PriceLevelingLineRow({
   line,
   idx,
+  isLastRow,
   item,
   isReadOnly,
   comboboxOptions,
   onSelectItem,
+  onAfterSelectItem,
   onNewPriceChange,
+  onAdvanceFocus,
+  onRowFocus,
   onCopy,
   onRemove,
 }: PriceLevelingLineRowProps) {
   const unitDiff = round2(d(line.newRetailPriceWithVat || '0').minus(d(line.oldRetailPriceWithVat || '0')));
 
+  const handleLastFieldTabForward = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isLastRow || Boolean(line.itemId)) {
+      e.preventDefault();
+      onAdvanceFocus(e.currentTarget);
+    }
+  };
+
   return (
-    <tr className="hover:bg-muted/30">
+    <tr data-row-index={idx} onFocus={onRowFocus} className="hover:bg-muted/30">
       <td className="px-2 py-1.5 text-center text-muted-foreground">{idx + 1}</td>
       <td className="px-2 py-1.5 font-sans min-w-[220px]">
         {!line.itemId ? (
@@ -39,6 +56,9 @@ export function PriceLevelingLineRow({
             options={comboboxOptions}
             value=""
             onChange={onSelectItem}
+            onAfterSelect={onAfterSelectItem}
+            dataGridItemPicker={true}
+            disabled={isReadOnly}
             placeholder={t('warehouse.selectItem')}
             searchPlaceholder={t('warehouse.searchItemPlaceholder')}
             className="w-full"
@@ -54,6 +74,7 @@ export function PriceLevelingLineRow({
             {!isReadOnly && (
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={() => onSelectItem('')}
                 title={t('warehouse.changeItem')}
                 className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -74,13 +95,16 @@ export function PriceLevelingLineRow({
         {formatMoney2(line.oldRetailPriceWithVat, true)}
       </td>
       <td className="px-1 py-1.5 text-right">
-        <input
-          type="number"
-          step="0.01"
+        <NumericInput
+          decimals={2}
+          min={0}
           disabled={isReadOnly || !line.itemId}
           value={line.newRetailPriceWithVat}
-          onChange={(e) => onNewPriceChange(e.target.value)}
-          className="h-7 w-24 rounded border border-success/60 bg-background px-2 text-right font-mono font-bold text-success"
+          onChange={onNewPriceChange}
+          onEnterKey={(e) => onAdvanceFocus(e.currentTarget)}
+          onTabForward={handleLastFieldTabForward}
+          data-grid-cell="true"
+          className="h-7 w-24 border-success/60 bg-background px-2 font-mono text-xs font-bold text-success"
         />
       </td>
       <td className="px-2 py-1.5 text-right font-mono">
@@ -101,6 +125,7 @@ export function PriceLevelingLineRow({
             <Button
               variant="ghost"
               size="icon"
+              tabIndex={-1}
               title={t('warehouse.copyLine')}
               disabled={!line.itemId}
               onClick={onCopy}
@@ -110,6 +135,7 @@ export function PriceLevelingLineRow({
             <Button
               variant="ghost"
               size="icon"
+              tabIndex={-1}
               title={t('warehouse.deleteLine')}
               onClick={onRemove}
             >

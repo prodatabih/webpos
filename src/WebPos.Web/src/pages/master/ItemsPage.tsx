@@ -3,6 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatPrice4, formatQty, d } from '../../lib/money';
+import { useListNewShortcut } from '../../lib/keyboardGridUtils';
 import { useAppStore } from '../../store/useAppStore';
 import type { Item, ItemType } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -39,6 +40,13 @@ export function ItemsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+
+  const handleCreateNew = () => {
+    setEditingItem(null);
+    setDialogOpen(true);
+  };
+
+  useListNewShortcut(handleCreateNew, !dialogOpen && !deleteTarget);
 
   const rows = useMemo<ItemRow[]>(() => {
     return items
@@ -217,13 +225,7 @@ export function ItemsPage() {
           { label: t('nav.items') },
         ]}
         primaryAction={
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditingItem(null);
-              setDialogOpen(true);
-            }}
-          >
+          <Button variant="primary" onClick={handleCreateNew}>
             <Plus className="h-4 w-4" />
             <span>{t('common.create')}</span>
           </Button>

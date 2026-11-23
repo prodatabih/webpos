@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CheckCircle2, Save, Printer, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { t } from '../../i18n';
 import { d, formatMoney2, round2 } from '../../lib/money';
 import { exportToExcelSpreadsheet } from '../../lib/excelExport';
+import {
+  focusItemPickerInRow,
+  useDocumentShortcuts,
+} from '../../lib/keyboardGridUtils';
 import type { ActionResult } from '../../store/storeTypes';
 import type {
   Company,
@@ -17,6 +21,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Combobox } from '../../components/ui/Combobox';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
+import { KeyboardShortcutsBar } from '../../components/ui/KeyboardShortcutsBar';
 import { showToast } from '../../components/ui/Toast';
 import { TransferPrintView } from './TransferPrintView';
 import { TransferLinesTable } from './TransferLinesTable';
@@ -98,7 +103,10 @@ export function TransferDialog({
 }: TransferDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
+  const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const isBusy = isSaving || isPosting;
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const {
     doc,
@@ -190,6 +198,49 @@ export function TransferDialog({
       setIsPosting(false);
     }
   };
+
+  useDocumentShortcuts({
+    enabled: open,
+    isReadOnly: isReadOnly || isPrintPreview,
+    onSave: () => {
+      if (!isBusy) void handleManualSave();
+    },
+    onPost: () => {
+      if (canPost && !isBusy) void handleManualPost();
+    },
+    onPrint: () => {
+      setIsPrintPreview((prev) => !prev);
+    },
+    onFocusSearch: () => {
+      if (!isReadOnly && !isPrintPreview) {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    },
+    onAddRow: () => {
+      const nextIdx = doc.lines.length;
+      handleAddBlankLine();
+      setFocusedRowIndex(nextIdx);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          focusItemPickerInRow(tbodyRef.current, nextIdx, true);
+        }, 30);
+      });
+    },
+    onDuplicateRow: () => {
+      const target = doc.lines[focusedRowIndex];
+      if (target?.itemId) {
+        handleCopyLine(focusedRowIndex);
+      }
+    },
+    onDeleteRow: () => {
+      const target = doc.lines[focusedRowIndex];
+      if (target) {
+        handleRemoveLine(target.id);
+        setFocusedRowIndex(Math.max(0, focusedRowIndex - 1));
+      }
+    },
+  });
 
   return (
     <Dialog
@@ -321,6 +372,9 @@ export function TransferDialog({
             storePrices={storePrices}
             sourceStoreId={doc.sourceStoreId}
             isReadOnly={isReadOnly}
+            tbodyRef={tbodyRef}
+            searchInputRef={searchInputRef}
+            onFocusedRowChange={setFocusedRowIndex}
             onSelectItemForLine={handleSelectItemForLine}
             onLineChange={handleLineChange}
             onRemoveLine={handleRemoveLine}
@@ -359,6 +413,8 @@ export function TransferDialog({
               </div>
             </div>
           </div>
+
+          <KeyboardShortcutsBar />
         </div>
       )}
     </Dialog>

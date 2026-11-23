@@ -31,9 +31,17 @@ import type {
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 import { Combobox, type ComboboxOption } from '../../components/ui/Combobox';
+import { KeyboardShortcutsBar } from '../../components/ui/KeyboardShortcutsBar';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
+import {
+  advanceGridFocus,
+  focusFirstNumericCellInRow,
+  focusItemPickerInRow,
+  useDocumentShortcuts,
+} from '../../lib/keyboardGridUtils';
 
 export type OtherWarehouseLineWithReason = OtherWarehouseLine & { reason?: string };
 
@@ -140,6 +148,9 @@ export function OtherWarehouseDocDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const activeRowIndexRef = useRef<number>(0);
   const isInitialMount = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
@@ -312,8 +323,32 @@ export function OtherWarehouseDocDialog({
 
   const handleAddBlankLine = () => {
     if (isReadOnly) return;
-    const currentLines = doc.lines as OtherWarehouseLineWithReason[];
-    setDoc(recomputeDocTotals(doc, [...currentLines, buildBlankOtherWarehouseLine()]));
+    setDoc((prev) => {
+      const currentLines = prev.lines as OtherWarehouseLineWithReason[];
+      return recomputeDocTotals(prev, [...currentLines, buildBlankOtherWarehouseLine()]);
+    });
+  };
+
+  const handleAddBlankLineAndFocus = () => {
+    if (isReadOnly) return;
+    const nextIdx = doc.lines.length;
+    handleAddBlankLine();
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        focusItemPickerInRow(tbodyRef.current, nextIdx, true);
+      }, 30);
+    });
+  };
+
+  const getActiveRowIndex = (): number => {
+    const activeTr = document.activeElement?.closest?.('tr[data-row-index]');
+    if (activeTr) {
+      const parsed = Number(activeTr.getAttribute('data-row-index'));
+      if (Number.isInteger(parsed) && parsed >= 0 && parsed < doc.lines.length) {
+        return parsed;
+      }
+    }
+    return Math.min(activeRowIndexRef.current, Math.max(0, doc.lines.length - 1));
   };
 
   const handleSelectItemForLine = (lineId: string, itemId: string) => {
@@ -340,26 +375,28 @@ export function OtherWarehouseDocDialog({
     val: string
   ) => {
     if (isReadOnly) return;
-    const currentLines = doc.lines as OtherWarehouseLineWithReason[];
-    const nextLines = currentLines.map((line) => {
-      if (line.id !== lineId) return line;
-      if (field === 'reason') {
-        return { ...line, reason: val };
-      }
-      const nextQty = field === 'quantity' ? val : line.quantity;
-      const nextPurch = field === 'purchaseUnitPrice' ? val : line.purchaseUnitPrice;
-      const nextRetail = field === 'retailUnitPriceWithVat' ? val : line.retailUnitPriceWithVat;
-      const qtyDec = d(nextQty || '0');
-      return {
-        ...line,
-        quantity: nextQty,
-        purchaseUnitPrice: nextPurch,
-        purchaseTotalValue: round2(qtyDec.mul(d(nextPurch || '0'))),
-        retailUnitPriceWithVat: nextRetail,
-        retailTotalValueWithVat: round2(qtyDec.mul(d(nextRetail || '0'))),
-      };
+    setDoc((prev) => {
+      const currentLines = prev.lines as OtherWarehouseLineWithReason[];
+      const nextLines = currentLines.map((line) => {
+        if (line.id !== lineId) return line;
+        if (field === 'reason') {
+          return { ...line, reason: val };
+        }
+        const nextQty = field === 'quantity' ? val : line.quantity;
+        const nextPurch = field === 'purchaseUnitPrice' ? val : line.purchaseUnitPrice;
+        const nextRetail = field === 'retailUnitPriceWithVat' ? val : line.retailUnitPriceWithVat;
+        const qtyDec = d(nextQty || '0');
+        return {
+          ...line,
+          quantity: nextQty,
+          purchaseUnitPrice: nextPurch,
+          purchaseTotalValue: round2(qtyDec.mul(d(nextPurch || '0'))),
+          retailUnitPriceWithVat: nextRetail,
+          retailTotalValueWithVat: round2(qtyDec.mul(d(nextRetail || '0'))),
+        };
+      });
+      return recomputeDocTotals(prev, nextLines);
     });
-    setDoc(recomputeDocTotals(doc, nextLines));
   };
 
   const handleCopyLine = (idx: number) => {
@@ -422,6 +459,40 @@ export function OtherWarehouseDocDialog({
       setIsPosting(false);
     }
   };
+
+  useDocumentShortcuts({
+    enabled: open,
+    isReadOnly,
+    onSave: () => void handleManualSave(),
+    onPost: () => void handleManualPost(),
+    onPrint: () => setIsPrintPreview((prev) => !prev),
+    onFocusSearch: () => {
+      if (!isPrintPreview && searchInputRef.current) {
+        searchInputRef.current.focus();
+        searchInputRef.current.select();
+      }
+    },
+    onAddRow: () => {
+      if (!isPrintPreview) {
+        handleAddBlankLineAndFocus();
+      }
+    },
+    onDuplicateRow: () => {
+      if (isPrintPreview) return;
+      const idx = getActiveRowIndex();
+      if (typedLines[idx]?.itemId) {
+        handleCopyLine(idx);
+      }
+    },
+    onDeleteRow: () => {
+      if (isPrintPreview) return;
+      const idx = getActiveRowIndex();
+      const targetLine = typedLines[idx];
+      if (targetLine) {
+        handleRemoveLine(targetLine.id);
+      }
+    },
+  });
 
   return (
     <Dialog
@@ -621,6 +692,8 @@ export function OtherWarehouseDocDialog({
             {isReadOnly && <span className="text-muted-foreground">{t('messages.postedImmutableError')}</span>}
           </div>
 
+          {!isReadOnly && <KeyboardShortcutsBar />}
+
           <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
             <div
               className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${
@@ -673,6 +746,7 @@ export function OtherWarehouseDocDialog({
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input
+                    ref={searchInputRef}
                     type="text"
                     value={searchTerm}
                     onChange={(e) => {
@@ -681,6 +755,17 @@ export function OtherWarehouseDocDialog({
                     }}
                     onFocus={() => setShowDropdown(true)}
                     onBlur={() => setTimeout(() => setShowDropdown(false), 180)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && searchTerm.trim() && filteredItems.length > 0) {
+                        e.preventDefault();
+                        const first = filteredItems[0];
+                        if (first) {
+                          handleAddItem(first);
+                          setSearchTerm('');
+                          setShowDropdown(false);
+                        }
+                      }
+                    }}
                     placeholder={t('warehouse.fastItemSearchPlaceholder')}
                     className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
                   />
@@ -729,7 +814,7 @@ export function OtherWarehouseDocDialog({
                   </div>
                 )}
               </div>
-              <Button variant="secondary" size="sm" onClick={handleAddBlankLine}>
+              <Button variant="secondary" size="sm" onClick={handleAddBlankLineAndFocus}>
                 <Plus className="h-4 w-4" />
                 <span>{t('warehouse.emptyLine')}</span>
               </Button>
@@ -752,17 +837,38 @@ export function OtherWarehouseDocDialog({
                   {!isReadOnly && <th className="px-2 py-2 text-center w-16">{t('common.actions')}</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border font-mono text-[11px]">
+              <tbody ref={tbodyRef} className="divide-y divide-border font-mono text-[11px]">
                 {typedLines.map((line, idx) => {
                   const item = items.find((i) => i.id === line.itemId);
+                  const isLastRow = idx === typedLines.length - 1;
+                  const handleAdvance = (currentEl: HTMLElement) => {
+                    advanceGridFocus({
+                      tbodyEl: tbodyRef.current,
+                      rowIndex: idx,
+                      currentEl,
+                      isLastRow,
+                      hasSelectedItem: Boolean(line.itemId),
+                      onAddRow: handleAddBlankLine,
+                    });
+                  };
+
                   return (
-                    <tr key={line.id} className="hover:bg-muted/30">
+                    <tr
+                      key={line.id}
+                      data-row-index={idx}
+                      onFocus={() => {
+                        activeRowIndexRef.current = idx;
+                      }}
+                      className="hover:bg-muted/30"
+                    >
                       <td className="px-2 py-1.5 text-center text-muted-foreground">{idx + 1}</td>
                       <td className="px-2 py-1.5 font-sans min-w-[220px]">
                         {!line.itemId ? (
                           <Combobox
                             options={comboboxOptions}
                             value=""
+                            dataGridItemPicker={true}
+                            onAfterSelect={() => focusFirstNumericCellInRow(tbodyRef.current, idx)}
                             onChange={(val) => handleSelectItemForLine(line.id, val)}
                             placeholder={t('warehouse.selectItem')}
                             searchPlaceholder={t('warehouse.searchItemPlaceholder')}
@@ -779,6 +885,7 @@ export function OtherWarehouseDocDialog({
                             {!isReadOnly && (
                               <button
                                 type="button"
+                                tabIndex={-1}
                                 onClick={() => handleSelectItemForLine(line.id, '')}
                                 title={t('warehouse.changeItem')}
                                 className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -793,40 +900,46 @@ export function OtherWarehouseDocDialog({
                         {item?.uom ?? 'KOM'}
                       </td>
                       <td className="px-1 py-1.5 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
+                        <NumericInput
+                          decimals={4}
+                          min={0}
+                          data-grid-cell="true"
                           disabled={isReadOnly || !line.itemId}
                           value={line.quantity}
-                          onChange={(e) => handleUpdateLineField(line.id, 'quantity', e.target.value)}
-                          className="h-7 w-20 rounded border border-input bg-background px-1.5 text-right font-mono font-bold"
+                          onChange={(val) => handleUpdateLineField(line.id, 'quantity', val)}
+                          onEnterKey={(e) => handleAdvance(e.currentTarget)}
+                          className="h-7 w-24 rounded border border-input bg-background px-1.5 text-right font-mono font-bold text-xs"
                         />
                       </td>
                       <td className="px-1 py-1.5 text-right">
-                        <input
-                          type="number"
-                          step="0.0001"
+                        <NumericInput
+                          decimals={4}
+                          min={0}
+                          data-grid-cell="true"
                           disabled={isReadOnly || !line.itemId}
                           value={line.purchaseUnitPrice}
-                          onChange={(e) =>
-                            handleUpdateLineField(line.id, 'purchaseUnitPrice', e.target.value)
+                          onChange={(val) =>
+                            handleUpdateLineField(line.id, 'purchaseUnitPrice', val)
                           }
-                          className="h-7 w-24 rounded border border-input bg-background px-1.5 text-right font-mono"
+                          onEnterKey={(e) => handleAdvance(e.currentTarget)}
+                          className="h-7 w-24 rounded border border-input bg-background px-1.5 text-right font-mono text-xs"
                         />
                       </td>
                       <td className="px-2 py-1.5 text-right text-primary bg-primary/5 font-semibold">
                         {formatMoney2(line.purchaseTotalValue, true)}
                       </td>
                       <td className="px-1 py-1.5 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
+                        <NumericInput
+                          decimals={2}
+                          min={0}
+                          data-grid-cell="true"
                           disabled={isReadOnly || !line.itemId}
                           value={line.retailUnitPriceWithVat}
-                          onChange={(e) =>
-                            handleUpdateLineField(line.id, 'retailUnitPriceWithVat', e.target.value)
+                          onChange={(val) =>
+                            handleUpdateLineField(line.id, 'retailUnitPriceWithVat', val)
                           }
-                          className="h-7 w-24 rounded border border-success/60 bg-background px-1.5 text-right font-mono font-bold text-success"
+                          onEnterKey={(e) => handleAdvance(e.currentTarget)}
+                          className="h-7 w-24 rounded border border-success/60 bg-background px-1.5 text-right font-mono font-bold text-xs text-success"
                         />
                       </td>
                       <td className="px-2 py-1.5 text-right font-bold text-success bg-success/5">
@@ -835,9 +948,21 @@ export function OtherWarehouseDocDialog({
                       <td className="px-1 py-1.5 font-sans">
                         <input
                           type="text"
+                          data-grid-cell="true"
                           disabled={isReadOnly || !line.itemId}
                           value={line.reason ?? ''}
                           onChange={(e) => handleUpdateLineField(line.id, 'reason', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (
+                              (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey) ||
+                              (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey)
+                            ) {
+                              if (Boolean(line.itemId)) {
+                                e.preventDefault();
+                                handleAdvance(e.currentTarget);
+                              }
+                            }
+                          }}
                           placeholder="Razlog stavke..."
                           className="h-7 w-full min-w-[140px] rounded border border-input bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground"
                         />
@@ -848,6 +973,7 @@ export function OtherWarehouseDocDialog({
                             <Button
                               variant="ghost"
                               size="icon"
+                              tabIndex={-1}
                               title={t('warehouse.copyLine')}
                               disabled={!line.itemId}
                               onClick={() => handleCopyLine(idx)}
@@ -857,6 +983,7 @@ export function OtherWarehouseDocDialog({
                             <Button
                               variant="ghost"
                               size="icon"
+                              tabIndex={-1}
                               title={t('warehouse.deleteLine')}
                               onClick={() => handleRemoveLine(line.id)}
                             >

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatPrice4, formatQty, round2, round4 } from '../../lib/money';
@@ -6,6 +6,7 @@ import { generateUuidV7 } from '../../lib/utils';
 import type { Item, ItemBarcode, ItemBomLine, StoreItemPrice, StoreLocation } from '../../types/domain';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 import { Combobox } from '../../components/ui/Combobox';
 import { Badge } from '../../components/ui/Badge';
 
@@ -45,7 +46,16 @@ export function ItemBarcodesTab({
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end rounded-lg border border-border bg-muted/20 p-3">
         <Input label={t('master.barcode')} value={barcode} onChange={(e) => setBarcode(e.target.value)} className="font-mono" />
         <Input label={t('common.uom')} value={uom} onChange={(e) => setUom(e.target.value)} />
-        <Input label={t('master.packMultiplier')} value={packMultiplier} onChange={(e) => setPackMultiplier(e.target.value)} className="font-mono text-right" />
+        <div className="flex flex-col gap-1 w-full">
+          <label className="text-xs font-medium text-foreground">{t('master.packMultiplier')}</label>
+          <NumericInput
+            decimals={4}
+            min={0}
+            value={packMultiplier}
+            onChange={setPackMultiplier}
+            className="h-9 font-mono text-right"
+          />
+        </div>
         <div className="flex gap-2 items-end">
           <Input label={t('common.description')} value={description} onChange={(e) => setDescription(e.target.value)} />
           <Button variant="secondary" size="md" onClick={handleAdd}>
@@ -159,9 +169,28 @@ export function ItemBomTab({
             ))}
           </select>
         </div>
-        <Input label={t('common.quantity')} value={quantity} onChange={(e) => setQuantity(e.target.value)} className="font-mono text-right" />
+        <div className="flex flex-col gap-1 w-full">
+          <label className="text-xs font-medium text-foreground">{t('common.quantity')}</label>
+          <NumericInput
+            decimals={4}
+            min={0}
+            value={quantity}
+            onChange={setQuantity}
+            className="h-9 font-mono text-right"
+          />
+        </div>
         <div className="flex gap-2 items-end">
-          <Input label={t('master.wastePercent')} value={wastePercent} onChange={(e) => setWastePercent(e.target.value)} className="font-mono text-right" />
+          <div className="flex flex-col gap-1 w-full">
+            <label className="text-xs font-medium text-foreground">{t('master.wastePercent')}</label>
+            <NumericInput
+              decimals={2}
+              min={0}
+              max={100}
+              value={wastePercent}
+              onChange={setWastePercent}
+              className="h-9 font-mono text-right"
+            />
+          </div>
           <Button variant="secondary" size="md" onClick={handleAdd}>
             <Plus className="h-4 w-4" />
             <span>{t('common.add')}</span>
@@ -225,11 +254,15 @@ function StorePriceRow({
   const [retailInput, setRetailInput] = useState(current.retailUnitPriceWithVat);
   const [minStockInput, setMinStockInput] = useState(current.minStockQty);
   const [shelfInput, setShelfInput] = useState(current.shelfLocation);
+  const lastCommittedRetailRef = useRef(round2(current.retailUnitPriceWithVat));
+  const lastCommittedMinStockRef = useRef(round4(current.minStockQty));
 
   useEffect(() => {
     setRetailInput(current.retailUnitPriceWithVat);
     setMinStockInput(current.minStockQty);
     setShelfInput(current.shelfLocation);
+    lastCommittedRetailRef.current = round2(current.retailUnitPriceWithVat);
+    lastCommittedMinStockRef.current = round4(current.minStockQty);
   }, [
     current.retailUnitPriceWithVat,
     current.minStockQty,
@@ -250,22 +283,22 @@ function StorePriceRow({
     });
   };
 
-  const handleRetailBlur = () => {
-    const normalized = round2(retailInput.replace(',', '.'));
-    setRetailInput(normalized);
-    if (!isNewItem && normalized === round2(current.retailUnitPriceWithVat)) return;
+  const handleRetailCommit = (formatted: string) => {
+    setRetailInput(formatted);
+    if (!isNewItem && formatted === lastCommittedRetailRef.current) return;
+    lastCommittedRetailRef.current = formatted;
     emitDraftChange({
-      retailUnitPriceWithVat: normalized,
+      retailUnitPriceWithVat: formatted,
       needsLabelPrint: true,
     });
   };
 
-  const handleMinStockBlur = () => {
-    const normalized = round4(minStockInput.replace(',', '.'));
-    setMinStockInput(normalized);
-    if (!isNewItem && normalized === round4(current.minStockQty)) return;
+  const handleMinStockCommit = (formatted: string) => {
+    setMinStockInput(formatted);
+    if (!isNewItem && formatted === lastCommittedMinStockRef.current) return;
+    lastCommittedMinStockRef.current = formatted;
     emitDraftChange({
-      minStockQty: normalized,
+      minStockQty: formatted,
     });
   };
 
@@ -290,19 +323,19 @@ function StorePriceRow({
       <td className="px-3 py-2 font-mono text-right">{formatPrice4(current.wholesaleUnitPriceExclVat, true)}</td>
       <td className="px-3 py-2 text-right">
         <div className="flex flex-col items-end gap-1">
-          <input
-            type="text"
+          <NumericInput
+            decimals={2}
+            min={0}
             aria-label={`${t('warehouse.retailPriceWithVat')} — ${store.name}`}
             value={retailInput}
             disabled={isPriceLocked}
-            onChange={(e) => {
-              const val = e.target.value;
+            onChange={(val) => {
               setRetailInput(val);
               if (isNewItem) {
                 emitDraftChange({ retailUnitPriceWithVat: val, needsLabelPrint: true });
               }
             }}
-            onBlur={handleRetailBlur}
+            onCommit={handleRetailCommit}
             className={`h-7 w-24 rounded border border-input px-2 text-right font-mono text-xs ${
               isPriceLocked ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-80' : 'bg-card text-foreground'
             }`}
@@ -320,19 +353,19 @@ function StorePriceRow({
         </Badge>
       </td>
       <td className="px-3 py-2 text-right">
-        <input
-          type="text"
+        <NumericInput
+          decimals={4}
+          min={0}
           aria-label={`${t('master.minStock')} — ${store.name}`}
           value={minStockInput}
-          onChange={(e) => {
-            const val = e.target.value;
+          onChange={(val) => {
             setMinStockInput(val);
             if (isNewItem) {
               emitDraftChange({ minStockQty: val });
             }
           }}
-          onBlur={handleMinStockBlur}
-          className="h-7 w-20 rounded border border-input bg-card px-2 text-right font-mono text-xs text-foreground"
+          onCommit={handleMinStockCommit}
+          className="h-7 w-24 rounded border border-input bg-card px-2 text-right font-mono text-xs text-foreground"
         />
       </td>
       <td className="px-3 py-2">

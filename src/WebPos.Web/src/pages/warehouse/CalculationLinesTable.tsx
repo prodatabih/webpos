@@ -1,7 +1,13 @@
-import { useMemo, useState } from 'react';
+import type React from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatPrice4, formatQty } from '../../lib/money';
+import {
+  advanceGridFocus,
+  focusFirstNumericCellInRow,
+  focusItemPickerInRow,
+} from '../../lib/keyboardGridUtils';
 import type { CalculationLine, Item, StoreItemPrice, StoreType } from '../../types/domain';
 import { Button } from '../../components/ui/Button';
 import type { ComboboxOption } from '../../components/ui/Combobox';
@@ -15,6 +21,9 @@ interface CalculationLinesTableProps {
   activeStoreId: string;
   storeType?: StoreType;
   isReadOnly: boolean;
+  tbodyRef?: React.RefObject<HTMLTableSectionElement>;
+  searchInputRef?: React.RefObject<HTMLInputElement>;
+  onFocusedRowChange?: (idx: number) => void;
   onUpdateLineField: (
     lineId: string,
     field: CalculationLineField,
@@ -34,6 +43,9 @@ export function CalculationLinesTable({
   activeStoreId,
   storeType = 'RETAIL',
   isReadOnly,
+  tbodyRef: externalTbodyRef,
+  searchInputRef,
+  onFocusedRowChange,
   onUpdateLineField,
   onSelectItemForLine,
   onRemoveLine,
@@ -43,6 +55,8 @@ export function CalculationLinesTable({
 }: CalculationLinesTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const internalTbodyRef = useRef<HTMLTableSectionElement>(null);
+  const tbodyRef = externalTbodyRef ?? internalTbodyRef;
 
   const isRaw = storeType === 'RAW_MATERIAL' || storeType === 'PRODUCTION';
   const isWholesale = storeType === 'WHOLESALE';
@@ -83,6 +97,28 @@ export function CalculationLinesTable({
         .slice(0, 30)
     : items.filter((it) => it.isActive).slice(0, 15);
 
+  const handleQuickAddItem = (item: Item) => {
+    const targetIdx = lines.length === 1 && !lines[0]?.itemId ? 0 : lines.length;
+    onAddItem(item);
+    setSearchTerm('');
+    setShowDropdown(false);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        focusFirstNumericCellInRow(tbodyRef.current, targetIdx);
+      }, 30);
+    });
+  };
+
+  const handleAddBlankAndFocus = () => {
+    const nextIdx = lines.length;
+    onAddBlankLine();
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        focusItemPickerInRow(tbodyRef.current, nextIdx, true);
+      }, 30);
+    });
+  };
+
   return (
     <div className="space-y-3">
       {!isReadOnly && (
@@ -91,6 +127,7 @@ export function CalculationLinesTable({
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => {
@@ -98,6 +135,17 @@ export function CalculationLinesTable({
                   setShowDropdown(true);
                 }}
                 onFocus={() => setShowDropdown(true)}
+                onBlur={() => setShowDropdown(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setShowDropdown(false);
+                  } else if (e.key === 'Enter' && showDropdown && filteredItems.length > 0) {
+                    e.preventDefault();
+                    const first = filteredItems[0];
+                    if (first) handleQuickAddItem(first);
+                  }
+                }}
                 placeholder={t('warehouse.fastItemSearchPlaceholder')}
                 className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
               />
@@ -110,11 +158,8 @@ export function CalculationLinesTable({
                   return (
                     <div
                       key={item.id}
-                      onClick={() => {
-                        onAddItem(item);
-                        setSearchTerm('');
-                        setShowDropdown(false);
-                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleQuickAddItem(item)}
                       className="flex cursor-pointer items-center justify-between p-2.5 text-xs hover:bg-muted/60"
                     >
                       <div className="flex items-center gap-2">
@@ -146,7 +191,7 @@ export function CalculationLinesTable({
               </div>
             )}
           </div>
-          <Button variant="secondary" size="sm" onClick={onAddBlankLine}>
+          <Button variant="secondary" size="sm" tabIndex={-1} onClick={handleAddBlankAndFocus}>
             <Plus className="h-4 w-4" />
             <span>{t('warehouse.emptyLine')}</span>
           </Button>
@@ -160,27 +205,27 @@ export function CalculationLinesTable({
               <th className="px-2 py-2 text-center w-8">#</th>
               <th className="px-2 py-2 min-w-[200px]">{t('common.name')}</th>
               <th className="px-2 py-2 text-center w-12">{t('common.uom')}</th>
-              <th className="px-2 py-2 text-right w-16">{t('common.quantity')}</th>
-              <th className="px-2 py-2 text-right w-20">{t('warehouse.supplierUnitPrice')}</th>
-              <th className="px-2 py-2 text-right w-14">{t('warehouse.discountPercent')}</th>
+              <th className="px-2 py-2 text-right w-20">{t('common.quantity')}</th>
+              <th className="px-2 py-2 text-right w-24">{t('warehouse.supplierUnitPrice')}</th>
+              <th className="px-2 py-2 text-right w-16">{t('warehouse.discountPercent')}</th>
               <th className="px-2 py-2 text-right w-20">{t('warehouse.netSupplierPrice')}</th>
               <th className="px-2 py-2 text-right w-16">{t('warehouse.dependentCost')}</th>
               <th className="px-2 py-2 text-right w-20 bg-primary/5 font-bold text-primary">{t('warehouse.purchaseUnitPrice')}</th>
               <th className="px-2 py-2 text-right w-24 bg-primary/5 text-primary">{t('warehouse.purchaseValue')}</th>
               {!isRaw && (
                 <>
-                  <th className="px-2 py-2 text-right w-16">{t('warehouse.marginPercent')}</th>
+                  <th className="px-2 py-2 text-right w-20">{t('warehouse.marginPercent')}</th>
                   <th className="px-2 py-2 text-right w-20">{t('warehouse.marginAmount')}</th>
                   {isWholesale ? (
                     <>
-                      <th className="px-2 py-2 text-right w-20 bg-info/5 font-bold text-info">{t('warehouse.wholesaleUnitPrice')}</th>
+                      <th className="px-2 py-2 text-right w-24 bg-info/5 font-bold text-info">{t('warehouse.wholesaleUnitPrice')}</th>
                       <th className="px-2 py-2 text-right w-24 bg-info/5 text-info font-semibold">{t('warehouse.wholesaleTotalValue')}</th>
                     </>
                   ) : (
                     <>
                       <th className="px-2 py-2 text-right w-20">{t('warehouse.sellingPriceExclVat')}</th>
                       <th className="px-2 py-2 text-center w-12">{t('common.vat')}</th>
-                      <th className="px-2 py-2 text-right w-20 bg-success/5 font-bold text-success">{t('warehouse.retailPriceWithVat')}</th>
+                      <th className="px-2 py-2 text-right w-24 bg-success/5 font-bold text-success">{t('warehouse.retailPriceWithVat')}</th>
                       <th className="px-2 py-2 text-right w-24 bg-success/5 text-success font-semibold">{t('warehouse.retailValueWithVat')}</th>
                     </>
                   )}
@@ -189,19 +234,38 @@ export function CalculationLinesTable({
               {!isReadOnly && <th className="px-2 py-2 text-center w-16">{t('common.actions')}</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border font-mono text-[11px]">
+          <tbody ref={tbodyRef} className="divide-y divide-border font-mono text-[11px]">
             {lines.map((line, idx) => (
               <CalculationLineRow
                 key={line.id}
                 line={line}
                 idx={idx}
+                isLastRow={idx === lines.length - 1}
                 item={items.find((i) => i.id === line.itemId)}
                 isReadOnly={isReadOnly}
                 isRaw={isRaw}
                 isWholesale={isWholesale}
                 comboboxOptions={comboboxOptions}
                 onSelectItem={(val) => onSelectItemForLine(line.id, val)}
+                onAfterSelectItem={() => {
+                  if (!focusFirstNumericCellInRow(tbodyRef.current, idx)) {
+                    requestAnimationFrame(() =>
+                      focusFirstNumericCellInRow(tbodyRef.current, idx)
+                    );
+                  }
+                }}
                 onUpdateField={(field, val) => onUpdateLineField(line.id, field, val)}
+                onAdvanceFocus={(currentEl) => {
+                  advanceGridFocus({
+                    tbodyEl: tbodyRef.current,
+                    rowIndex: idx,
+                    currentEl,
+                    isLastRow: idx === lines.length - 1,
+                    hasSelectedItem: Boolean(line.itemId),
+                    onAddRow: onAddBlankLine,
+                  });
+                }}
+                onRowFocus={() => onFocusedRowChange?.(idx)}
                 onCopy={() => onCopyLine(idx)}
                 onRemove={() => onRemoveLine(line.id)}
               />

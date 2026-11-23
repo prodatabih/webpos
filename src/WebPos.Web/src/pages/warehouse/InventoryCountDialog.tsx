@@ -28,9 +28,17 @@ import type {
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 import { Combobox, type ComboboxOption } from '../../components/ui/Combobox';
+import { KeyboardShortcutsBar } from '../../components/ui/KeyboardShortcutsBar';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
 import { showToast } from '../../components/ui/Toast';
+import {
+  advanceGridFocus,
+  focusFirstNumericCellInRow,
+  focusItemPickerInRow,
+  useDocumentShortcuts,
+} from '../../lib/keyboardGridUtils';
 import { InventoryCountPrintView } from './InventoryCountPrintView';
 import { InventoryCountRecapPanel } from './InventoryCountRecapPanel';
 import {
@@ -101,6 +109,9 @@ export function InventoryCountDialog({
   const [isPosting, setIsPosting] = useState(false);
 
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const activeRowIndexRef = useRef<number>(0);
   const isInitialMount = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
@@ -230,6 +241,28 @@ export function InventoryCountDialog({
     setDoc((prev) => ({ ...prev, lines: [...prev.lines, buildBlankInventoryCountLine()] }));
   };
 
+  const handleAddBlankLineAndFocus = () => {
+    if (isReadOnly) return;
+    const nextIdx = doc.lines.length;
+    setDoc((prev) => ({ ...prev, lines: [...prev.lines, buildBlankInventoryCountLine()] }));
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        focusItemPickerInRow(tbodyRef.current, nextIdx, true);
+      }, 30);
+    });
+  };
+
+  const getActiveRowIndex = (): number => {
+    const activeTr = document.activeElement?.closest?.('tr[data-row-index]');
+    if (activeTr) {
+      const parsed = Number(activeTr.getAttribute('data-row-index'));
+      if (Number.isInteger(parsed) && parsed >= 0 && parsed < doc.lines.length) {
+        return parsed;
+      }
+    }
+    return Math.min(activeRowIndexRef.current, Math.max(0, doc.lines.length - 1));
+  };
+
   const handleSelectItemForLine = (lineId: string, itemId: string) => {
     if (isReadOnly) return;
     if (!itemId) {
@@ -357,6 +390,44 @@ export function InventoryCountDialog({
     }
   };
 
+  useDocumentShortcuts({
+    enabled: open,
+    isReadOnly,
+    onSave: () => void handleManualSave(),
+    onPost: () => void handleManualPost(),
+    onPrint: () => setPrintMode((prev) => (prev === 'ALL' ? 'NONE' : 'ALL')),
+    onFocusSearch: () => {
+      if (printMode !== 'NONE') return;
+      if (isScannerMode && scanInputRef.current) {
+        scanInputRef.current.focus();
+        scanInputRef.current.select();
+      } else if (searchInputRef.current) {
+        searchInputRef.current.focus();
+        searchInputRef.current.select();
+      }
+    },
+    onAddRow: () => {
+      if (printMode === 'NONE') {
+        handleAddBlankLineAndFocus();
+      }
+    },
+    onDuplicateRow: () => {
+      if (printMode !== 'NONE') return;
+      const idx = getActiveRowIndex();
+      if (doc.lines[idx]?.itemId) {
+        handleCopyLine(idx);
+      }
+    },
+    onDeleteRow: () => {
+      if (printMode !== 'NONE') return;
+      const idx = getActiveRowIndex();
+      const targetLine = doc.lines[idx];
+      if (targetLine) {
+        handleRemoveLine(targetLine.id);
+      }
+    },
+  });
+
   return (
     <Dialog
       open={open}
@@ -463,6 +534,8 @@ export function InventoryCountDialog({
             </div>
           </div>
 
+          {!isReadOnly && <KeyboardShortcutsBar />}
+
           <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Input
@@ -521,6 +594,7 @@ export function InventoryCountDialog({
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input
+                    ref={searchInputRef}
                     type="text"
                     value={searchTerm}
                     onChange={(e) => {
@@ -529,6 +603,17 @@ export function InventoryCountDialog({
                     }}
                     onFocus={() => setShowDropdown(true)}
                     onBlur={() => setTimeout(() => setShowDropdown(false), 180)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && searchTerm.trim() && filteredItems.length > 0) {
+                        e.preventDefault();
+                        const first = filteredItems[0];
+                        if (first) {
+                          handleAddItem(first);
+                          setSearchTerm('');
+                          setShowDropdown(false);
+                        }
+                      }
+                    }}
                     placeholder={t('warehouse.fastItemSearchPlaceholder')}
                     className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
                   />
@@ -581,7 +666,7 @@ export function InventoryCountDialog({
                 <PackageCheck className="h-4 w-4 text-primary" />
                 <span>Učitaj sve artikle sa stanjem</span>
               </Button>
-              <Button variant="secondary" size="sm" onClick={handleAddBlankLine}>
+              <Button variant="secondary" size="sm" onClick={handleAddBlankLineAndFocus}>
                 <Plus className="h-4 w-4" />
                 <span>{t('warehouse.emptyLine')}</span>
               </Button>
@@ -606,18 +691,40 @@ export function InventoryCountDialog({
                   {!isReadOnly && <th className="px-2 py-2 text-center w-16">{t('common.actions')}</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border font-mono text-[11px]">
+              <tbody ref={tbodyRef} className="divide-y divide-border font-mono text-[11px]">
                 {doc.lines.map((line, idx) => {
                   const item = items.find((i) => i.id === line.itemId);
                   const diffDec = d(line.differenceQuantity || '0');
+                  const isWasteDisabled = isReadOnly || !line.itemId || diffDec.gte(0);
+                  const isLastRow = idx === doc.lines.length - 1;
+                  const handleAdvance = (currentEl: HTMLElement) => {
+                    advanceGridFocus({
+                      tbodyEl: tbodyRef.current,
+                      rowIndex: idx,
+                      currentEl,
+                      isLastRow,
+                      hasSelectedItem: Boolean(line.itemId),
+                      onAddRow: handleAddBlankLine,
+                    });
+                  };
+
                   return (
-                    <tr key={line.id} className="hover:bg-muted/30">
+                    <tr
+                      key={line.id}
+                      data-row-index={idx}
+                      onFocus={() => {
+                        activeRowIndexRef.current = idx;
+                      }}
+                      className="hover:bg-muted/30"
+                    >
                       <td className="px-2 py-1.5 text-center text-muted-foreground">{idx + 1}</td>
                       <td className="px-2 py-1.5 font-sans min-w-[220px]">
                         {!line.itemId ? (
                           <Combobox
                             options={comboboxOptions}
                             value=""
+                            dataGridItemPicker={true}
+                            onAfterSelect={() => focusFirstNumericCellInRow(tbodyRef.current, idx)}
                             onChange={(val) => handleSelectItemForLine(line.id, val)}
                             placeholder={t('warehouse.selectItem')}
                             searchPlaceholder={t('warehouse.searchItemPlaceholder')}
@@ -634,6 +741,7 @@ export function InventoryCountDialog({
                             {!isReadOnly && (
                               <button
                                 type="button"
+                                tabIndex={-1}
                                 onClick={() => handleSelectItemForLine(line.id, '')}
                                 title={t('warehouse.changeItem')}
                                 className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -649,24 +757,36 @@ export function InventoryCountDialog({
                       </td>
                       <td className="px-2 py-1.5 text-right">{formatQty(line.bookQuantity, 2)}</td>
                       <td className="px-1 py-1.5 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
+                        <NumericInput
+                          decimals={4}
+                          min={0}
+                          data-grid-cell="true"
                           disabled={isReadOnly || !line.itemId}
                           value={line.countedQuantity}
-                          onChange={(e) =>
-                            setDoc(
+                          onChange={(val) =>
+                            setDoc((prev) =>
                               recomputeInventoryCountTotals(
-                                doc,
-                                doc.lines.map((l) =>
+                                prev,
+                                prev.lines.map((l) =>
                                   l.id === line.id
-                                    ? buildCountLine({ ...l, countedQuantity: e.target.value })
+                                    ? buildCountLine({ ...l, countedQuantity: val })
                                     : l
                                 )
                               )
                             )
                           }
-                          className="h-7 w-20 rounded border border-primary/50 bg-background px-1.5 text-right font-mono font-bold text-foreground"
+                          onEnterKey={(e) => handleAdvance(e.currentTarget)}
+                          onTabForward={
+                            isWasteDisabled
+                              ? (e) => {
+                                  if (Boolean(line.itemId)) {
+                                    e.preventDefault();
+                                    handleAdvance(e.currentTarget);
+                                  }
+                                }
+                              : undefined
+                          }
+                          className="h-7 w-24 rounded border border-primary/50 bg-background px-1.5 text-right font-mono font-bold text-xs text-foreground"
                         />
                       </td>
                       <td
@@ -687,24 +807,32 @@ export function InventoryCountDialog({
                         {formatMoney2(line.surplusRetailValue, true)}
                       </td>
                       <td className="px-1 py-1.5 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          disabled={isReadOnly || !line.itemId || diffDec.gte(0)}
+                        <NumericInput
+                          decimals={4}
+                          min={0}
+                          data-grid-cell="true"
+                          disabled={isWasteDisabled}
                           value={line.allowedWasteQuantity ?? '0.0000'}
-                          onChange={(e) =>
-                            setDoc(
+                          onChange={(val) =>
+                            setDoc((prev) =>
                               recomputeInventoryCountTotals(
-                                doc,
-                                doc.lines.map((l) =>
+                                prev,
+                                prev.lines.map((l) =>
                                   l.id === line.id
-                                    ? buildCountLine({ ...l, allowedWasteQuantity: e.target.value })
+                                    ? buildCountLine({ ...l, allowedWasteQuantity: val })
                                     : l
                                 )
                               )
                             )
                           }
-                          className="h-7 w-20 rounded border border-input bg-background px-1.5 text-right font-mono"
+                          onEnterKey={(e) => handleAdvance(e.currentTarget)}
+                          onTabForward={(e) => {
+                            if (Boolean(line.itemId)) {
+                              e.preventDefault();
+                              handleAdvance(e.currentTarget);
+                            }
+                          }}
+                          className="h-7 w-24 rounded border border-input bg-background px-1.5 text-right font-mono text-xs"
                         />
                       </td>
                       <td className="px-2 py-1.5 text-right font-semibold text-destructive">
@@ -722,6 +850,7 @@ export function InventoryCountDialog({
                             <Button
                               variant="ghost"
                               size="icon"
+                              tabIndex={-1}
                               title={t('warehouse.copyLine')}
                               disabled={!line.itemId}
                               onClick={() => handleCopyLine(idx)}
@@ -731,6 +860,7 @@ export function InventoryCountDialog({
                             <Button
                               variant="ghost"
                               size="icon"
+                              tabIndex={-1}
                               title={t('warehouse.deleteLine')}
                               onClick={() => handleRemoveLine(line.id)}
                             >

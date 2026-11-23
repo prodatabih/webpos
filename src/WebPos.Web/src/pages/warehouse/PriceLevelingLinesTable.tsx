@@ -1,7 +1,13 @@
-import { useMemo, useState } from 'react';
+import type React from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, formatQty } from '../../lib/money';
+import {
+  advanceGridFocus,
+  focusFirstNumericCellInRow,
+  focusItemPickerInRow,
+} from '../../lib/keyboardGridUtils';
 import type { Item, PriceLevelingLine, StoreItemPrice } from '../../types/domain';
 import { Button } from '../../components/ui/Button';
 import type { ComboboxOption } from '../../components/ui/Combobox';
@@ -13,6 +19,9 @@ interface PriceLevelingLinesTableProps {
   storePrices: StoreItemPrice[];
   activeStoreId: string;
   isReadOnly: boolean;
+  tbodyRef?: React.RefObject<HTMLTableSectionElement>;
+  searchInputRef?: React.RefObject<HTMLInputElement>;
+  onFocusedRowChange?: (idx: number) => void;
   onSelectItemForLine: (lineId: string, itemId: string) => void;
   onNewPriceChange: (lineId: string, val: string) => void;
   onRemoveLine: (lineId: string) => void;
@@ -27,6 +36,9 @@ export function PriceLevelingLinesTable({
   storePrices,
   activeStoreId,
   isReadOnly,
+  tbodyRef: externalTbodyRef,
+  searchInputRef,
+  onFocusedRowChange,
   onSelectItemForLine,
   onNewPriceChange,
   onRemoveLine,
@@ -36,6 +48,8 @@ export function PriceLevelingLinesTable({
 }: PriceLevelingLinesTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const internalTbodyRef = useRef<HTMLTableSectionElement>(null);
+  const tbodyRef = externalTbodyRef ?? internalTbodyRef;
 
   const comboboxOptions = useMemo<ComboboxOption[]>(
     () =>
@@ -68,6 +82,28 @@ export function PriceLevelingLinesTable({
         .slice(0, 30)
     : items.filter((it) => it.isActive).slice(0, 15);
 
+  const handleQuickAddItem = (item: Item) => {
+    const targetIdx = lines.length === 1 && !lines[0]?.itemId ? 0 : lines.length;
+    onAddItem(item);
+    setSearchTerm('');
+    setShowDropdown(false);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        focusFirstNumericCellInRow(tbodyRef.current, targetIdx);
+      }, 30);
+    });
+  };
+
+  const handleAddBlankAndFocus = () => {
+    const nextIdx = lines.length;
+    onAddBlankLine();
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        focusItemPickerInRow(tbodyRef.current, nextIdx, true);
+      }, 30);
+    });
+  };
+
   return (
     <div className="space-y-3">
       {!isReadOnly && (
@@ -76,6 +112,7 @@ export function PriceLevelingLinesTable({
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => {
@@ -83,6 +120,17 @@ export function PriceLevelingLinesTable({
                   setShowDropdown(true);
                 }}
                 onFocus={() => setShowDropdown(true)}
+                onBlur={() => setShowDropdown(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setShowDropdown(false);
+                  } else if (e.key === 'Enter' && showDropdown && filteredItems.length > 0) {
+                    e.preventDefault();
+                    const first = filteredItems[0];
+                    if (first) handleQuickAddItem(first);
+                  }
+                }}
                 placeholder={t('warehouse.fastItemSearchPlaceholder')}
                 className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
               />
@@ -95,11 +143,8 @@ export function PriceLevelingLinesTable({
                   return (
                     <div
                       key={item.id}
-                      onClick={() => {
-                        onAddItem(item);
-                        setSearchTerm('');
-                        setShowDropdown(false);
-                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleQuickAddItem(item)}
                       className="flex cursor-pointer items-center justify-between p-2.5 text-xs hover:bg-muted/60"
                     >
                       <div className="flex items-center gap-2">
@@ -127,7 +172,7 @@ export function PriceLevelingLinesTable({
               </div>
             )}
           </div>
-          <Button variant="secondary" size="sm" onClick={onAddBlankLine}>
+          <Button variant="secondary" size="sm" tabIndex={-1} onClick={handleAddBlankAndFocus}>
             <Plus className="h-4 w-4" />
             <span>{t('warehouse.emptyLine')}</span>
           </Button>
@@ -153,17 +198,36 @@ export function PriceLevelingLinesTable({
               {!isReadOnly && <th className="px-2 py-2 text-center w-16">{t('common.actions')}</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border font-mono text-[11px]">
+          <tbody ref={tbodyRef} className="divide-y divide-border font-mono text-[11px]">
             {lines.map((line, idx) => (
               <PriceLevelingLineRow
                 key={line.id}
                 line={line}
                 idx={idx}
+                isLastRow={idx === lines.length - 1}
                 item={items.find((i) => i.id === line.itemId)}
                 isReadOnly={isReadOnly}
                 comboboxOptions={comboboxOptions}
                 onSelectItem={(val) => onSelectItemForLine(line.id, val)}
+                onAfterSelectItem={() => {
+                  if (!focusFirstNumericCellInRow(tbodyRef.current, idx)) {
+                    requestAnimationFrame(() =>
+                      focusFirstNumericCellInRow(tbodyRef.current, idx)
+                    );
+                  }
+                }}
                 onNewPriceChange={(val) => onNewPriceChange(line.id, val)}
+                onAdvanceFocus={(currentEl) => {
+                  advanceGridFocus({
+                    tbodyEl: tbodyRef.current,
+                    rowIndex: idx,
+                    currentEl,
+                    isLastRow: idx === lines.length - 1,
+                    hasSelectedItem: Boolean(line.itemId),
+                    onAddRow: onAddBlankLine,
+                  });
+                }}
+                onRowFocus={() => onFocusedRowChange?.(idx)}
                 onCopy={() => onCopyLine(idx)}
                 onRemove={() => onRemoveLine(line.id)}
               />

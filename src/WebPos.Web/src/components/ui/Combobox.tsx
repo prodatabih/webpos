@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { t } from '../../i18n';
@@ -25,6 +25,10 @@ export interface ComboboxProps {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  triggerRef?: React.Ref<HTMLButtonElement>;
+  autoOpen?: boolean;
+  onAfterSelect?: () => void;
+  dataGridItemPicker?: boolean;
 }
 
 export function Combobox({
@@ -38,12 +42,30 @@ export function Combobox({
   required,
   disabled,
   className,
+  triggerRef,
+  autoOpen,
+  onAfterSelect,
+  dataGridItemPicker,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const internalTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const setTriggerButtonRef = useCallback(
+    (node: HTMLButtonElement | null) => {
+      internalTriggerRef.current = node;
+      if (!triggerRef) return;
+      if (typeof triggerRef === 'function') {
+        triggerRef(node);
+      } else {
+        (triggerRef as React.MutableRefObject<HTMLButtonElement | null>).current = node;
+      }
+    },
+    [triggerRef]
+  );
 
   const selectedOption = useMemo(
     () => options.find((opt) => opt.value === value),
@@ -75,22 +97,51 @@ export function Combobox({
   }, []);
 
   useEffect(() => {
+    if (autoOpen && !disabled) {
+      setOpen(true);
+    }
+  }, [autoOpen, disabled]);
+
+  useEffect(() => {
     if (open) {
       setHighlightedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
+      const timer = setTimeout(() => {
+        const input = inputRef.current;
+        if (input) {
+          input.focus();
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        }
+      }, 10);
+      return () => clearTimeout(timer);
     } else {
       setQuery('');
     }
   }, [open]);
 
+  const selectOption = (chosenValue: string) => {
+    onChange(chosenValue);
+    setOpen(false);
+    if (onAfterSelect) {
+      setTimeout(() => onAfterSelect(), 15);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+
     if (!open) {
       if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === ' ') {
         e.preventDefault();
         setOpen(true);
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setQuery(e.key);
+        setOpen(true);
       }
       return;
     }
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex((prev) =>
@@ -107,11 +158,13 @@ export function Combobox({
       e.preventDefault();
       const chosen = filteredOptions[highlightedIndex];
       if (chosen) {
-        onChange(chosen.value);
-        setOpen(false);
+        selectOption(chosen.value);
       }
     } else if (e.key === 'Escape') {
       e.preventDefault();
+      setOpen(false);
+      internalTriggerRef.current?.focus();
+    } else if (e.key === 'Tab') {
       setOpen(false);
     }
   };
@@ -125,8 +178,10 @@ export function Combobox({
         </label>
       )}
       <button
+        ref={setTriggerButtonRef}
         type="button"
         disabled={disabled}
+        data-item-picker={dataGridItemPicker ? 'true' : undefined}
         onClick={() => setOpen((prev) => !prev)}
         onKeyDown={handleKeyDown}
         className={cn(
@@ -182,10 +237,7 @@ export function Combobox({
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => {
-                      onChange(opt.value);
-                      setOpen(false);
-                    }}
+                    onClick={() => selectOption(opt.value)}
                     className={cn(
                       'flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-left text-xs cursor-pointer transition-colors gap-2',
                       isHighlighted ? 'bg-accent text-accent-foreground' : 'text-foreground',

@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Save, Printer, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { t } from '../../i18n';
 import { d } from '../../lib/money';
+import {
+  focusItemPickerInRow,
+  useDocumentShortcuts,
+} from '../../lib/keyboardGridUtils';
 import type { ActionResult } from '../../store/storeTypes';
 import type {
   CalculationDocument, Company, Item, Partner, StoreItemPrice, StoreLocation, VatRate,
@@ -9,6 +13,7 @@ import type {
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
+import { KeyboardShortcutsBar } from '../../components/ui/KeyboardShortcutsBar';
 import { showToast } from '../../components/ui/Toast';
 import { CalculationZtrPanel } from './CalculationZtrPanel';
 import { CalculationLinesTable } from './CalculationLinesTable';
@@ -88,11 +93,14 @@ export function CalculationEditorDialog({
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isSaving, setIsSaving] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
+  const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const isBusy = isSaving || isPosting;
 
   const isInitialMount = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const canAutoSave = useCallback((candidate: CalculationDocument) => {
     return (
@@ -207,6 +215,48 @@ export function CalculationEditorDialog({
     validLines.length > 0 &&
     !validLines.some((l) => d(l.quantity).lte(0));
 
+  useDocumentShortcuts({
+    enabled: open,
+    isReadOnly: isReadOnly || isPrintPreview,
+    onSave: () => {
+      if (!isBusy) void handleManualSave();
+    },
+    onPost: () => {
+      if (canPost && !isBusy) void handleManualPost();
+    },
+    onPrint: () => {
+      setIsPrintPreview((prev) => !prev);
+    },
+    onFocusSearch: () => {
+      if (!isReadOnly && !isPrintPreview) {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    },
+    onAddRow: () => {
+      const nextIdx = doc.lines.length;
+      handleAddBlankLine();
+      setFocusedRowIndex(nextIdx);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          focusItemPickerInRow(tbodyRef.current, nextIdx, true);
+        }, 30);
+      });
+    },
+    onDuplicateRow: () => {
+      if (focusedRowIndex >= 0 && focusedRowIndex < doc.lines.length) {
+        handleCopyLine(focusedRowIndex);
+      }
+    },
+    onDeleteRow: () => {
+      const target = doc.lines[focusedRowIndex];
+      if (target) {
+        handleRemoveLine(target.id);
+        setFocusedRowIndex(Math.max(0, focusedRowIndex - 1));
+      }
+    },
+  });
+
   return (
     <Dialog
       open={open}
@@ -320,6 +370,9 @@ export function CalculationEditorDialog({
             activeStoreId={doc.storeId}
             storeType={currentStore.storeType}
             isReadOnly={isReadOnly}
+            tbodyRef={tbodyRef}
+            searchInputRef={searchInputRef}
+            onFocusedRowChange={setFocusedRowIndex}
             onUpdateLineField={handleUpdateLineField}
             onSelectItemForLine={handleSelectItemForLine}
             onRemoveLine={handleRemoveLine}
@@ -341,6 +394,8 @@ export function CalculationEditorDialog({
             totalSellingValueExclVat={doc.totalSellingValueExclVat}
             storeType={currentStore.storeType}
           />
+
+          <KeyboardShortcutsBar />
         </div>
       )}
     </Dialog>

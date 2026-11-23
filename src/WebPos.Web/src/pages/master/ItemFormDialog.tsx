@@ -14,6 +14,7 @@ import type {
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 import { showToast } from '../../components/ui/Toast';
 import { ItemBarcodesTab, ItemBomTab, ItemStorePricesTab } from './ItemFormTabs';
 import { COMMON_CATEGORIES, suggestNextSku } from './itemSkuHelper';
@@ -383,12 +384,18 @@ export function ItemFormDialog({ open, onClose, editingItem }: ItemFormDialogPro
               value={countryOfOrigin}
               onChange={(e) => setCountryOfOrigin(e.target.value)}
             />
-            <Input
-              label={t('master.netContent')}
-              value={netContentQty}
-              onChange={(e) => setNetContentQty(e.target.value)}
-              className="font-mono text-right"
-            />
+            <div className="flex flex-col gap-1 w-full">
+              <label className="text-xs font-medium text-foreground">
+                {t('master.netContent')}
+              </label>
+              <NumericInput
+                decimals={4}
+                min={0}
+                value={netContentQty}
+                onChange={setNetContentQty}
+                className="h-9 font-mono text-right"
+              />
+            </div>
             <Input
               label={t('common.uom')}
               value={netContentUom}

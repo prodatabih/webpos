@@ -1,9 +1,11 @@
+import { useRef } from 'react';
 import { ShoppingCart, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2, type PosReceiptTotalsResult } from '../../lib/money';
 import type { Item, StoreItemPrice } from '../../types/domain';
 import type { PosCartLine } from './posScannerUtils';
 import { Button } from '../../components/ui/Button';
+import { NumericInput } from '../../components/ui/NumericInput';
 
 interface PosReceiptLinesTableProps {
   lines: PosCartLine[];
@@ -14,6 +16,7 @@ interface PosReceiptLinesTableProps {
   onUpdateQty: (lineId: string, qty: string) => void;
   onUpdateDiscount: (lineId: string, discountPct: string) => void;
   onRemoveLine: (lineId: string) => void;
+  onFocusScanner?: () => void;
 }
 
 export function PosReceiptLinesTable({
@@ -25,7 +28,10 @@ export function PosReceiptLinesTable({
   onUpdateQty,
   onUpdateDiscount,
   onRemoveLine,
+  onFocusScanner,
 }: PosReceiptLinesTableProps) {
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+
   if (lines.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card py-14 text-center">
@@ -54,7 +60,7 @@ export function PosReceiptLinesTable({
             <th className="px-3 py-2.5 font-semibold text-center w-12">{t('common.actions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody ref={tbodyRef} className="divide-y divide-border">
           {lines.map((line, idx) => {
             const item = items.find((it) => it.id === line.itemId);
             const priceRec = storePrices.find(
@@ -65,7 +71,7 @@ export function PosReceiptLinesTable({
             const calcLine = totals.lineResults[idx];
 
             return (
-              <tr key={line.id} className="hover:bg-muted/30">
+              <tr key={line.id} data-row-index={idx} className="hover:bg-muted/30">
                 <td className="px-3 py-2 font-mono text-muted-foreground">{idx + 1}</td>
                 <td className="px-3 py-2">
                   <div className="font-medium text-foreground">{item?.name ?? line.itemId}</div>
@@ -74,25 +80,42 @@ export function PosReceiptLinesTable({
                   </div>
                 </td>
                 <td className="px-3 py-2 text-right">
-                  <input
-                    type="number"
-                    step="0.001"
-                    min="0.001"
+                  <NumericInput
+                    decimals={4}
+                    min={0.001}
+                    data-grid-cell="true"
+                    data-pos-field="qty"
                     value={line.quantity}
-                    onChange={(e) => onUpdateQty(line.id, e.target.value)}
-                    className="h-7 w-24 rounded border border-input bg-background px-2 text-right font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    onChange={(val) => onUpdateQty(line.id, val)}
+                    onEnterKey={() => {
+                      const rowEl = tbodyRef.current?.querySelector<HTMLElement>(
+                        `tr[data-row-index="${idx}"]`
+                      );
+                      const discInput = rowEl?.querySelector<HTMLInputElement>(
+                        '[data-pos-field="discount"]'
+                      );
+                      if (discInput) {
+                        discInput.focus();
+                        requestAnimationFrame(() => discInput.select());
+                      }
+                    }}
+                    className="h-7 w-24 rounded border border-input bg-background px-2 text-right font-mono text-xs text-foreground"
                   />
                 </td>
                 <td className="px-3 py-2 text-right font-mono">{formatMoney2(unitRetail, true)}</td>
                 <td className="px-3 py-2 text-right">
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="100"
+                  <NumericInput
+                    decimals={2}
+                    min={0}
+                    max={100}
+                    data-grid-cell="true"
+                    data-pos-field="discount"
                     value={line.discountPercent}
-                    onChange={(e) => onUpdateDiscount(line.id, e.target.value)}
-                    className="h-7 w-20 rounded border border-input bg-background px-2 text-right font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    onChange={(val) => onUpdateDiscount(line.id, val)}
+                    onEnterKey={() => {
+                      onFocusScanner?.();
+                    }}
+                    className="h-7 w-20 rounded border border-input bg-background px-2 text-right font-mono text-xs text-foreground"
                   />
                 </td>
                 <td className="px-3 py-2 text-right font-mono font-semibold text-foreground">
@@ -102,6 +125,7 @@ export function PosReceiptLinesTable({
                   <Button
                     variant="ghost"
                     size="icon"
+                    tabIndex={-1}
                     onClick={() => onRemoveLine(line.id)}
                     aria-label={t('common.delete')}
                   >

@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { generateUuidV7 } from '../../lib/utils';
+import { useListNewShortcut } from '../../lib/keyboardGridUtils';
 import { EMPTY_COMPANY_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import type { CalculationDocument } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -77,6 +78,8 @@ export function CalculationsPage() {
     };
     setEditingDoc(newDoc);
   };
+
+  useListNewShortcut(handleCreateNew, !editingDoc);
 
   const executePost = async (docId: string) => {
     const res = await store.postCalculation(docId);

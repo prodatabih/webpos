@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
+import { NumericInput } from '../../components/ui/NumericInput';
 
 interface CalculationZtrPanelProps {
   freight: string;
@@ -39,46 +40,46 @@ export function CalculationZtrPanel({
         <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
           <div>
             <label className="block text-[11px] text-muted-foreground">{t('warehouse.ztrFreight')}</label>
-            <input
-              type="number"
-              step="0.01"
+            <NumericInput
+              decimals={2}
+              min={0}
               disabled={disabled}
               value={freight}
-              onChange={(e) => onZtrChange('freight', e.target.value)}
-              className="mt-1 h-8 w-full rounded border border-input bg-background px-2 text-right font-mono text-xs focus:ring-1 focus:ring-ring"
+              onChange={(val) => onZtrChange('freight', val)}
+              className="mt-1 h-8 w-full bg-background px-2 font-mono text-xs"
             />
           </div>
           <div>
             <label className="block text-[11px] text-muted-foreground">{t('warehouse.ztrCustoms')}</label>
-            <input
-              type="number"
-              step="0.01"
+            <NumericInput
+              decimals={2}
+              min={0}
               disabled={disabled}
               value={customs}
-              onChange={(e) => onZtrChange('customs', e.target.value)}
-              className="mt-1 h-8 w-full rounded border border-input bg-background px-2 text-right font-mono text-xs focus:ring-1 focus:ring-ring"
+              onChange={(val) => onZtrChange('customs', val)}
+              className="mt-1 h-8 w-full bg-background px-2 font-mono text-xs"
             />
           </div>
           <div>
             <label className="block text-[11px] text-muted-foreground">{t('warehouse.ztrHandling')}</label>
-            <input
-              type="number"
-              step="0.01"
+            <NumericInput
+              decimals={2}
+              min={0}
               disabled={disabled}
               value={handling}
-              onChange={(e) => onZtrChange('handling', e.target.value)}
-              className="mt-1 h-8 w-full rounded border border-input bg-background px-2 text-right font-mono text-xs focus:ring-1 focus:ring-ring"
+              onChange={(val) => onZtrChange('handling', val)}
+              className="mt-1 h-8 w-full bg-background px-2 font-mono text-xs"
             />
           </div>
           <div>
             <label className="block text-[11px] text-muted-foreground">{t('warehouse.ztrOther')}</label>
-            <input
-              type="number"
-              step="0.01"
+            <NumericInput
+              decimals={2}
+              min={0}
               disabled={disabled}
               value={other}
-              onChange={(e) => onZtrChange('other', e.target.value)}
-              className="mt-1 h-8 w-full rounded border border-input bg-background px-2 text-right font-mono text-xs focus:ring-1 focus:ring-ring"
+              onChange={(val) => onZtrChange('other', val)}
+              className="mt-1 h-8 w-full bg-background px-2 font-mono text-xs"
             />
           </div>
         </div>

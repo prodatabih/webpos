@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { t } from '../../i18n';
@@ -10,6 +10,7 @@ import type { Partner, PartnerType } from '../../types/domain';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 import { showToast } from '../../components/ui/Toast';
 
 const partnerSchema = z.object({
@@ -52,6 +53,7 @@ export function PartnerFormDialog({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
@@ -232,17 +234,56 @@ export function PartnerFormDialog({
           className="font-mono text-right"
           {...register('paymentTermsDays')}
         />
-        <Input
-          label={t('master.creditLimit')}
-          error={errors.creditLimit?.message}
-          className="font-mono text-right"
-          {...register('creditLimit')}
+        <Controller
+          name="creditLimit"
+          control={control}
+          render={({ field }) => (
+            <div className="flex flex-col gap-1 w-full">
+              <label className="text-xs font-medium text-foreground">
+                {t('master.creditLimit')}
+              </label>
+              <NumericInput
+                ref={field.ref}
+                name={field.name}
+                decimals={2}
+                min={0}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                className={`h-9 font-mono text-right ${
+                  errors.creditLimit ? 'border-destructive focus-visible:ring-destructive' : ''
+                }`}
+              />
+              {errors.creditLimit?.message && (
+                <p className="text-xs text-destructive font-medium">
+                  {errors.creditLimit.message}
+                </p>
+              )}
+            </div>
+          )}
         />
 
-        <Input
-          label={t('pos.discountPercent')}
-          className="font-mono text-right"
-          {...register('discountPercent')}
+        <Controller
+          name="discountPercent"
+          control={control}
+          render={({ field }) => (
+            <div className="flex flex-col gap-1 w-full">
+              <label className="text-xs font-medium text-foreground">
+                {t('pos.discountPercent')}
+              </label>
+              <NumericInput
+                ref={field.ref}
+                name={field.name}
+                decimals={2}
+                min={0}
+                max={100}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                className="h-9 font-mono text-right"
+              />
+            </div>
+          )}
         />
         <label className="flex items-center gap-2 text-xs font-medium text-foreground pt-5 cursor-pointer">
           <input type="checkbox" {...register('isActive')} className="rounded border-input" />

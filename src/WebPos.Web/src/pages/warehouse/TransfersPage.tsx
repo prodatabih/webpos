@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { t } from '../../i18n';
 import { d, formatMoney2 } from '../../lib/money';
 import { formatDateBs, generateUuidV7 } from '../../lib/utils';
+import { useListNewShortcut } from '../../lib/keyboardGridUtils';
 import { EMPTY_COMPANY_FALLBACK } from '../../lib/emptyOrgFallbacks';
 import type { TransferDocument } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -75,6 +76,8 @@ export function TransfersPage() {
     };
     setEditingDoc(newDoc);
   };
+
+  useListNewShortcut(handleCreateNew, !editingDoc);
 
   const executePost = async (docId: string) => {
     const res = await store.postTransfer(docId);

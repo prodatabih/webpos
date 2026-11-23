@@ -6,6 +6,7 @@ import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
 import { formatDateBs, generateUuidV7 } from '../../lib/utils';
 import { EMPTY_COMPANY_FALLBACK, EMPTY_STORE_FALLBACK } from '../../lib/emptyOrgFallbacks';
+import { useListNewShortcut } from '../../lib/keyboardGridUtils';
 import type { OtherWarehouseDocSubtype, OtherWarehouseDocument } from '../../types/domain';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DataTable } from '../../components/ui/DataTable';
@@ -76,6 +77,8 @@ export function OtherWarehouseDocsPage() {
       createdAt: new Date().toISOString(),
     });
   };
+
+  useListNewShortcut(handleCreateNew, !editingDoc);
 
   const executePost = async (docId: string) => {
     const res = await store.postOtherWarehouseDoc(docId);

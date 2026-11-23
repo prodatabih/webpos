@@ -161,6 +161,7 @@ export function PosTerminalPage() {
           description: `${receipt.receiptNumber}${receipt.fiscalNumber ? ` (${receipt.fiscalNumber})` : ''}`,
           variant: 'success',
         });
+        scanInputRef.current?.focus();
       } else {
         showToast({
           title: 'Izdavanje računa nije uspjelo',
@@ -303,6 +304,7 @@ export function PosTerminalPage() {
               onUpdateQty={(id, qty) => setLines((prev) => prev.map((l) => (l.id === id ? { ...l, quantity: qty } : l)))}
               onUpdateDiscount={(id, disc) => setLines((prev) => prev.map((l) => (l.id === id ? { ...l, discountPercent: disc } : l)))}
               onRemoveLine={(id) => setLines((prev) => prev.filter((l) => l.id !== id))}
+              onFocusScanner={() => scanInputRef.current?.focus()}
             />
           </div>
 

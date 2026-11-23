@@ -2,6 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { CheckCircle2, Save, Printer, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { t } from '../../i18n';
 import { formatMoney2 } from '../../lib/money';
+import {
+  focusItemPickerInRow,
+  useDocumentShortcuts,
+} from '../../lib/keyboardGridUtils';
 import type { ActionResult } from '../../store/storeTypes';
 import type {
   Company,
@@ -15,6 +19,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DocumentStatusBadge } from '../../components/ui/Badge';
+import { KeyboardShortcutsBar } from '../../components/ui/KeyboardShortcutsBar';
 import { showToast } from '../../components/ui/Toast';
 import { PriceLevelingPrintView } from './PriceLevelingPrintView';
 import { PriceLevelingLinesTable } from './PriceLevelingLinesTable';
@@ -51,10 +56,13 @@ export function PriceLevelingDialog({
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isSaving, setIsSaving] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
+  const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const isBusy = isSaving || isPosting;
   const isBusyRef = useRef(false);
   isBusyRef.current = isBusy;
   const lastSavedSignatureRef = useRef<string | null>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sanitizeForPersist = useCallback((candidate: PriceLevelingDocument): PriceLevelingDocument => {
     return {
@@ -163,6 +171,49 @@ export function PriceLevelingDialog({
       setIsPosting(false);
     }
   };
+
+  useDocumentShortcuts({
+    enabled: open,
+    isReadOnly: isReadOnly || isPrintPreview,
+    onSave: () => {
+      if (!isBusy) void handleManualSave();
+    },
+    onPost: () => {
+      if (validLines.length > 0 && !isBusy) void handleManualPost();
+    },
+    onPrint: () => {
+      setIsPrintPreview((prev) => !prev);
+    },
+    onFocusSearch: () => {
+      if (!isReadOnly && !isPrintPreview) {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    },
+    onAddRow: () => {
+      const nextIdx = doc.lines.length;
+      handleAddBlankLine();
+      setFocusedRowIndex(nextIdx);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          focusItemPickerInRow(tbodyRef.current, nextIdx, true);
+        }, 30);
+      });
+    },
+    onDuplicateRow: () => {
+      const target = doc.lines[focusedRowIndex];
+      if (target?.itemId) {
+        handleCopyLine(focusedRowIndex);
+      }
+    },
+    onDeleteRow: () => {
+      const target = doc.lines[focusedRowIndex];
+      if (target) {
+        handleRemoveLine(target.id);
+        setFocusedRowIndex(Math.max(0, focusedRowIndex - 1));
+      }
+    },
+  });
 
   return (
     <Dialog
@@ -280,6 +331,9 @@ export function PriceLevelingDialog({
             storePrices={storePrices}
             activeStoreId={doc.storeId}
             isReadOnly={isReadOnly}
+            tbodyRef={tbodyRef}
+            searchInputRef={searchInputRef}
+            onFocusedRowChange={setFocusedRowIndex}
             onSelectItemForLine={handleSelectItemForLine}
             onNewPriceChange={handleNewPriceChange}
             onRemoveLine={handleRemoveLine}
@@ -312,6 +366,8 @@ export function PriceLevelingDialog({
               </div>
             </div>
           </div>
+
+          <KeyboardShortcutsBar />
         </div>
       )}
     </Dialog>

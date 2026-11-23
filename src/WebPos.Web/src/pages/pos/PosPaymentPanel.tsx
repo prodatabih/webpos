@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import Decimal from 'decimal.js';
 import { Banknote, CreditCard, Landmark, Layers, PauseCircle, Trash2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { t } from '../../i18n';
@@ -5,7 +6,7 @@ import { d, formatMoney2, round2, type PosReceiptTotalsResult } from '../../lib/
 import type { Partner, PaymentMethod } from '../../types/domain';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 import { Combobox } from '../../components/ui/Combobox';
 
 interface VatGroupSummary {
@@ -89,6 +90,18 @@ export function PosPaymentPanel({
       ? remainingForCash.minus(cashVal)
       : new Decimal(0);
 
+  const cardInputRef = useRef<HTMLInputElement>(null);
+  const wireInputRef = useRef<HTMLInputElement>(null);
+  const onIssueReceiptRef = useRef(onIssueReceipt);
+  onIssueReceiptRef.current = onIssueReceipt;
+
+  const triggerIssueAfterCommit = () => {
+    if (!hasLines || !canIssue || isIssuing) return;
+    setTimeout(() => {
+      onIssueReceiptRef.current();
+    }, 0);
+  };
+
   const handleAddCashIncrement = (increment: number) => {
     const next = d(cashReceived).plus(increment);
     onCashReceivedChange(round2(next));
@@ -118,19 +131,31 @@ export function PosPaymentPanel({
         {(paymentMethod === 'CASH' || paymentMethod === 'COMBINED') && (
           <div className="flex flex-col gap-2.5 rounded-md border border-border bg-muted/30 p-3">
             <div className="flex items-end gap-1.5">
-              <Input
-                label={t('pos.cashReceived')}
-                type="number"
-                step="0.01"
-                min="0"
-                disabled={isIssuing}
-                value={cashReceived}
-                onChange={(e) => onCashReceivedChange(e.target.value)}
-                className="font-mono text-right"
-              />
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-xs font-medium text-foreground">
+                  {t('pos.cashReceived')}
+                </label>
+                <NumericInput
+                  decimals={2}
+                  min={0}
+                  disabled={isIssuing}
+                  value={cashReceived}
+                  onChange={onCashReceivedChange}
+                  onEnterKey={() => {
+                    if (paymentMethod === 'COMBINED' && cardInputRef.current) {
+                      cardInputRef.current.focus();
+                      requestAnimationFrame(() => cardInputRef.current?.select());
+                    } else {
+                      triggerIssueAfterCommit();
+                    }
+                  }}
+                  className="h-9 font-mono text-right"
+                />
+              </div>
               <Button
                 variant="outline"
                 size="icon"
+                tabIndex={-1}
                 disabled={isIssuing || cashVal.eq(0)}
                 onClick={() => onCashReceivedChange('0.00')}
                 title="Poništi primljeni iznos"
@@ -167,8 +192,43 @@ export function PosPaymentPanel({
 
             {paymentMethod === 'COMBINED' && (
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <Input label={t('pos.payCard')} type="number" step="0.01" min="0" disabled={isIssuing} value={cardAmount} onChange={(e) => onCardAmountChange(e.target.value)} className="font-mono text-right" />
-                <Input label={t('pos.payWire')} type="number" step="0.01" min="0" disabled={isIssuing} value={wireAmount} onChange={(e) => onWireAmountChange(e.target.value)} className="font-mono text-right" />
+                <div className="flex flex-col gap-1 w-full">
+                  <label className="text-xs font-medium text-foreground">
+                    {t('pos.payCard')}
+                  </label>
+                  <NumericInput
+                    ref={cardInputRef}
+                    decimals={2}
+                    min={0}
+                    disabled={isIssuing}
+                    value={cardAmount}
+                    onChange={onCardAmountChange}
+                    onEnterKey={() => {
+                      if (wireInputRef.current) {
+                        wireInputRef.current.focus();
+                        requestAnimationFrame(() => wireInputRef.current?.select());
+                      } else {
+                        triggerIssueAfterCommit();
+                      }
+                    }}
+                    className="h-9 font-mono text-right"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 w-full">
+                  <label className="text-xs font-medium text-foreground">
+                    {t('pos.payWire')}
+                  </label>
+                  <NumericInput
+                    ref={wireInputRef}
+                    decimals={2}
+                    min={0}
+                    disabled={isIssuing}
+                    value={wireAmount}
+                    onChange={onWireAmountChange}
+                    onEnterKey={() => triggerIssueAfterCommit()}
+                    className="h-9 font-mono text-right"
+                  />
+                </div>
               </div>
             )}
 

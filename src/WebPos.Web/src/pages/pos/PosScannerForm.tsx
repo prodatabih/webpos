@@ -5,6 +5,7 @@ import { formatMoney2 } from '../../lib/money';
 import type { Item, StoreItemPrice } from '../../types/domain';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericInput } from '../../components/ui/NumericInput';
 
 interface PosScannerFormProps {
   quantity: string;
@@ -35,15 +36,21 @@ export function PosScannerForm({
 
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3 shadow-xs">
-      <div className="w-24">
-        <Input
-          label={t('common.quantity')}
-          type="number"
-          step="0.001"
-          min="0.001"
+      <div className="w-28 flex flex-col gap-1">
+        <label className="text-xs font-medium text-foreground">{t('common.quantity')}</label>
+        <NumericInput
+          decimals={4}
+          min={0.001}
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          className="font-mono text-right"
+          onChange={setQuantity}
+          onEnterKey={() => {
+            if (!scanText.trim()) {
+              scanInputRef.current?.focus();
+            } else {
+              scanInputRef.current?.form?.requestSubmit();
+            }
+          }}
+          className="h-9 font-mono text-right"
         />
       </div>
       <div className="relative flex-1 min-w-[220px]">
